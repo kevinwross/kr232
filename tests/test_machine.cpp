@@ -346,3 +346,22 @@ TEST_CASE(user_mode_cannot_load_or_call_into_kernel_memory) {
     CHECK(result.stop == Stop::Trapped);
     CHECK(result.vector == 8);
 }
+
+TEST_CASE(a_byte_store_keeps_every_bit_of_its_value) {
+    // `stb [r10], r6` is 0x92 with A = source (6) and B = base (10) in one byte.
+    // A bug that clears one bit survives any test that only writes text, so this
+    // walks the whole range and compares every value.
+    const std::uint8_t code[] = {0x92, 0x6A};
+    for (std::uint32_t value = 0; value < 256; ++value) {
+        Program program{code[0], code[1]};
+        program.machine.set_reg(6, value);
+        program.machine.set_reg(10, 0x2000);
+        (void)program.machine.step();
+        std::uint8_t stored = 0;
+        CHECK(program.machine.memory().read8(0x2000, stored) == kr232::Access::Ok);
+        CHECK(stored == static_cast<std::uint8_t>(value));
+        if (stored != static_cast<std::uint8_t>(value)) {
+            return;  // one failure names the value; the rest repeat it
+        }
+    }
+}
