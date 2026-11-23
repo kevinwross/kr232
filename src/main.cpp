@@ -110,5 +110,6 @@ int main(int argc, char** argv) {
         std::printf("frame %s\n",
                     kr232::frame_hash_text(kr232::frame_hash(machine.devices())).c_str());
     }
-    return 0;
+    // The program's SYS exit status is the process status (kr232-plan 6).
+    return machine.halted() ? machine.exit_status() : 0;
 }

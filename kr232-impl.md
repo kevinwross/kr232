@@ -230,9 +230,9 @@ The 81 vectors, the protection suite, the eight device suites, the blitter rejec
 - [x] `[krcompiler]` `src/linker/kr232_image.cpp` — the `.k232` writer the M0 ADR specifies: header, section records, the `.reset` section at `0x0100`, CRC, `image_base = 0`. Check: a unit test reads back every header field, and the writer rejects an entry outside executable text, a section outside the map and overlapping sections.
 - [x] `[krcompiler]` `toolchain::link_impl` selects the writer for target 5, with 4-byte heap alignment and the kr232 stack bounds. Check: a linked image's header and entry agree with the ADR.
 - [x] `[krcompiler]` `krc --dump-symbols` reads a `.k232`. Check: the gate's decode assertion passes on a fixture.
-- [ ] `[krcompiler]` `cmake/RunKr232Image.cmake` and the `KRC_KR232_VM` cache variable in `CMakeLists.txt`, with the sibling fallback. Check: a deliberate wrong exit status fails with `expected exit N, got M`.
+- [x] `[krcompiler]` `cmake/RunKr232Image.cmake` and the `KRC_KR232_VM` cache variable in `CMakeLists.txt`, with the sibling fallback. Check: a deliberate wrong exit status fails with `expected exit N, got M`.
 - [ ] `[kr232]` `kr232-dis`: the canonical decoder and text form, shared with the emulator. Check: a disassembly test over all 81 vectors and over the assembled fixture.
-- [ ] `[kr232]` The `.k232` loader replaces the flat loader and dispatches on the container magic. Check: a bad checksum, a section outside the map and a base mismatch each fail at load.
+- [x] `[kr232]` The `.k232` loader replaces the flat loader and dispatches on the container magic. Check: a bad checksum, a section outside the map and a base mismatch each fail at load.
 - [ ] `[kr232]` A `.s` fixture assembles to an object, links to a `.k232`, and runs under M1. Check: exit status and screen match.
 - [ ] `[kr232]` Log the gate. Check: `## Gate verification` block with every M2 item.
 
@@ -846,6 +846,16 @@ Ran: `ctest -R kr232` **2 of 2 passed** -- `krc_kr232_no_backend` (the M0 red te
 Found: the M0 test failed differently once the profile row landed, because the backend gate sat after typechecking and the fixture's kr16-sized static assertions fired first. The fix is where the check belongs -- a target that cannot generate code should say so before the front end runs -- and it is what turns the planted test green for the reason it was planted.
 Ticked: `.kdbg` emission, the `.k232` writer, `link_impl` for target 5, and `--dump-symbols` on a container.
 Next: `RunKr232Image.cmake` with `KRC_KR232_VM`, `kr232-dis`, the `.s` fixture under `kr232-emu`, and the gate.
+
+### 2026-11-22T21:52:59-08:00 — M2: the image runs under the emulator
+
+Host: CROSBY (Windows `windows-msvc` emulator, `windows-msvc-debug` compiler)
+Added: `cmake/RunKr232Image.cmake` and `KRC_KR232_VM` with the same preference and sibling fallback as the KR32 and KR16 rules; the kr232 CLI now returns the program's `SYS exit` status as its process status, which is what makes the runner's check meaningful. Four CTests: the no-backend message, `--dump-symbols` on the container, the fixture run expecting exit 0, and a deliberate wrong expectation marked `WILL_FAIL` so the runner's `expected exit N, got M` path is exercised rather than assumed.
+Ran: `ctest -R kr232` **4 of 4 passed**.
+Found: the emulator returned 0 whatever the program did, so the runner could not have caught a wrong exit. That is the same class as the earlier `--frame-hash` gap: the harness existed, the contract behind it did not.
+Ticked: `RunKr232Image.cmake` with `KRC_KR232_VM`, and the `.k232` loader replacing the flat loader.
+Not ticked: the `.s` fixture task, whose check also asks the screen to match; the fixture draws nothing yet, so a frame hash would be the empty basis and prove nothing.
+Next: give the fixture a drawing and a flip, pin its frame hash, then `kr232-dis` and the M2 gate.
 
 ## 14. Gate verification
 
