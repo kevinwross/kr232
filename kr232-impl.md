@@ -2240,6 +2240,21 @@ Identical to the C program's output. So the compiler, the literal and the C runt
 That leaves the kernel's byte path or the console device, and one unit-level experiment separates them: write `0x75` to the console `OUT` register from a test and read it back through `console_output()`. If the queue holds `0x75`, the kernel's read or store is wrong; if it holds `0x65`, the device is.
 
 Not done this round: the budget went to ruling out the compiler, which was the larger half of the search space.
+### 2026-11-24T05:55:00-08:00 — M3: a byte round trip through memory changes the byte
+
+Host: CROSBY (Windows). Three probes, each narrowing one step further:
+
+| Probe | Result |
+|---|---|
+| `ld r9,#0x75; st [console], r9` | console `u` -- the immediate and the device write are exact |
+| `stb [buf], r9; ldbu r11,[buf]; st [console], r11` | console `e` -- the byte came back as `0x65` |
+| `stb [buf], r9; ld r11,[buf]; st [console], r11` | console `e` -- reading the **word** also shows `0x65` |
+
+So the corruption is **on the way into memory**, not on the way out: `stb` stores something other than the low byte it was given, and every reader afterwards agrees with the wrong value. `0x75` becomes `0x65` -- bit 4 cleared -- and a space written the same way came back as `` ` `` earlier.
+
+That makes `STB` (or the memory write path it uses) the defect, and it is a **machine** bug, not a kernel one: the kernel's loop was faithfully reproducing what memory held.
+
+Next: store two different bytes into one word (`0x75` at offset 0, `0x41` at offset 1) and read the word back; the layout it shows identifies whether a bit is dropped or the byte is misplaced.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
