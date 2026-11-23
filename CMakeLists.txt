@@ -37,6 +37,7 @@ endif()
 # kr232_guard_host_sources() fails the configure if a host target ever names it.
 add_library(kr232_core STATIC
     src/decoder.cpp
+    src/machine.cpp
     src/memory.cpp
     src/version.cpp
 )
@@ -82,6 +83,7 @@ if(KR232_BUILD_TESTS)
     add_executable(kr232_tests
         tests/main.cpp
         tests/test_decode.cpp
+        tests/test_machine.cpp
         tests/test_memory.cpp
         tests/test_version.cpp
     )

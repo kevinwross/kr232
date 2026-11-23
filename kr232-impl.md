@@ -495,6 +495,16 @@ Found: one test run reported the unit case at 7.7 s and the next at 0.06 s on th
 Stopped: `execute()` again, and deliberately. It is one table — every class, every Normal op, the generic modes, the frame instructions — and the header without its implementation was removed rather than left untracked, so the tree is clean at this commit.
 Next: `Machine` and `execute()` in one piece.
 
+### 2026-11-22T20:26:22-08:00 — M1: `Machine` executes every class
+
+Host: CROSBY (Windows `windows-msvc`) and CROSBY WSL (`linux-wsl` from the mirror)
+Added: `include/kr232/machine.h`, `src/machine.cpp`, `tests/test_machine.cpp` (12 cases). Every class executes: Short (push, pop, inc, dec, call, ret, nop, brk, sys, ei, di, halt, iret, rdcycle, syscall), Register, both Compact forms, all 32 Normal ops, the `F0` generic form through its operand modes, `F1`, `F3`, `F4`, `F5`, `F6`, `F7`/`F8`/`FB`, `F9`, `FA`.
+Ran: Windows build clean under `/W4 /WX`, 27 cases and 0 failed checks, `ctest` 3 of 3; WSL build and `ctest` 3 of 3 with GCC 15.
+Found, and it cost three runs: the first test binary trapped on every step. The machine was correct — a PowerShell `.Replace` in my own test edit had written **literal `\n`** into the fixture, turning `set_sp(0x8000)` and `set_pc(0x1000)` into the tail of a comment. PC stayed 0, every fetch hit the null page, and the failure looked like an executor bug until a 20-line probe linked against `kr232_core.lib` showed decode and three steps retiring correctly. The lesson is the one this log keeps re-learning: a whole class of failures is a fixture that never ran, and the probe that isolates library from fixture answers it faster than reading the executor.
+Also fixed on the way: `reset()` discarded a `[[nodiscard]]` result (now checks it), and an unused lambda parameter tripped `/W4`.
+Not ticked: the executor's check is "one test per vector from bytes to architectural state", and 12 targeted cases are not 81. The per-vector table is the next piece of work, and the task stays open until it exists.
+Next: the per-vector state table, then protection and traps.
+
 ### 2026-11-22T20:06:19-08:00 — the BitWhiz alias now matches both spellings
 
 Host: CROSBY and BitWhiz
