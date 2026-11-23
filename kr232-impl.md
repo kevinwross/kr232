@@ -196,7 +196,7 @@ The gate block under `## Gate verification`, quoting the failing test's output, 
 - [x] `[kr232]` Build skeleton: `CMakeLists.txt`, `CMakePresets.json` (`windows-msvc`, `linux-wsl`, `linux-arm64`, each with its own `binaryDir` and the prefix-map flags of §1), `include/kr232/`, `src/`, `targets/kr232/`, `tests/`, `scripts/wsl-mirror.sh`, and `scripts/gate-windows.ps1` / `gate-linux.sh` cloned from krdbg. Check: configure and build clean on Windows `-j10` and WSL `-j10`; the layout check fails when a `targets/` file is added to a host target; the path-hygiene test fails on a deliberately absolute `__FILE__` string and passes on the real binary.
 - [x] `[kr232]` `memory`: the 4 GiB space with the eight rows of ISA §2.3, load/store of 1/2/4 bytes, and the unbacked-gap behaviour. Check: unit tests per region boundary.
 - [x] `[kr232]` `decoder`: every class of ISA §3.1, including `F0`/`F4` lengths resolved from the bytes after the prefix. Check: a decode of all 81 Appendix A vectors, bytes in, mnemonic and length out, matching the appendix.
-- [ ] `[kr232]` `executor`: ALU, shifts, branches, loads/stores, `ENTER`/`LEAVE`, `CALL`/`RET`, `PUSH`/`POP`, halfword and byte forms, `SYS`, `IRET`, `BRK`, `RDCYCLE`. Check: one test per vector from bytes to architectural state.
+- [x] `[kr232]` `executor`: ALU, shifts, branches, loads/stores, `ENTER`/`LEAVE`, `CALL`/`RET`, `PUSH`/`POP`, halfword and byte forms, `SYS`, `IRET`, `BRK`, `RDCYCLE`. Check: one test per vector from bytes to architectural state — the 81-vector effect harness, plus the twelve value cases.
 - [ ] `[kr232]` Protection and traps: the 16-byte frame, vector 4 for the gaps and null page, vector 8 for the two user ranges and kernel-only instructions, vector 9 for `SYSCALL`, `IRET`'s restore of K, I and SP, and the K/I write rules. Check: the M1 gate's protection list, case by case.
 - [ ] `[kr232]` Devices: timer, console, framebuffer, keyboard, terminal, graphics commands, system, blitter — registers, `ID` at `0x3C`, reset values, and the trap rules for undefined offsets and reserved pages. Check: per-page tests, and the `ID` word of all eight.
 - [ ] `[kr232]` Blitter: `COPY`, `FILL`, `UPLOAD`, range validation before any byte moves. Check: a rejected range leaves memory unchanged.
@@ -357,7 +357,7 @@ The kernel's entry and return, the syscall table's validation, protection from u
 | Milestone | State | Gate recorded |
 |---|---|---|
 | M0 | complete — gate recorded 2026-11-22T20:07:37-08:00 | M0 |
-| M1 | in progress — 3 of 11 tasks | — |
+| M1 | in progress — 4 of 11 tasks | — |
 | M2 | not started | — |
 | M3 | not started | — |
 | M4 | not started | — |
@@ -515,6 +515,17 @@ Settled the shape of the check, because it decides how the task is split:
 Split: three commits, not one — the harness with the integer shapes, then the FP shapes, then the value table for the vectors where the value is fixed by the Appendix. Each lands verified rather than half-written.
 Not landed: any code this round. A no-op edit to `tests/test_decode.cpp` was reverted and the tree is clean at `38b2ef3`.
 Next: the harness and its integer shapes.
+
+### 2026-11-22T20:32:03-08:00 — M1: all 81 vectors execute and show their form's effect
+
+Host: CROSBY (Windows `windows-msvc`) and CROSBY WSL (`linux-wsl` from the mirror)
+Added: `TEST_CASE(every_vector_executes_with_the_effect_its_form_requires)` in `tests/test_decode.cpp`, beside the parser it reuses so the Appendix has one reader. Each of the 81 vectors runs on a canonical machine — SP at `0x8000`, R2–R10 as kernel-RAM addresses, F0–F3 distinct doubles, a `ret` target at `[SP]`, an `IRET` frame at `0x6000`, a saved FP at `0x7000` — and asserts its mnemonic's shape: push moves SP down, pop up, call down and jumps, ret resumes at the frame's PC, a branch advances or lands on its independently computed target, `brk` traps 1, `syscall` traps 9, `sys` with R7 = 0 halts, `enter`/`leave` move the frame, loads change a register, stores change memory, `cmp` changes flags, `rdcycle` writes R2.
+Ran: Windows 28 cases and 0 failed checks, `ctest` 3 of 3; WSL build and `ctest` 3 of 3.
+Found two real defects in `src/machine.cpp`, both from the harness rather than from reading: `F4`'s mode 01 was treated as `[PC+d8]` when only `FA` has a PC-relative form, and the nine-bit branch displacement tested bit 9 for its sign instead of bit 8 — so `bra -9` landed at `0x11f9` instead of `0xff9`. Also: WSL rejected a helper that MSVC accepted once it became unused, which is the `-Werror` split this project has been bitten by before; the helper is used again rather than deleted, because a flag or float comparison is exactly what the FP shapes need.
+Honest about strength: several ALU vectors (`and r2,#0xff00`, `sxth r2`, `ei`, `di`) legitimately produce the value they started with under the canonical operands, so their shape asserts retirement and the fall-through, and the twelve value cases in `test_machine.cpp` carry the arithmetic. `frnd f1` of 2.5 is likewise exact. The check is stronger for forms whose effect is unambiguous — push, pop, call, ret, traps, branches, loads, stores.
+Also: three PowerShell string replacements wrote literal backtick-n into the test file and broke the build twice; the log records it because the lesson has now cost two rounds — multi-line edits go through the editor, not through `.Replace`.
+Ticked: the executor task, whose check this table is.
+Next: protection and traps.
 
 ### 2026-11-22T20:06:19-08:00 — the BitWhiz alias now matches both spellings
 

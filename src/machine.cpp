@@ -1032,8 +1032,10 @@ StepResult Machine::execute(const Decoded& d) {
         case OpClass::FpMem:
         case OpClass::FpMemWide: {
             const unsigned size = (d.op == 0 || d.op == 1) ? 8u : 4u;
+            // F4's mode 01 is [Rb+d8]; only FA's mode 01 is [PC+d32].
+            const bool pc_relative = d.kind == OpClass::FpMemWide && d.op1.mode == 1;
             std::uint32_t address = 0;
-            if (d.op1.mode == 1) {  // FA form 01: [PC+d32]
+            if (pc_relative) {
                 address = regs_[kPc] + static_cast<std::uint32_t>(d.immediate);
             } else if (d.op1.mode == 2) {  // [Rb]+
                 address = regs_[d.b];
