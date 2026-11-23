@@ -12,7 +12,7 @@ Add entries here rather than editing the managed blocks in `AGENTS.md`; an edit 
 
 **Status.** Approved 0.17: thirteen scope decisions are accepted (eight in §2, five in §12), every section has been reviewed, and the owner approved the set on 2026-11-22 as the basis for M0–M3. M0 is the first work.
 
-**Authoritative for.** `kr232-plan.md` — milestone scope, order and exit criteria for 1.x. Read §1–§4 and the milestone covering the work at hand; §12 maps every open ISA and device question to the milestone that settles it.
+**Authoritative for.** `kr232-plan.md` — milestone scope, order and exit criteria for 1.x; `kr232-impl.md` — task order, checklists, build and test commands, hosts, the log and every gate record. Read the plan's §1–§4 and the milestone at hand, then that milestone's section in the implementation file; §12 of the plan maps every open ISA and device question to the milestone that settles it.
 
 **Standing constraints.** The 1.x decisions in `kr232-isa.md` §15.29–§15.59 are not reopened by the plan; encodings stay in the two drafts; the compiler's profile, descriptor, ABI and target id are frozen contracts that move only by ADR (plan §3). KRO and KDBG share that one id, and kr232's is `5` — 1–4 are KR32, KR16, KR64 and KR216.
 
