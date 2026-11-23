@@ -2306,6 +2306,20 @@ Host: CROSBY (Windows). I hand-wrote the bytes for `add r6, #1` in a unit test a
 The guest's bit-4 loss is still unexplained, and this is the **fifth** time in this milestone that a hand-written byte sequence produced a false signal. The rule is already in this log twice and needs a third: **never write an instruction's bytes by hand -- assemble it and disassemble the result.** The one-line cost would have saved this round.
 
 Next: the guest loop's *own* bytes, taken from `kr232-dis` on the image it actually runs (`bytemap.k232`), and a debug print of `r6` and the stored byte inside the machine -- the two together will show whether the register or the memory differs, without any hand-written encoding in the way.
+### 2026-11-24T07:10:00-08:00 — M3: the device is exact, the round trip is not, and the missing datum is `r6` after the store
+
+Host: CROSBY (Windows). Four programs, all assembled and disassembled rather than hand-written:
+
+| Program | Console |
+|---|---|
+| `ld r9,#0x50 ; st [console], r9` | `P` -- exact |
+| `ld r9,#0x75 ; st [console], r9` | `u` -- exact |
+| `ld r6,#0x4F ; add r6,#1 ; st [console], r6` | `P` -- the increment is exact |
+| `ld r6,#0x4F ; add r6,#1 ; stb [r10], r6 ; ld r11,[r10] ; st [console], r11` | `@` -- wrong |
+
+The machine's own `stb` passes all 256 values in a unit test where the register is set directly, and the device writes both `0x50` and `0x75` exactly. So the one datum missing is **what `r6` holds *after* the store** -- every probe so far read it before. If the store clobbers a register, the Compact store path's auto-increment step is the place to look: it writes the base register back, and if the decoded fields are swapped it would write the *source*.
+
+That is the next single program: print `r6` after the store and before the load, and the question is answered either way.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
