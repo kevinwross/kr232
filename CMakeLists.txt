@@ -104,6 +104,27 @@ if(KR232_BUILD_TESTS)
     target_include_directories(kr232_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tests")
     target_link_libraries(kr232_tests PRIVATE kr232_core kr232_warnings)
 
+    # The kernel is guest code the host compiler never sees, so it is checked in
+    # and run here: a program's syscall exit must come back as the host status.
+    add_test(NAME kr232_kernel_user
+        COMMAND ${CMAKE_COMMAND}
+                -DVM=$<TARGET_FILE:kr232-emu>
+                -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.k232
+                -DPROGRAM=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-exit42.k232
+                -DEXPECT_EXIT=42
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232Kernel.cmake)
+    if(KR232_BUILD_KERNEL)
+        add_test(NAME kr232_kernel_matches_source
+            COMMAND ${CMAKE_COMMAND}
+                    -DVM=$<TARGET_FILE:kr232-emu>
+                    -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.k232
+                    -DPROGRAM=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-exit42.k232
+                    -DEXPECT_EXIT=42
+                    -DKRC=${KR232_KRC}
+                    -DKRLD=${KR232_KRLD}
+                    -DWORK=${CMAKE_BINARY_DIR}/kernel-rebuild
+                    -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232Kernel.cmake)
+    endif()
     add_test(NAME kr232_dis_flat
         COMMAND kr232-dis "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel-gate.bin")
     set_tests_properties(kr232_dis_flat PROPERTIES
