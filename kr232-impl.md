@@ -1344,6 +1344,22 @@ That combination -- green under ctest, dying under a direct run, and the earlier
 What I did *not* do: remove the adapter code to get a green number, or blame the test framework. The crash appeared only after a build that actually succeeded, which is exactly the signal that the previous "green" runs were meaningless.
 
 Next: bisect on the adapter's recent commits with the binary run directly three times at each step, and treat any step that is green-once as unverified. A flaky suite is a bug in the test or in the code, and the frame view's `span` over vram is the first suspect on bounds grounds.
+### 2026-11-23T12:10:00-08:00 — M4: the golden failures are pre-existing, and not about kr232
+
+Host: CROSBY (Windows). Found with `cdb.exe`: the crash was the debug STL's bounds assertion in `surface_source_gutter_controls_switch_and_pin`, which indexed `breakpoints[0]` after asserting the size was one. A failed precondition became a process kill and hid every later test. Guarded (**ce8cc95**), so the failure now reports.
+
+The experiment that settles the rest, each in a fresh build directory:
+
+| Build | Tests | Failures |
+|---|---|---|
+| baseline `939b544` (worktree, no adapters) | 107 | **0** |
+| kr232 adapter ON | 107 | 13 |
+| kr232 adapter ON, kr232 test file excluded | 107 | 13 |
+| **kr216 adapter ON (not kr232 at all)** | 109 | **13** |
+
+So **any adapter linked into `krdbg_tests` shifts the thirteen surface/golden render hashes**. The same thirteen, with an adapter that predates this milestone. This is a fragility in krdbg's golden scheme, not a defect kr232 introduced, and the fix is a repo decision: either the render hash must stop depending on the linked layout, or every adapter's tests move to their own binary so the UI goldens are measured without them.
+
+For M4's gate this is a **FIX-BEFORE**: the milestone's own check wires the adapter into the suite, and the suite's goldens cannot survive that until the scheme is decided.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
