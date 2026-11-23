@@ -359,9 +359,9 @@ The kernel's entry and return, the syscall table's validation, protection from u
 | M0 | complete — gate recorded 2026-11-22T20:07:37-08:00 | M0 |
 | M1 | complete — 11 of 11 tasks | met 2026-11-22T21:01:09-08:00 |
 | M2 | complete — 12 of 12 tasks | met 2026-11-22T22:05:00-08:00 on Windows and WSL; merged as krcompiler e441d06 |
-| M3 | not started | — |
-| M4 | not started | — |
-| M5 | not started | — |
+| M3 | 13 of 15 tasks — the code generator, runtime and freezes are in; varargs and the kernel-dependent `libc` stubs are open | recorded 2026-11-23T19:20:00-08:00; ISA 1.0 and devices 1.0 tagged |
+| M4 | 12 of 14 tasks — adapter, fixtures, golden and host build are in; the windowed demo load was not observed and the golden's ARM64 half was not run | recorded 2026-11-23T20:50:00-08:00 |
+| M5 | 7 of 7 tasks — kernel, syscall table, `--user`, the user program, protection, krdbg kernel support and both deferred questions | recorded 2026-11-24T04:30:00-08:00 |
 
 ## 13. Log
 
