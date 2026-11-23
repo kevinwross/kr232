@@ -1883,6 +1883,20 @@ Vector 3 means **unknown `SYS` number**, raised on the **user's first `sys`** wi
 That is the fact to establish next: read the register's `SYS` table in the ISA, then choose the kernel's numbers to match it -- or install vector 3 and treat the hardware's rejection as the kernel's business.
 
 Not ticked. The kernel's shape is right and its validation is written; the numbering is the open question, and it is one section away in the draft.
+### 2026-11-23T22:35:00-08:00 — M5: the vector store works; the user's syscall still misses it
+
+Host: CROSBY (Windows). Two probes:
+
+| Probe | Result |
+|---|---|
+| store the handler at `[0x0100+36]`, read it back, exit with its low byte | `halted status 6` -- **the store lands** |
+| kernel installs vector 9, IRETs into a user program whose first call is `syscall` | `trap 9 at 0x00000000` -- **the handler word read at trap time is zero** |
+
+So the install is correct in isolation and the vector is empty when the trap arrives. Something between the two clears it, and the candidates are narrow: the `--user` preload, which runs after the kernel image is placed, or the IRET frame the kernel builds sitting where it should not.
+
+Also established this round: **user mode must use `syscall` (0x79)**, not `sys` (0x73) -- `SYS` is the kernel's hypercall into the emulator and its numbers are 0-4 with 5+ trapping vector 3, while `syscall` is the only instruction that enters the kernel from user mode. My first user program used `sys` and was answered by vector 3 for exactly that reason.
+
+Not ticked. Next: dump the word at `0x0124` after the `--user` load, which separates the two candidates in one run.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
