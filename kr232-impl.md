@@ -1296,6 +1296,16 @@ Landed in `krdbg` (**bf30c39**): `--kr232 <image.k232>` loads a container throug
 Not yet done, so the task is not ticked: `load_any`'s dispatch on the `.k232` extension and the `--target kr232` mapping. The check also needs `krdbg --kr232` to be observed loading a file, which this environment cannot show for a windowed app; that verification belongs with the adapter's remaining cases rather than being claimed from a build.
 
 Four pieces were landed this time instead of three: the previous round reverted an option that parsed and did nothing, which is what made this round's edit a single coherent unit.
+### 2026-11-23T10:30:00-08:00 — M4: line stepping, reload and bad input, and two defects they found
+
+Host: CROSBY (Windows, `build/kr232-adapter`)
+Three tests, and the first two defects they exposed are real:
+- `reset()` rebuilt the machine but had **no image to load**, so the PC fell to zero; the target now keeps the bytes it was opened with;
+- a file that was **not a container** fell through to the flat-image loader and was **accepted**, which is exactly the check the error message claimed to make. It is refused now, with a reason.
+
+The third test stops on the **first line of `main`** through a `DebugSession`, so source-level stepping works end to end rather than only in principle.
+
+`krdbg_tests` **114 tests, 0 failures**. The adapter-cases task stays open on **no-debug-info** (a container without `.kdbg`), which needs a fixture that does not exist yet.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
