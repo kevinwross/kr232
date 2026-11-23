@@ -114,3 +114,88 @@ TEST_CASE(the_system_page_reports_the_cycle_counter_and_requests_a_halt) {
     (void)machine.step();  // the write itself is an instruction; it retires
     CHECK(machine.halted());
 }
+
+TEST_CASE(the_console_streams_one_byte_each_way) {
+    Devices devices;
+    CHECK(write_register(devices, 2, 0x00, 'A') == DeviceResult::Ok);  // OUT
+    std::uint8_t byte = 0;
+    CHECK(devices.console_pop_output(byte));
+    CHECK(byte == 'A');
+
+    std::uint32_t status = 0;
+    CHECK(read_register(devices, 2, 0x08, status) == DeviceResult::Ok);
+    CHECK((status & 0x2u) != 0);  // TX_READY is always set
+    CHECK((status & 0x1u) == 0);  // nothing to read yet
+
+    CHECK(devices.console_push_input('Z'));
+    CHECK(read_register(devices, 2, 0x08, status) == DeviceResult::Ok);
+    CHECK((status & 0x1u) != 0);
+
+    std::uint32_t value = 0;
+    CHECK(read_register(devices, 2, 0x04, value) == DeviceResult::Ok);  // IN
+    CHECK(value == 'Z');
+    CHECK(read_register(devices, 2, 0x04, value) == DeviceResult::Ok);
+    CHECK(value == 0xFFFFFFFFu);  // empty
+}
+
+TEST_CASE(a_console_overrun_is_sticky_until_written) {
+    Devices devices;
+    for (std::size_t i = 0; i < Devices::kConsoleQueue; ++i) {
+        CHECK(devices.console_push_input(static_cast<std::uint8_t>('a' + i)));
+    }
+    CHECK(!devices.console_push_input('!'));  // the arrival is dropped
+
+    std::uint32_t status = 0;
+    CHECK(read_register(devices, 2, 0x08, status) == DeviceResult::Ok);
+    CHECK((status & 0x4u) != 0);  // OVERRUN
+
+    CHECK(write_register(devices, 2, 0x08, 1) == DeviceResult::Ok);
+    CHECK(read_register(devices, 2, 0x08, status) == DeviceResult::Ok);
+    CHECK((status & 0x4u) == 0);
+}
+
+TEST_CASE(the_console_output_and_input_registers_are_one_directional) {
+    Devices devices;
+    std::uint32_t value = 1;
+    CHECK(read_register(devices, 2, 0x00, value) == DeviceResult::Ok);  // OUT reads as zero
+    CHECK(value == 0);
+    CHECK(write_register(devices, 2, 0x04, 'x') == DeviceResult::Ok);  // IN writes are ignored
+    std::uint8_t byte = 0;
+    CHECK(!devices.console_pop_output(byte));
+}
+
+TEST_CASE(the_keyboard_fifo_reports_availability_and_count) {
+    Devices devices;
+    const std::uint32_t event = ('a') | (0x1u << 8) | (0x1Eu << 16) | (0x1u << 24);
+    CHECK(devices.keyboard_push_event(event));
+
+    std::uint32_t status = 0;
+    CHECK(read_register(devices, 6, 0x04, status) == DeviceResult::Ok);
+    CHECK((status & 0x1u) != 0);                       // AVAILABLE
+    CHECK(((status >> 8) & 0xFFu) == 1);               // count
+    std::uint32_t value = 0;
+    CHECK(read_register(devices, 6, 0x00, value) == DeviceResult::Ok);
+    CHECK(value == event);
+    CHECK(read_register(devices, 6, 0x00, value) == DeviceResult::Ok);
+    CHECK(value == 0xFFFFFFFFu);  // empty FIFO
+    CHECK(read_register(devices, 6, 0x04, status) == DeviceResult::Ok);
+    CHECK((status & 0x1u) == 0);
+}
+
+TEST_CASE(the_keyboard_fifo_drops_the_sixty_fifth_event_and_says_so) {
+    Devices devices;
+    for (std::size_t i = 0; i < Devices::kKeyboardFifo; ++i) {
+        CHECK(devices.keyboard_push_event(static_cast<std::uint32_t>(i)));
+    }
+    CHECK(!devices.keyboard_push_event(0xDEADBEEFu));
+
+    std::uint32_t status = 0;
+    CHECK(read_register(devices, 6, 0x04, status) == DeviceResult::Ok);
+    CHECK((status & 0x2u) != 0);  // OVERRUN
+    CHECK(write_register(devices, 6, 0x04, 1) == DeviceResult::Ok);
+    CHECK(read_register(devices, 6, 0x04, status) == DeviceResult::Ok);
+    CHECK((status & 0x2u) == 0);
+    std::uint32_t value = 0;
+    CHECK(read_register(devices, 6, 0x00, value) == DeviceResult::Ok);
+    CHECK(value == 0);  // the oldest event, not the dropped one
+}

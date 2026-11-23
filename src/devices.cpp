@@ -105,6 +105,62 @@ DeviceResult Devices::read(std::uint32_t address, std::uint32_t width,
                 return DeviceResult::Undefined;
         }
     }
+    if (page == 2) {  // console
+        switch (offset) {
+            case 0x00:  // OUT is write-only
+                value = 0;
+                return DeviceResult::Ok;
+            case 0x04: {  // IN consumes one byte; empty reads all ones
+                if (console_input_.empty()) {
+                    value = 0xFFFFFFFFu;
+                } else {
+                    value = console_input_.front();
+                    console_input_.pop_front();
+                }
+                return DeviceResult::Ok;
+            }
+            case 0x08: {  // STATUS: RX_READY, TX_READY (always), OVERRUN
+                std::uint32_t status = 1u << 1;
+                if (!console_input_.empty()) {
+                    status |= 1u;
+                }
+                if (console_overrun_) {
+                    status |= 1u << 2;
+                }
+                value = status;
+                return DeviceResult::Ok;
+            }
+            default:
+                return DeviceResult::Undefined;
+        }
+    }
+    if (page == 6) {  // keyboard
+        switch (offset) {
+            case 0x00: {  // DATA pops one event; empty reads all ones
+                if (keyboard_events_.empty()) {
+                    value = 0xFFFFFFFFu;
+                } else {
+                    value = keyboard_events_.front();
+                    keyboard_events_.pop_front();
+                }
+                return DeviceResult::Ok;
+            }
+            case 0x04: {  // STATUS: AVAILABLE, OVERRUN, count in bits 8-15
+                std::uint32_t status = 0;
+                if (!keyboard_events_.empty()) {
+                    status |= 1u;
+                }
+                if (keyboard_overrun_) {
+                    status |= 1u << 1;
+                }
+                status |= static_cast<std::uint32_t>(keyboard_events_.size() & 0xFFu) << 8;
+                value = status;
+                return DeviceResult::Ok;
+            }
+            default:
+                return DeviceResult::Undefined;
+        }
+    }
     return DeviceResult::Undefined;  // a populated page whose registers are not written yet
 }
 
@@ -156,7 +212,63 @@ DeviceResult Devices::write(std::uint32_t address, std::uint32_t width, std::uin
                 return DeviceResult::Undefined;
         }
     }
+    if (page == 2) {  // console
+        switch (offset) {
+            case 0x00:  // OUT appends one byte to the host stream
+                console_output_.push_back(static_cast<std::uint8_t>(value & 0xFFu));
+                return DeviceResult::Ok;
+            case 0x04:  // IN is read-only
+                return DeviceResult::Ok;
+            case 0x08:  // writing 1 clears OVERRUN
+                if (value != 0) {
+                    console_overrun_ = false;
+                }
+                return DeviceResult::Ok;
+            default:
+                return DeviceResult::Undefined;
+        }
+    }
+    if (page == 6) {  // keyboard
+        switch (offset) {
+            case 0x00:  // DATA is read-only
+                return DeviceResult::Ok;
+            case 0x04:  // writing 1 clears OVERRUN
+                if (value != 0) {
+                    keyboard_overrun_ = false;
+                }
+                return DeviceResult::Ok;
+            default:
+                return DeviceResult::Undefined;
+        }
+    }
     return DeviceResult::Undefined;
+}
+
+bool Devices::console_push_input(std::uint8_t byte) noexcept {
+    if (console_input_.size() >= kConsoleQueue) {
+        console_overrun_ = true;
+        return false;
+    }
+    console_input_.push_back(byte);
+    return true;
+}
+
+bool Devices::console_pop_output(std::uint8_t& byte) noexcept {
+    if (console_output_.empty()) {
+        return false;
+    }
+    byte = console_output_.front();
+    console_output_.pop_front();
+    return true;
+}
+
+bool Devices::keyboard_push_event(std::uint32_t event) noexcept {
+    if (keyboard_events_.size() >= kKeyboardFifo) {
+        keyboard_overrun_ = true;
+        return false;
+    }
+    keyboard_events_.push_back(event);
+    return true;
 }
 
 void Devices::tick(std::uint64_t cycle) noexcept {

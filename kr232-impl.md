@@ -565,6 +565,15 @@ Found: the cycle-counter test needed a stack inside the short machine — the se
 Intermediate state, recorded: the other six populated pages answer their `ID` and trap every other offset until their own commit. That is deliberate and is why the device task stays unticked.
 Next: console and keyboard, then framebuffer and graphics, then terminal and blitter.
 
+### 2026-11-22T20:44:51-08:00 — M1: the console and the keyboard
+
+Host: CROSBY (Windows `windows-msvc`) and CROSBY WSL (`linux-wsl`)
+Added: **page 2 (console)** with `OUT`, `IN` and `STATUS` — `TX_READY` always set, `RX_READY` from the input queue, `OVERRUN` sticky until a 1 is written to `STATUS`; `IN` consumes one byte and returns all ones when empty. **Page 6 (keyboard)** with `DATA` and `STATUS` — a 64-event FIFO whose 65th arrival is dropped and sets `OVERRUN`, `AVAILABLE` and a count in bits 8–15, and `DATA` popping the oldest event or returning all ones. The host side is `console_push_input`, `console_pop_output` and `keyboard_push_event`.
+Ran: Windows 48 cases and 0 failed checks; WSL build and `ctest` 3 of 3.
+Tests: the console streams a byte each way and reports readiness; an overrun is sticky until cleared; `OUT` reads as zero and `IN` writes are ignored; the keyboard reports availability and count; the 65th event is dropped, sets `OVERRUN`, and the FIFO still yields the oldest.
+Recorded decision: the console queue holds 16 bytes. `kr232-devices.md` §4 says what happens when it is full but does not fix the capacity, while §6 fixes the keyboard's 64; the constant is therefore named `kConsoleQueue` in `devices.h` rather than buried in the code, so the document can adopt it at the M2 review.
+Next: the framebuffer and the graphics command page.
+
 ### 2026-11-22T20:06:19-08:00 — the BitWhiz alias now matches both spellings
 
 Host: CROSBY and BitWhiz

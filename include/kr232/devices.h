@@ -1,6 +1,8 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
+#include <deque>
 
 namespace kr232 {
 
@@ -47,6 +49,18 @@ public:
 
     [[nodiscard]] std::uint32_t id_of(unsigned page) const noexcept;
 
+    // Host side of the console (page 2) and keyboard (page 6), kr232-devices.md
+    // §4 and §6. The console queue's capacity is this implementation's choice:
+    // the document fixes the keyboard's 64 and only says "full" for the console.
+    static constexpr std::size_t kConsoleQueue = 16;
+    static constexpr std::size_t kKeyboardFifo = 64;
+
+    // False when the queue is full; that arrival sets OVERRUN and is dropped.
+    bool console_push_input(std::uint8_t byte) noexcept;
+    // False when the guest has written nothing.
+    bool console_pop_output(std::uint8_t& byte) noexcept;
+    bool keyboard_push_event(std::uint32_t event) noexcept;
+
 private:
     [[nodiscard]] DeviceResult decode(std::uint32_t address, std::uint32_t width, unsigned& page,
                                       std::uint32_t& offset) const noexcept;
@@ -59,6 +73,12 @@ private:
     std::uint64_t cycle_ = 0;
     bool halt_ = false;
     bool reset_ = false;
+
+    std::deque<std::uint8_t> console_input_;
+    std::deque<std::uint8_t> console_output_;
+    bool console_overrun_ = false;
+    std::deque<std::uint32_t> keyboard_events_;
+    bool keyboard_overrun_ = false;
 };
 
 }  // namespace kr232
