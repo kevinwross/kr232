@@ -2791,6 +2791,23 @@ The loaded-state golden is a hash of the first guest page, so rebuilt fixtures m
 **Host independence, checked on both hosts**: `krdbg_kr232_fixtures_match_source` (new, item 4) and `kr232_fixtures_match_source` both pass on Windows *and* on BitWhiz.
 
 Items 2 and 4 of 25 closed.
+### 2026-11-25T00:20:00-08:00 — Item 3 in progress: the STATUS check is in, and it found something wrong with repeated calls
+
+Host: CROSBY (Windows). `user-calls` was assembly that discarded `r2` from every call, so a device failing all of them still passed. It is C now, calls **fill, line, copy, upload, draw_text and flip**, and exits with a bit per violated expectation: success for the four drawing calls, and the documented refusal for `draw_text`. The frame is unchanged (`f6b786175f12b425`) and the drift row builds it from the new source.
+
+The guard fires: with `draw_text` expected to succeed it exits **8**, which is the bit that expectation owns.
+
+**But the STATUS values themselves do not add up, so the item is not closed.** A program that reads two bits and returns `copy_bit * 10 + line_bit` exited **150**:
+
+```
+copy = __kr232_syscall6(18, (int)block, 0, 0, 0, 0) & 1;   -> 15, not 0 or 1
+line = __kr232_syscall6(19, (int)block, 0, 0, 0, 0) & 1;   -> 0
+return copy * 10 + line;                                   -> 150
+```
+
+A `& 1` cannot produce 15, so either the second variadic call in one function returns something other than the status, or `& 1` is miscompiled, or the pushed-argument area is not restored between calls. Every earlier probe called the stub **once** per program and agreed with the kernel.
+
+Next step is a minimal reproduction: three sequential `__kr232_syscall6` calls in one function whose return values are compared, then read the generated code and the stub's stack use. This is the same family as the label collision -- correct in isolation, wrong in combination -- and it must be settled before the STATUS check means anything.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
