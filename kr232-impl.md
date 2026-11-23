@@ -574,6 +574,15 @@ Tests: the console streams a byte each way and reports readiness; an overrun is 
 Recorded decision: the console queue holds 16 bytes. `kr232-devices.md` §4 says what happens when it is full but does not fix the capacity, while §6 fixes the keyboard's 64; the constant is therefore named `kConsoleQueue` in `devices.h` rather than buried in the code, so the document can adopt it at the M2 review.
 Next: the framebuffer and the graphics command page.
 
+### 2026-11-22T20:46:51-08:00 — M1: the framebuffer and the aperture
+
+Host: CROSBY (Windows `windows-msvc`) and CROSBY WSL (`linux-wsl`)
+Added: **page 4 (framebuffer)** with `CONTROL`, `WIDTH`, `HEIGHT`, `STRIDE`, `FORMAT`, `FRONT`, `BACK`, `STATUS`, `FLIP` and `FRAME`, resetting to 800×600 with `BACK` at `0x001E0000`; a successful `WIDTH` write sets `STRIDE`; an out-of-range write is ignored rather than trapping; `FLIP` runs the five validation rules of §5.3, commits `{enable, WIDTH, HEIGHT, STRIDE, BACK}`, swaps `FRONT`/`BACK` and increments `FRAME`, and on failure sets the sticky `FLIP_ERROR` and changes nothing. `STATUS.MODE_OK` is computed on read. The **32 MiB aperture** is byte-addressable, little-endian and paged in on first touch, so a machine that never draws allocates nothing.
+Ran: Windows 53 cases and 0 failed checks; WSL build and `ctest` 3 of 3.
+Tests: the reset mode, `stride` following `WIDTH` and an invalid width leaving both alone, a successful flip committing the back surface and swapping, a failing flip setting the error and leaving `FRAME` at zero while `MODE_OK` explains it, and the aperture's byte order (`B, G, R, 0`) with a read that runs past 32 MiB refused.
+Found: `make_unique<vector<uint8_t>>(kApertureSize, 0)` tripped `C4244` inside `<memory>` under `/W4 /WX` — the literal zero converting to `uint8_t` in the forwarded constructor. The fix was to spell the size and the fill value with their own types, not to relax the warning.
+Next: graphics commands, then terminal and blitter.
+
 ### 2026-11-22T20:06:19-08:00 — the BitWhiz alias now matches both spellings
 
 Host: CROSBY and BitWhiz

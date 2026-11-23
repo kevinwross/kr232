@@ -161,6 +161,53 @@ DeviceResult Devices::read(std::uint32_t address, std::uint32_t width,
                 return DeviceResult::Undefined;
         }
     }
+    if (page == 4) {  // framebuffer
+        switch (offset) {
+            case 0x00:
+                value = fb_control_;
+                return DeviceResult::Ok;
+            case 0x04:
+                value = fb_width_;
+                return DeviceResult::Ok;
+            case 0x08:
+                value = fb_height_;
+                return DeviceResult::Ok;
+            case 0x0C:
+                value = fb_stride_;
+                return DeviceResult::Ok;
+            case 0x10:
+                value = fb_format_;
+                return DeviceResult::Ok;
+            case 0x14:
+                value = fb_front_;
+                return DeviceResult::Ok;
+            case 0x18:
+                value = fb_back_;
+                return DeviceResult::Ok;
+            case 0x1C: {  // committed enable, MODE_OK computed, sticky FLIP_ERROR
+                std::uint32_t status = 0;
+                if (committed_.enabled) {
+                    status |= 1u;
+                }
+                if (mode_ok()) {
+                    status |= 1u << 1;
+                }
+                if (fb_flip_error_) {
+                    status |= 1u << 2;
+                }
+                value = status;
+                return DeviceResult::Ok;
+            }
+            case 0x20:  // FLIP is write-only
+                value = 0;
+                return DeviceResult::Ok;
+            case 0x24:
+                value = static_cast<std::uint32_t>(committed_.number & 0xFFFFFFFFu);
+                return DeviceResult::Ok;
+            default:
+                return DeviceResult::Undefined;
+        }
+    }
     return DeviceResult::Undefined;  // a populated page whose registers are not written yet
 }
 
@@ -241,6 +288,58 @@ DeviceResult Devices::write(std::uint32_t address, std::uint32_t width, std::uin
                 return DeviceResult::Undefined;
         }
     }
+    if (page == 4) {  // framebuffer
+        switch (offset) {
+            case 0x00:
+                fb_control_ = value & 1u;
+                return DeviceResult::Ok;
+            case 0x04:
+                if (value >= 1 && value <= 1920) {
+                    fb_width_ = value;
+                    fb_stride_ = value * 4u;  // a successful WIDTH write sets STRIDE
+                }
+                return DeviceResult::Ok;
+            case 0x08:
+                if (value >= 1 && value <= 1080) {
+                    fb_height_ = value;
+                }
+                return DeviceResult::Ok;
+            case 0x0C:
+                if (value % 4u == 0 && value >= fb_width_ * 4u && value <= 7680u) {
+                    fb_stride_ = value;
+                }
+                return DeviceResult::Ok;
+            case 0x10:
+                if (value == 1) {
+                    fb_format_ = 1;
+                }
+                return DeviceResult::Ok;
+            case 0x14:
+                if (value % 4u == 0) {
+                    fb_front_ = value;
+                }
+                return DeviceResult::Ok;
+            case 0x18:
+                if (value % 4u == 0) {
+                    fb_back_ = value;
+                }
+                return DeviceResult::Ok;
+            case 0x1C:
+                if ((value & 4u) != 0) {
+                    fb_flip_error_ = false;  // write 1 clears the sticky error
+                }
+                return DeviceResult::Ok;
+            case 0x20:
+                if ((value & 1u) != 0) {
+                    flip();
+                }
+                return DeviceResult::Ok;
+            case 0x24:
+                return DeviceResult::Ok;  // FRAME is read-only
+            default:
+                return DeviceResult::Undefined;
+        }
+    }
     return DeviceResult::Undefined;
 }
 
@@ -268,6 +367,81 @@ bool Devices::keyboard_push_event(std::uint32_t event) noexcept {
         return false;
     }
     keyboard_events_.push_back(event);
+    return true;
+}
+
+bool Devices::mode_ok() const noexcept {
+    // kr232-devices.md §5.3, the five validation rules.
+    if (fb_width_ < 1 || fb_width_ > 1920 || fb_height_ < 1 || fb_height_ > 1080) {
+        return false;
+    }
+    if (fb_stride_ % 4u != 0 || fb_stride_ < fb_width_ * 4u || fb_stride_ > 7680u) {
+        return false;
+    }
+    if (fb_format_ != 1) {
+        return false;
+    }
+    if (fb_front_ % 4u != 0 || fb_back_ % 4u != 0) {
+        return false;
+    }
+    const auto extent = static_cast<std::uint64_t>(fb_height_) * fb_stride_;
+    return static_cast<std::uint64_t>(fb_front_) + extent <= kApertureSize &&
+           static_cast<std::uint64_t>(fb_back_) + extent <= kApertureSize;
+}
+
+void Devices::flip() noexcept {
+    if (!mode_ok()) {
+        fb_flip_error_ = true;
+        return;
+    }
+    // The committed frame is the surface just drawn, which is BACK; then the two
+    // swap so the next frame draws into what was presented.
+    committed_.enabled = (fb_control_ & 1u) != 0;
+    committed_.offset = fb_back_;
+    committed_.width = fb_width_;
+    committed_.height = fb_height_;
+    committed_.stride = fb_stride_;
+    std::swap(fb_front_, fb_back_);
+    ++committed_.number;
+}
+
+std::vector<std::uint8_t>& Devices::vram() {
+    if (!vram_) {
+        vram_ = std::make_unique<std::vector<std::uint8_t>>(static_cast<std::size_t>(kApertureSize),
+                                                            std::uint8_t{0});
+    }
+    return *vram_;
+}
+
+bool Devices::aperture_read(std::uint32_t address, unsigned size, std::uint32_t& value) noexcept {
+    if (size == 0 || size > 4) {
+        return false;
+    }
+    const std::uint32_t offset = address - kApertureBase;
+    if (static_cast<std::uint64_t>(offset) + size > kApertureSize) {
+        return false;
+    }
+    std::vector<std::uint8_t>& memory = vram();
+    std::uint32_t word = 0;
+    for (unsigned i = 0; i < size; ++i) {
+        word |= static_cast<std::uint32_t>(memory[offset + i]) << (8 * i);
+    }
+    value = word;
+    return true;
+}
+
+bool Devices::aperture_write(std::uint32_t address, unsigned size, std::uint32_t value) noexcept {
+    if (size == 0 || size > 4) {
+        return false;
+    }
+    const std::uint32_t offset = address - kApertureBase;
+    if (static_cast<std::uint64_t>(offset) + size > kApertureSize) {
+        return false;
+    }
+    std::vector<std::uint8_t>& memory = vram();
+    for (unsigned i = 0; i < size; ++i) {
+        memory[offset + i] = static_cast<std::uint8_t>((value >> (8 * i)) & 0xFFu);
+    }
     return true;
 }
 

@@ -280,6 +280,14 @@ StepResult Machine::execute(const Decoded& d) {
             access_vector_ = 8;  // protection is checked before the address (§11.2)
             return false;
         }
+        if (Devices::in_aperture(address)) {
+            std::uint32_t word = 0;
+            if (!devices_.aperture_read(address, size, word)) {
+                return false;  // past 32 MiB: an address error
+            }
+            out = word;
+            return true;
+        }
         if (Devices::contains(address)) {
             std::uint32_t word = 0;
             if (devices_.read(address, size, word) != DeviceResult::Ok) {
@@ -320,6 +328,9 @@ StepResult Machine::execute(const Decoded& d) {
             (address < 0x08000000u || address >= 0xFC000000u || address + size > 0xFC000000u)) {
             access_vector_ = 8;
             return false;
+        }
+        if (Devices::in_aperture(address)) {
+            return devices_.aperture_write(address, size, value);
         }
         if (Devices::contains(address)) {
             return devices_.write(address, size, value) == DeviceResult::Ok;

@@ -199,3 +199,98 @@ TEST_CASE(the_keyboard_fifo_drops_the_sixty_fifth_event_and_says_so) {
     CHECK(read_register(devices, 6, 0x00, value) == DeviceResult::Ok);
     CHECK(value == 0);  // the oldest event, not the dropped one
 }
+
+TEST_CASE(the_framebuffer_resets_to_800_by_600_with_back_above_it) {
+    Devices devices;
+    std::uint32_t width = 0;
+    std::uint32_t height = 0;
+    std::uint32_t stride = 0;
+    std::uint32_t back = 0;
+    CHECK(read_register(devices, 4, 0x04, width) == DeviceResult::Ok);
+    CHECK(read_register(devices, 4, 0x08, height) == DeviceResult::Ok);
+    CHECK(read_register(devices, 4, 0x0C, stride) == DeviceResult::Ok);
+    CHECK(read_register(devices, 4, 0x18, back) == DeviceResult::Ok);
+    CHECK(width == 800);
+    CHECK(height == 600);
+    CHECK(stride == 3200);
+    CHECK(back == 0x001E0000u);
+
+    std::uint32_t status = 0;
+    CHECK(read_register(devices, 4, 0x1C, status) == DeviceResult::Ok);
+    CHECK((status & 0x1u) == 0);       // nothing committed yet
+    CHECK((status & 0x2u) != 0);       // the default mode is valid
+}
+
+TEST_CASE(a_width_write_sets_the_stride_and_an_invalid_width_is_ignored) {
+    Devices devices;
+    CHECK(write_register(devices, 4, 0x04, 1024) == DeviceResult::Ok);
+    std::uint32_t stride = 0;
+    CHECK(read_register(devices, 4, 0x0C, stride) == DeviceResult::Ok);
+    CHECK(stride == 4096);
+
+    CHECK(write_register(devices, 4, 0x04, 0) == DeviceResult::Ok);  // out of range
+    std::uint32_t width = 0;
+    CHECK(read_register(devices, 4, 0x04, width) == DeviceResult::Ok);
+    CHECK(width == 1024);
+    CHECK(read_register(devices, 4, 0x0C, stride) == DeviceResult::Ok);
+    CHECK(stride == 4096);
+}
+
+TEST_CASE(a_flip_commits_the_back_surface_swaps_them_and_counts_the_frame) {
+    Devices devices;
+    CHECK(write_register(devices, 4, 0x00, 1) == DeviceResult::Ok);  // enable
+    CHECK(write_register(devices, 4, 0x18, 0x00200000) == DeviceResult::Ok);  // BACK
+    CHECK(write_register(devices, 4, 0x20, 1) == DeviceResult::Ok);  // FLIP
+
+    const Devices::Frame frame = devices.committed_frame();
+    CHECK(frame.enabled);
+    CHECK(frame.offset == 0x00200000u);  // the surface just drawn
+    CHECK(frame.number == 1);
+    CHECK(frame.width == 800);
+    CHECK(frame.height == 600);
+
+    std::uint32_t front = 0;
+    std::uint32_t back = 0;
+    CHECK(read_register(devices, 4, 0x14, front) == DeviceResult::Ok);
+    CHECK(read_register(devices, 4, 0x18, back) == DeviceResult::Ok);
+    CHECK(front == 0x00200000u);
+    CHECK(back == 0);  // the two swapped
+
+    std::uint32_t status = 0;
+    CHECK(read_register(devices, 4, 0x1C, status) == DeviceResult::Ok);
+    CHECK((status & 0x1u) != 0);  // committed enable
+}
+
+TEST_CASE(a_flip_that_fails_sets_the_error_and_changes_nothing) {
+    Devices devices;
+    CHECK(write_register(devices, 4, 0x08, 1081) == DeviceResult::Ok);  // rejected at write
+    // Make the bundle invalid in a way a register write cannot refuse: an
+    // offset whose surface would run past the aperture.
+    CHECK(write_register(devices, 4, 0x18, 0x01FFFFFC) == DeviceResult::Ok);
+    CHECK(write_register(devices, 4, 0x20, 1) == DeviceResult::Ok);  // FLIP must fail
+
+    std::uint32_t status = 0;
+    CHECK(read_register(devices, 4, 0x1C, status) == DeviceResult::Ok);
+    CHECK((status & 0x4u) != 0);  // FLIP_ERROR
+    CHECK((status & 0x2u) == 0);  // and MODE_OK says why
+    CHECK(devices.committed_frame().number == 0);
+
+    CHECK(write_register(devices, 4, 0x1C, 4) == DeviceResult::Ok);  // clear the error
+    CHECK(read_register(devices, 4, 0x1C, status) == DeviceResult::Ok);
+    CHECK((status & 0x4u) == 0);
+}
+
+TEST_CASE(the_aperture_is_byte_addressable_and_little_endian) {
+    Devices devices;
+    CHECK(devices.aperture_write(Devices::kApertureBase + 0x10, 4, 0x00112233u));
+    std::uint32_t word = 0;
+    CHECK(devices.aperture_read(Devices::kApertureBase + 0x10, 4, word));
+    CHECK(word == 0x00112233u);
+    std::uint32_t byte = 0;
+    CHECK(devices.aperture_read(Devices::kApertureBase + 0x10, 1, byte));
+    CHECK(byte == 0x33u);  // B first: XRGB8888 stores B, G, R, 0
+    CHECK(devices.aperture_read(Devices::kApertureBase + 0x12, 1, byte));
+    CHECK(byte == 0x11u);
+    CHECK(!devices.aperture_read(Devices::kApertureBase + Devices::kApertureSize - 2, 4, word));
+    CHECK(devices.frame_bytes() != nullptr);
+}

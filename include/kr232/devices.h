@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <deque>
+#include <memory>
+#include <vector>
 
 namespace kr232 {
 
@@ -61,7 +63,39 @@ public:
     bool console_pop_output(std::uint8_t& byte) noexcept;
     bool keyboard_push_event(std::uint32_t event) noexcept;
 
+    // The aperture (kr232-devices.md §5.1) is memory-like: any width, any
+    // alignment, so it is addressed in bytes and decoded little-endian.
+    static constexpr std::uint32_t kApertureBase = 0xFC000000u;
+    static constexpr std::uint32_t kApertureSize = 0x02000000u;  // 32 MiB
+
+    [[nodiscard]] static bool in_aperture(std::uint32_t address) noexcept {
+        return address >= kApertureBase && address - kApertureBase < kApertureSize;
+    }
+    [[nodiscard]] bool aperture_read(std::uint32_t address, unsigned size,
+                                     std::uint32_t& value) noexcept;
+    [[nodiscard]] bool aperture_write(std::uint32_t address, unsigned size,
+                                      std::uint32_t value) noexcept;
+
+    // What `FLIP` last committed: the surface the host presents.
+    struct Frame {
+        bool enabled = false;
+        std::uint32_t offset = 0;
+        std::uint32_t width = 800;
+        std::uint32_t height = 600;
+        std::uint32_t stride = 3200;
+        std::uint64_t number = 0;
+    };
+
+    [[nodiscard]] Frame committed_frame() const noexcept { return committed_; }
+    [[nodiscard]] const std::uint8_t* frame_bytes() const noexcept {
+        return vram_ ? vram_->data() : nullptr;
+    }
+
 private:
+    void flip() noexcept;
+    [[nodiscard]] bool mode_ok() const noexcept;
+    [[nodiscard]] std::vector<std::uint8_t>& vram();
+
     [[nodiscard]] DeviceResult decode(std::uint32_t address, std::uint32_t width, unsigned& page,
                                       std::uint32_t& offset) const noexcept;
 
@@ -79,6 +113,19 @@ private:
     bool console_overrun_ = false;
     std::deque<std::uint32_t> keyboard_events_;
     bool keyboard_overrun_ = false;
+
+    // Page 4. VRAM is 32 MiB and is allocated on the first aperture access, so a
+    // machine that never draws costs nothing.
+    std::uint32_t fb_control_ = 0;
+    std::uint32_t fb_width_ = 800;
+    std::uint32_t fb_height_ = 600;
+    std::uint32_t fb_stride_ = 3200;
+    std::uint32_t fb_format_ = 1;
+    std::uint32_t fb_front_ = 0;
+    std::uint32_t fb_back_ = 0x001E0000;
+    bool fb_flip_error_ = false;
+    Frame committed_;
+    std::unique_ptr<std::vector<std::uint8_t>> vram_;
 };
 
 }  // namespace kr232
