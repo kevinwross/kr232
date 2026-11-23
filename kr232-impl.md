@@ -2594,6 +2594,27 @@ Host: CROSBY (Windows). Round of fixes, each found by a measurement rather than 
 Verified in isolation: `cons_putc('Z')`, `cons_putc(*s)` from a string literal, and `__kr232_syscall6` with a static string all print correctly; a hand-written loop of the same shape as `cons_puts` (`walk("ABC")`) returns 3 and calls through fine. **`cons_puts` itself prints nothing**, even after the signature fix, so gap 3 stays open with that one function to explain.
 
 Suites: `kr232` **10 of 10** (11 with `KR232_BUILD_KERNEL=ON`), `krcompiler` **31 of 31** kr232 rows, `krc_tests` **3704**.
+### 2026-11-24T14:25:00-08:00 — cons_puts, narrowed to the object it is linked in
+
+Host: CROSBY (Windows). Nine probes, each one variable:
+
+| Probe | Result |
+|---|---|
+| `cons_putc('Z')`, `cons_putc(*s)`, `cons_putc(*(s+1))` from `main` | prints |
+| `__kr232_syscall6(1, static, 7, ...)` | prints, returns 7 |
+| a hand-written `walk("ABC")` with the same loop shape | returns 42 |
+| the same loop as `local_puts`, in the program's own file | prints |
+| the same loop as `other_puts`, in its own file | prints |
+| `cons_puts` from `cons_user.c` | **prints nothing** |
+| `cons_user.c` compiled **without** `cons_getc` | **prints** |
+| `cons_user.c` with a *trivial* third function | **prints** |
+| `cons_user.c` as written | prints nothing |
+
+The generated code for `cons_puts` is **byte-identical** to the working `local_puts`, and the linked call resolves to `cons_putc`'s entry. So the defect is neither in the source nor in the code generation: it appears when one object holds **two calls to `__kr232_syscall6` plus one call inside the object** -- `cons_getc` and `cons_putc` both call the stub, and `cons_puts` calls `cons_putc`.
+
+That points at the linker's relocation pairing in an object with several relocations, and the next step is a minimal reproduction in `krc_tests` (three functions, two of them calling one extern, the third calling a sibling) before touching the linker.
+
+Gap 3 stays open on this one defect; the rest of the packages work -- `gfx_fill_rect` draws with the corrected mode, `fb_*` and `input_pending` answer through calls 22-24.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
