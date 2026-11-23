@@ -439,3 +439,83 @@ TEST_CASE(a_write_at_the_bottom_row_scrolls_the_grid) {
     CHECK(devices.terminal_cursor_y() == 29);
     CHECK(devices.terminal_cell(0, 0).ch != 'q');  // the top row scrolled away
 }
+
+TEST_CASE(the_blitter_copies_like_memmove) {
+    Devices devices;
+    kr232::Memory ram(0x10000);
+    for (std::uint32_t i = 0; i < 8; ++i) {
+        (void)ram.write8(0x2000 + i, static_cast<std::uint8_t>(i + 1));
+    }
+    CHECK(write_register(devices, 11, 0x00, 0x2000) == DeviceResult::Ok);  // SRC
+    CHECK(write_register(devices, 11, 0x04, 0x2002) == DeviceResult::Ok);  // DST, overlapping
+    CHECK(write_register(devices, 11, 0x08, 6) == DeviceResult::Ok);       // LEN
+    CHECK(write_register(devices, 11, 0x10, 1) == DeviceResult::Ok);       // copy, 1-byte units
+    devices.run_blitter(ram);
+
+    std::uint32_t status = 0;
+    CHECK(read_register(devices, 11, 0x14, status) == DeviceResult::Ok);
+    CHECK((status & 1u) != 0);  // DONE
+    // The six bytes read before any write: 0x2002..0x2007 now hold 1..6, and the
+    // two source bytes below the destination are untouched.
+    for (std::uint32_t i = 0; i < 6; ++i) {
+        std::uint8_t byte = 0;
+        CHECK(ram.read8(0x2002 + i, byte) == kr232::Access::Ok);
+        CHECK(byte == static_cast<std::uint8_t>(i + 1));
+    }
+    std::uint8_t first = 0;
+    std::uint8_t second = 0;
+    CHECK(ram.read8(0x2000, first) == kr232::Access::Ok);
+    CHECK(ram.read8(0x2001, second) == kr232::Access::Ok);
+    CHECK(first == 1);
+    CHECK(second == 2);
+}
+
+TEST_CASE(a_fill_writes_the_pattern_by_unit_and_a_trailing_partial_takes_low_bytes) {
+    Devices devices;
+    kr232::Memory ram(0x10000);
+    CHECK(write_register(devices, 11, 0x04, 0x3000) == DeviceResult::Ok);  // DST
+    CHECK(write_register(devices, 11, 0x08, 6) == DeviceResult::Ok);       // LEN
+    CHECK(write_register(devices, 11, 0x0C, 0x0000AABB) == DeviceResult::Ok);  // VALUE
+    CHECK(write_register(devices, 11, 0x10, 1u | 2u | (2u << 2)) == DeviceResult::Ok);
+    devices.run_blitter(ram);  // fill, 4-byte units
+
+    const std::uint8_t expected[6] = {0xBB, 0xAA, 0x00, 0x00, 0xBB, 0xAA};
+    for (std::uint32_t i = 0; i < 6; ++i) {
+        std::uint8_t byte = 0;
+        CHECK(ram.read8(0x3000 + i, byte) == kr232::Access::Ok);
+        CHECK(byte == expected[i]);
+    }
+}
+
+TEST_CASE(a_descriptor_that_leaves_the_backed_ranges_sets_error_and_moves_nothing) {
+    Devices devices;
+    kr232::Memory ram(0x10000);
+    (void)ram.write8(0x2000, 0x11);
+    CHECK(write_register(devices, 11, 0x00, 0xFFFFF000) == DeviceResult::Ok);  // SRC in the gap
+    CHECK(write_register(devices, 11, 0x04, 0x2000) == DeviceResult::Ok);
+    CHECK(write_register(devices, 11, 0x08, 4) == DeviceResult::Ok);
+    CHECK(write_register(devices, 11, 0x10, 1) == DeviceResult::Ok);
+    devices.run_blitter(ram);
+
+    std::uint32_t status = 0;
+    CHECK(read_register(devices, 11, 0x14, status) == DeviceResult::Ok);
+    CHECK((status & 2u) != 0);  // ERROR
+    std::uint8_t byte = 0;
+    CHECK(ram.read8(0x2000, byte) == kr232::Access::Ok);
+    CHECK(byte == 0x11);  // nothing moved
+
+    CHECK(write_register(devices, 11, 0x14, 2) == DeviceResult::Ok);  // write 1 clears
+    CHECK(read_register(devices, 11, 0x14, status) == DeviceResult::Ok);
+    CHECK((status & 2u) == 0);
+}
+
+TEST_CASE(a_zero_length_blit_succeeds) {
+    Devices devices;
+    kr232::Memory ram(0x10000);
+    CHECK(write_register(devices, 11, 0x08, 0) == DeviceResult::Ok);  // LEN = 0
+    CHECK(write_register(devices, 11, 0x10, 1) == DeviceResult::Ok);
+    devices.run_blitter(ram);
+    std::uint32_t status = 0;
+    CHECK(read_register(devices, 11, 0x14, status) == DeviceResult::Ok);
+    CHECK((status & 1u) != 0);  // DONE
+}

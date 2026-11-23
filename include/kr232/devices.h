@@ -99,6 +99,11 @@ public:
     [[nodiscard]] bool graphics_pending() const noexcept { return graphics_pending_; }
     void run_graphics(const Memory& ram);
 
+    // The blitter (page 11) performs a copy or fill before the store that starts
+    // it completes; the machine runs it after that instruction retires.
+    [[nodiscard]] bool blitter_pending() const noexcept { return blitter_pending_; }
+    void run_blitter(Memory& ram);
+
     // The target surface a command draws into; exposed for tests and, at M2, for
     // the frame hash.
     struct Surface {
@@ -185,6 +190,16 @@ private:
     std::uint32_t cursor_y_ = 0;
     std::uint32_t term_control_ = 0;
     std::uint32_t term_color_ = 0x07;
+
+    // Page 11.
+    std::uint32_t blit_src_ = 0;
+    std::uint32_t blit_dst_ = 0;
+    std::uint32_t blit_len_ = 0;
+    std::uint32_t blit_value_ = 0;
+    std::uint32_t blit_status_ = 0;
+    bool blit_fill_ = false;
+    unsigned blit_size_ = 1;
+    bool blitter_pending_ = false;
 };
 
 }  // namespace kr232

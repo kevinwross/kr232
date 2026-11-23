@@ -344,6 +344,73 @@ const Devices::Cell& Devices::terminal_cell(std::uint32_t x, std::uint32_t y) co
     return grid_[static_cast<std::size_t>(y) * term_cols_ + x];
 }
 
+void Devices::run_blitter(Memory& ram) {
+    blitter_pending_ = false;
+    blit_status_ = 0;  // starting clears DONE and ERROR
+
+    const auto in_range = [](std::uint32_t address, std::uint32_t length) {
+        if (length == 0) {
+            return true;  // a zero-length operation succeeds wherever it points
+        }
+        const std::uint64_t last = static_cast<std::uint64_t>(address) + length;
+        if (static_cast<std::uint64_t>(address) >= kApertureBase &&
+            last <= static_cast<std::uint64_t>(kApertureBase) + kApertureSize) {
+            return true;
+        }
+        // RAM is 0x00000100-0xFBFFFFFF: the null page is excluded and the range
+        // stops at the aperture, so a descriptor crossing the gap is rejected.
+        return address >= 0x00000100u && last <= 0xFC000000u;
+    };
+
+    const bool need_source = !blit_fill_;
+    if (!in_range(blit_dst_, blit_len_) || (need_source && !in_range(blit_src_, blit_len_)) ||
+        blit_size_ == 0) {
+        blit_status_ = 2u;  // ERROR, and nothing has moved
+        return;
+    }
+
+    const auto read_byte = [&](std::uint32_t address, std::uint8_t& byte) {
+        if (in_aperture(address)) {
+            std::uint32_t word = 0;
+            if (!aperture_read(address, 1, word)) {
+                return false;
+            }
+            byte = static_cast<std::uint8_t>(word & 0xFFu);
+            return true;
+        }
+        return ram.read8(address, byte) == Access::Ok;
+    };
+    const auto write_byte = [&](std::uint32_t address, std::uint8_t byte) {
+        if (in_aperture(address)) {
+            return aperture_write(address, 1, byte);
+        }
+        return ram.write8(address, byte) == Access::Ok;
+    };
+
+    if (blit_fill_) {
+        for (std::uint32_t i = 0; i < blit_len_; ++i) {
+            const std::uint8_t byte =
+                static_cast<std::uint8_t>((blit_value_ >> (8 * (i % blit_size_))) & 0xFFu);
+            (void)write_byte(blit_dst_ + i, byte);
+        }
+        blit_status_ = 1u;  // DONE
+        return;
+    }
+
+    // memmove semantics: copy backwards when the ranges overlap and the
+    // destination is above the source, so no byte is read after being written.
+    const bool backwards = blit_dst_ > blit_src_ && blit_dst_ < blit_src_ + blit_len_;
+    for (std::uint32_t step = 0; step < blit_len_; ++step) {
+        const std::uint32_t i = backwards ? blit_len_ - 1 - step : step;
+        std::uint8_t byte = 0;
+        if (!read_byte(blit_src_ + i, byte) || !write_byte(blit_dst_ + i, byte)) {
+            blit_status_ = 2u;  // ERROR
+            return;
+        }
+    }
+    blit_status_ = 1u;  // DONE
+}
+
 DeviceResult Devices::read(std::uint32_t address, std::uint32_t width,
                            std::uint32_t& value) noexcept {
     unsigned page = 0;
@@ -537,6 +604,30 @@ DeviceResult Devices::read(std::uint32_t address, std::uint32_t width,
                 return DeviceResult::Undefined;
         }
     }
+    if (page == 11) {  // blitter
+        switch (offset) {
+            case 0x00:
+                value = blit_src_;
+                return DeviceResult::Ok;
+            case 0x04:
+                value = blit_dst_;
+                return DeviceResult::Ok;
+            case 0x08:
+                value = blit_len_;
+                return DeviceResult::Ok;
+            case 0x0C:
+                value = blit_value_;
+                return DeviceResult::Ok;
+            case 0x10:  // CONTROL is write-only
+                value = 0;
+                return DeviceResult::Ok;
+            case 0x14:
+                value = blit_status_;
+                return DeviceResult::Ok;
+            default:
+                return DeviceResult::Undefined;
+        }
+    }
     return DeviceResult::Undefined;  // a populated page whose registers are not written yet
 }
 
@@ -713,6 +804,48 @@ DeviceResult Devices::write(std::uint32_t address, std::uint32_t width, std::uin
                     g_args_[(offset - 0x04) / 4] = value;
                     return DeviceResult::Ok;
                 }
+                return DeviceResult::Undefined;
+        }
+    }
+    if (page == 11) {  // blitter
+        switch (offset) {
+            case 0x00:
+                blit_src_ = value;
+                return DeviceResult::Ok;
+            case 0x04:
+                blit_dst_ = value;
+                return DeviceResult::Ok;
+            case 0x08:
+                blit_len_ = value;
+                return DeviceResult::Ok;
+            case 0x0C:
+                blit_value_ = value;
+                return DeviceResult::Ok;
+            case 0x10: {  // start, mode, size
+                blit_fill_ = (value & 2u) != 0;
+                switch ((value >> 2) & 3u) {
+                    case 0:
+                        blit_size_ = 1;
+                        break;
+                    case 1:
+                        blit_size_ = 2;
+                        break;
+                    case 2:
+                        blit_size_ = 4;
+                        break;
+                    default:
+                        blit_size_ = 0;  // reserved: the start is rejected
+                        break;
+                }
+                if ((value & 1u) != 0) {
+                    blitter_pending_ = true;
+                }
+                return DeviceResult::Ok;
+            }
+            case 0x14:
+                blit_status_ &= ~(value & 3u);  // write 1 clears DONE and ERROR
+                return DeviceResult::Ok;
+            default:
                 return DeviceResult::Undefined;
         }
     }

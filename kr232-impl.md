@@ -198,7 +198,7 @@ The gate block under `## Gate verification`, quoting the failing test's output, 
 - [x] `[kr232]` `decoder`: every class of ISA §3.1, including `F0`/`F4` lengths resolved from the bytes after the prefix. Check: a decode of all 81 Appendix A vectors, bytes in, mnemonic and length out, matching the appendix.
 - [x] `[kr232]` `executor`: ALU, shifts, branches, loads/stores, `ENTER`/`LEAVE`, `CALL`/`RET`, `PUSH`/`POP`, halfword and byte forms, `SYS`, `IRET`, `BRK`, `RDCYCLE`. Check: one test per vector from bytes to architectural state — the 81-vector effect harness, plus the twelve value cases.
 - [x] `[kr232]` Protection and traps: the 16-byte frame, vector 4 for the gaps and null page, vector 8 for the two user ranges and kernel-only instructions, vector 9 for `SYSCALL`, `IRET`'s restore of K, I and SP, and the K/I write rules. Check: the M1 gate's protection list, case by case.
-- [ ] `[kr232]` Devices: timer, console, framebuffer, keyboard, terminal, graphics commands, system, blitter — registers, `ID` at `0x3C`, reset values, and the trap rules for undefined offsets and reserved pages. Check: per-page tests, and the `ID` word of all eight.
+- [x] `[kr232]` Devices: timer, console, framebuffer, keyboard, terminal, graphics commands, system, blitter — registers, `ID` at `0x3C`, reset values, and the trap rules for undefined offsets and reserved pages. Check: per-page tests, and the `ID` word of all eight.
 - [ ] `[kr232]` Blitter: `COPY`, `FILL`, `UPLOAD`, range validation before any byte moves. Check: a rejected range leaves memory unchanged.
 - [ ] `[kr232]` Frame commit and `--frame-hash`: the committed surface's hash, with a checked-in golden. Check: the golden matches on x64 and the ARM64 row records "excluded".
 - [ ] `[kr232]` Flat image loader and CLI: `vm <image> --max-steps N`, `--trace`, `--screenshot`, `--frame-hash`, with the program's `SYS exit` status as the process status. Check: a hand-encoded image runs and exits with its status.
@@ -357,7 +357,7 @@ The kernel's entry and return, the syscall table's validation, protection from u
 | Milestone | State | Gate recorded |
 |---|---|---|
 | M0 | complete — gate recorded 2026-11-22T20:07:37-08:00 | M0 |
-| M1 | in progress — 5 of 11 tasks | — |
+| M1 | in progress — 6 of 11 tasks | — |
 | M2 | not started | — |
 | M3 | not started | — |
 | M4 | not started | — |
@@ -601,6 +601,17 @@ Tests: geometry from the committed mode; a write storing the cell with its two i
 Found: the first scroll test wrote thirty characters and asserted which one survived, and its expectation was wrong — the loop's last newline is what triggers the scroll, so the assertion described the grid one step out of phase. Rewritten to the property that matters: after 31 newlines the row that held the first character is gone and the cursor sits on the last row.
 Not done, and named: rendering the grid into the back surface, and `DRAW_TEXT`, both need the 10×20 glyph atlas, which is a data asset of its own and not part of the device protocol. Until it lands the terminal maintains and mirrors its grid and `DRAW_TEXT` keeps setting `ERROR` — two defined gaps rather than wrong pixels.
 Next: the blitter, then the device task's check.
+
+### 2026-11-22T20:52:44-08:00 — M1: the blitter, and the device task is closed
+
+Host: CROSBY (Windows `windows-msvc`) and CROSBY WSL (Linux `linux-wsl`)
+Added: **page 11** with `SRC`, `DST`, `LEN`, `VALUE`, `CONTROL` (start bit 0, fill bit 1, size bits 2–3) and `STATUS` (`DONE`, `ERROR`, both write-1-to-clear). Copy has memmove semantics — the copy runs backwards when the ranges overlap and the destination is above the source, so no byte is read after being written, and the buffer is O(1) rather than the whole range. Fill writes the `VALUE` pattern by unit, a trailing partial unit taking the low bytes. A descriptor must lie wholly in RAM `0x00000100`–`0xFBFFFFFF` or wholly in the aperture, and is validated before the first byte moves; `LEN` = 0 succeeds; a reserved size is a rejected start.
+Ran: Windows 66 cases and 0 failed checks; WSL build and `ctest` 3 of 3.
+Tests: an overlapping copy behaving as memmove with the bytes below the destination untouched; a four-byte fill with a trailing partial; a descriptor in the gap setting `ERROR` and moving nothing, then clearing on a 1 write; and a zero-length blit succeeding.
+Found: the memmove test first asserted the *whole* source was unchanged after an overlapping copy — which is wrong by definition, since the overlap is the destination. Corrected to the property memmove guarantees: the destination holds the original source bytes and the source bytes below the destination are untouched. The implementation was right; the assertion was not.
+Closed: the device task. Eight pages — timer, console, framebuffer, keyboard, terminal, graphics, system, blitter — each answering its ID at `0x3C`, with the window's read/write rules (a 32-bit word at a 4-byte offset), undefined offsets and reserved pages trapping as address errors, and the aperture separate from the device window.
+Two named gaps remain from this milestone's device work, not part of its check: the 10×20 glyph atlas, which would let the terminal render and `DRAW_TEXT` draw, and the frame hash, which belongs to the next task.
+Next: frame commit and `--frame-hash`.
 
 ### 2026-11-22T20:06:19-08:00 — the BitWhiz alias now matches both spellings
 

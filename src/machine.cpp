@@ -210,6 +210,9 @@ StepResult Machine::step() {
         if (devices_.graphics_pending()) {
             devices_.run_graphics(memory_);
         }
+        if (devices_.blitter_pending()) {
+            devices_.run_blitter(memory_);
+        }
         if (devices_.reset_requested()) {
             devices_.clear_requests();
             reset();
