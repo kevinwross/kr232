@@ -1,6 +1,7 @@
 #include <kr232/machine.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstring>
 
@@ -421,14 +422,94 @@ StepResult Machine::execute(const Decoded& d) {
                 case 0x72:  // BRK
                     return enter_trap(1);
                 case 0x73: {  // SYS
-                    if (regs_[7] == 0) {
-                        halted_ = true;
-                        // The status is the whole word: a test that exits 300 must
-                        // read 300 back, not 44.
-                        exit_status_ = regs_[2];
-                        return StepResult{Stop::Halted, 0, exit_status_, false};
+                    // ISA §13: R7 selects the call, R2-R5 carry the arguments and
+                    // R2 returns the result. A refused call answers -1 in R2 and
+                    // the program continues; only `exit` stops the machine.
+                    constexpr std::uint32_t kRefused = 0xFFFFFFFFu;
+                    constexpr std::uint32_t kConsoleOut =
+                        Devices::kBase + 2u * Devices::kPageSize;
+                    constexpr std::uint32_t kConsoleIn = kConsoleOut + 4u;
+                    constexpr std::uint32_t kConsoleEmpty = 0xFFFFFFFFu;
+                    switch (regs_[7]) {
+                        case 0: {
+                            halted_ = true;
+                            exit_status_ = regs_[2];
+                            return StepResult{Stop::Halted, 0, exit_status_, false};
+                        }
+                        case 1: {  // write: R2 fd, R3 address, R4 length
+                            if (regs_[2] != 1u) {
+                                regs_[2] = kRefused;
+                                return retired;
+                            }
+                            const std::uint32_t address = regs_[3];
+                            const std::uint32_t length = regs_[4];
+                            std::uint32_t written = 0;
+                            while (written < length) {
+                                std::uint8_t byte = 0;
+                                if (memory_.read8(address + written, byte) != Access::Ok) {
+                                    break;
+                                }
+                                std::uint32_t word = byte;
+                                if (devices_.write(kConsoleOut, 4, word) != DeviceResult::Ok) {
+                                    break;
+                                }
+                                ++written;
+                            }
+                            regs_[2] = written == length ? written : kRefused;
+                            return retired;
+                        }
+                        case 2: {  // read: R2 fd, R3 address, R4 length
+                            if (regs_[2] != 0u) {
+                                regs_[2] = kRefused;
+                                return retired;
+                            }
+                            const std::uint32_t address = regs_[3];
+                            const std::uint32_t length = regs_[4];
+                            std::uint32_t got = 0;
+                            while (got < length) {
+                                std::uint32_t value = 0;
+                                if (devices_.read(kConsoleIn, 4, value) != DeviceResult::Ok ||
+                                    value == kConsoleEmpty) {
+                                    break;
+                                }
+                                if (memory_.write8(address + got,
+                                                   static_cast<std::uint8_t>(value & 0xFFu)) !=
+                                    Access::Ok) {
+                                    break;
+                                }
+                                ++got;
+                            }
+                            regs_[2] = got;
+                            return retired;
+                        }
+                        case 3: {  // time: R2:R3, seconds since the epoch
+                            const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(
+                                std::chrono::system_clock::now().time_since_epoch())
+                                                     .count();
+                            const auto wide = static_cast<std::uint64_t>(seconds);
+                            regs_[2] = static_cast<std::uint32_t>(wide & 0xFFFFFFFFu);
+                            regs_[3] = static_cast<std::uint32_t>(wide >> 32);
+                            return retired;
+                        }
+                        case 4: {  // debug_write: R2 address, R3 length
+                            const std::uint32_t address = regs_[2];
+                            const std::uint32_t length = regs_[3];
+                            std::uint32_t written = 0;
+                            while (written < length) {
+                                std::uint8_t byte = 0;
+                                if (memory_.read8(address + written, byte) != Access::Ok) {
+                                    break;
+                                }
+                                std::fputc(byte, stderr);
+                                ++written;
+                            }
+                            std::fflush(stderr);
+                            regs_[2] = written == length ? 0u : kRefused;
+                            return retired;
+                        }
+                        default:
+                            return enter_trap(3);
                     }
-                    return enter_trap(3);
                 }
                 case 0x74:
                     set_flag(kI, true);

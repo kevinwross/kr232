@@ -914,6 +914,8 @@ with K = 0 it raises a protection fault. This is the kernel's door to the host â
 | `time` | 3 | â€” | R2:R3 = 64-bit seconds since the epoch (low 32 bits, high 32 bits) |
 | `debug_write` | 4 | R2 = address, R3 = length | R2 = 0 |
 
+Descriptors name streams: **1** is the console output stream and **0** its input; any other descriptor answers -1. `write` copies guest bytes to the stream and reports the count, `read` fills guest memory from the input queue and reports 0 at end of input, `time` answers a 64-bit count of seconds split across R2:R3, and `debug_write` sends guest bytes to the host's debug stream without touching memory. A range that is not mapped, or a descriptor that is not named, is refused with -1 in R2 rather than trapping.
+
 A status is not truncated by the machine: a program that exits with 300 exits with 300, and only the host operating system may narrow it when it reports a process status. Call numbers 5 and above are reserved and raise an illegal-operand trap (vector 3). A failed call
 returns a negative value in R2; the individual codes are the emulator's host-service contract.
 Addresses and lengths are 32-bit; a length is unsigned and the host MAY reject a range that would

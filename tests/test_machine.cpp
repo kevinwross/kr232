@@ -398,3 +398,90 @@ TEST_CASE(the_exit_status_is_the_whole_word) {
     (void)wide.machine.step();
     CHECK(wide.machine.exit_status() == 0x12345678u);
 }
+
+TEST_CASE(sys_write_sends_guest_bytes_to_the_console) {
+    // R7 = 1, R2 = fd 1 (console), R3 = address, R4 = length.
+    Program program{0x73};
+    (void)program.machine.memory().write8(0x2000, 'h');
+    (void)program.machine.memory().write8(0x2001, 'i');
+    program.machine.set_reg(7, 1);
+    program.machine.set_reg(2, 1);
+    program.machine.set_reg(3, 0x2000);
+    program.machine.set_reg(4, 2);
+    (void)program.machine.step();
+    CHECK(program.machine.reg(2) == 2u);
+    const auto& out = program.machine.devices().console_output();
+    CHECK(out.size() == 2u);
+    if (out.size() == 2u) {
+        CHECK(out[0] == 'h');
+        CHECK(out[1] == 'i');
+    }
+
+    // A refused descriptor answers -1 and writes nothing.
+    Program refusal{0x73};
+    (void)refusal.machine.memory().write8(0x2000, 'x');
+    refusal.machine.set_reg(7, 1);
+    refusal.machine.set_reg(2, 9);
+    refusal.machine.set_reg(3, 0x2000);
+    refusal.machine.set_reg(4, 1);
+    (void)refusal.machine.step();
+    CHECK(refusal.machine.reg(2) == 0xFFFFFFFFu);
+    CHECK(refusal.machine.devices().console_output().empty());
+}
+
+TEST_CASE(sys_read_takes_console_input_and_time_answers_two_words) {
+    Program read{0x73};
+    CHECK(read.machine.devices().console_push_input('A'));
+    read.machine.set_reg(7, 2);
+    read.machine.set_reg(2, 0);
+    read.machine.set_reg(3, 0x2000);
+    read.machine.set_reg(4, 4);
+    (void)read.machine.step();
+    CHECK(read.machine.reg(2) == 1u);
+    std::uint8_t got = 0;
+    CHECK(read.machine.memory().read8(0x2000, got) == kr232::Access::Ok);
+    CHECK(got == 'A');
+
+    // An empty queue is end of input: 0 bytes, not an error.
+    Program empty{0x73};
+    empty.machine.set_reg(7, 2);
+    empty.machine.set_reg(2, 0);
+    empty.machine.set_reg(3, 0x2000);
+    empty.machine.set_reg(4, 1);
+    (void)empty.machine.step();
+    CHECK(empty.machine.reg(2) == 0u);
+
+    // time fills R2:R3 with seconds; the high word is zero for any date we care
+    // about, and the low word is not.
+    Program time_call{0x73};
+    time_call.machine.set_reg(7, 3);
+    (void)time_call.machine.step();
+    CHECK(time_call.machine.reg(2) != 0u);
+    CHECK(time_call.machine.reg(3) == 0u);
+}
+
+TEST_CASE(sys_debug_write_and_a_reserved_number) {
+    // R7 = 4 writes guest bytes to the host's debug stream: the result is 0 for
+    // a valid range and -1 for one that is not mapped.
+    Program debug{0x73};
+    (void)debug.machine.memory().write8(0x2000, 'd');
+    debug.machine.set_reg(7, 4);
+    debug.machine.set_reg(2, 0x2000);
+    debug.machine.set_reg(3, 1);
+    (void)debug.machine.step();
+    CHECK(debug.machine.reg(2) == 0u);
+
+    Program bad{0x73};
+    bad.machine.set_reg(7, 4);
+    bad.machine.set_reg(2, 0x00010000u);  // outside this machine's 64 KiB
+    bad.machine.set_reg(3, 1);
+    (void)bad.machine.step();
+    CHECK(bad.machine.reg(2) == 0xFFFFFFFFu);
+
+    // 5 and above are reserved: vector 3, not a silent no-op.
+    Program reserved{0x73};
+    reserved.machine.set_reg(7, 5);
+    const kr232::StepResult result = reserved.machine.step();
+    CHECK(result.stop == Stop::Trapped);
+    CHECK(result.vector == 3u);
+}
