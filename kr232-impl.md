@@ -897,6 +897,12 @@ Found: last round''s failure was a wrong-profile edit -- the pattern `true, fals
 Process: this commit (`fdb44aa`) landed on `master` before the branch existed; M3''s remaining work is on `kr232-m3` and the branch is pushed. The M0/M2 pattern of one branch per milestone was the intent.
 Next: prologue/epilogue and the ABI frame layout, then loads and stores.
 
+### 2026-11-22T22:14:00-08:00 — M3 skeleton verified on WSL
+
+WSL: `linux-gcc-debug` builds the backend with GCC and no warnings; `ctest -R kr232` **3 of 3 passed** (the two run tests need the emulator, which that host does not install).
+Not landed: the frame layout. `type_size` is a file-static helper inside `kr16_backend.cpp`, not a shared utility, so `Kr232Backend::frame_bytes` cannot reuse it; kr232 needs its own type-size accessor, and `ir::Type`'s size member is the next thing to read rather than guess.`frame_bytes` still returns 0, which is why this task is not ticked.
+Next: the type-size accessor, then `frame_bytes` and a frame-size test, then loads and stores.
+
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
