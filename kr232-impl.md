@@ -1320,6 +1320,14 @@ Host: CROSBY (Windows, `build/kr232-adapter`)
 `unwind` now reads the return address and the saved frame pointer **before** pushing a frame, so a frame whose words cannot be read is absent rather than present with `pc` 0 -- which is exactly how the caller looked absent in the previous round. `krdbg_tests` **115 tests, 0 failures**.
 
 Still unexplained, and therefore unasserted: the caller frame's `pc` is not where I expect it. Two frames with distinct bases are asserted; the return address is not, because a check I cannot explain is a check that would be adjusted until it passes. The `unwind` task stays open on it, and on the local's value its check names.
+### 2026-11-23T11:15:00-08:00 — M4: .k232 loads through the same path as every target
+
+Host: CROSBY (Windows, `build/kr232-adapter`)
+`load_any` now recognises the **`.k232`** extension, names `kr232` as the target, and loads it through the adapter with `replace_target`, so a running session can switch to a kr232 image; `--target kr232` reaches the same loader for a rebuilt source. The demo builds with the branch and `ctest` is **3 of 3** (115 unit tests inside).
+
+This completes the host-wiring task's pieces -- `--kr232`, the include under `KRDBG_HAVE_KR232`, `load_any` on the extension, and the target name -- but the task is **not ticked**: its check also wants `krdbg --kr232` observed loading a file, and this environment cannot show a windowed app doing that. A build and a passing suite are not that observation, and the difference is the whole point of the rule.
+
+Task 12's boundary half is done (`platform_boundary` passes with the adapter); the gate script itself and `goldens/kr232-loaded.hash` remain.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
