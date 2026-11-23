@@ -261,7 +261,7 @@ Round-trip for all 81 vectors; a hand-written `.s` linked and run; the `.kdbg` d
 - [ ] `[krcompiler]` Aggregate paths: memory-class parameters copied size-exactly, the R6 return destination loaded after argument evaluation, struct return by copy-out. Check: the three-`char` record test, and a nested call in an argument.
 - [ ] `[krcompiler]` Varargs and FP argument/return conventions. Check: a `printf`-style call with mixed integer and `double` arguments.
 - [ ] `[krcompiler]` C++ surfaces: class, `this` in R10, virtual dispatch with the reserved typeinfo slot, constructors. Check: a virtual call dispatches to the override; the vtable's `[vptr - 4]` word is present and zero.
-- [ ] `[krcompiler]` `targets/kr232/runtime/crt0.s`: frame, call `main`, pass the status to `SYS exit`; no stack setup, since reset SP is `0x08000000`. Check: a linked image exits with `main`'s status.
+- [x] `[krcompiler]` `targets/kr232/runtime/crt0.s`: frame, call `main`, pass the status to `SYS exit`; no stack setup, since reset SP is `0x08000000`. Check: a linked image exits with `main`'s status.
 - [ ] `[krcompiler]` `targets/kr232/runtime/libc.c`: console output, the `SYS` write/read/exit stubs, blitter-backed `memcpy`/`memset`. Check: output appears on the terminal transcript.
 - [x] `[krcompiler]` `sysroot/kr232/include/bits/` generated from the profile: `bits/types.h`, `bits/stdint.h`. Check: `stdint.h` widths round-trip in a unit test.
 - [x] `[krcompiler]` The four guest packages: `<kr232/fb.h>`, `<kr232/gfx.h>`, `<kr232/cons.h>`, `<kr232/input.h>`, with kernel-mode implementations. Check: the drawing program fills, draws and flips through `gfx`.
@@ -1061,6 +1061,13 @@ Byte-identical and step-identical: the optimiser passes do not run for kr232 and
 
 Ticked: the per-target loops and the `-O1` measurement.
 Next: the krdbg source-level stop, then the gate.
+### 2026-11-23T03:30:00-08:00 — M3: the runtime's start-up and its copy loops
+
+Host: CROSBY (Windows `windows-msvc-debug`)
+Ticked: `targets/kr232/runtime/crt0.s` -- it calls `main`, clears R7 (the SYS number) and sys-exits with R2, and a linked image's status is `main`'s status (the `return42` test).
+Added: `memcpy` and `memset` as byte loops. The blitter-backed forms are the kernel's: a user program reaches the blitter only through a `SYSCALL`, so a byte loop is what is possible before M4.
+Stay open: the `libc.c` task, because it names the `SYS` write/read/exit stubs, which need the kernel; and the ALU, aggregate, varargs/FP, C++ and krdbg tasks.
+Note on ordering: the task list says M3's final check has "M4's adapter" as a precondition, so the krdbg stop cannot run before M4 regardless of how much of the compiler exists.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
