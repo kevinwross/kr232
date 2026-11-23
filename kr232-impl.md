@@ -1707,6 +1707,29 @@ That also explains the old symptom: with garbage in `f0`/`f1`, `fadd` produces a
 The fix is a typed argument assignment in the call path: FP arguments to `f0..f3` in order, integers to `r2..r5`, matching the prologue that already stores them that way. The constant-pool labels for 1.5 and 2.5 are already emitted in `.data`, so the materialization has an address to load from.
 
 Not attempted this round: the budget went to locating it. The M3 FP task stays open, now with its cause named.
+### 2026-11-23T19:55:00-08:00 — M3: the arguments are typed now; a new trap is visible
+
+Host: CROSBY (Windows). The call paths classify arguments by type:
+
+```
+main:
+  ld r8, #.Lfpaa95e93229a27c80
+  fld f0, [r8]
+  ld r8, #.Lfpa8ba2032280e4061
+  fld f1, [r8]
+  call add
+```
+
+Doubles fill `f0`-`f3` in order, integers `r2`-`r5`, which is how the callee's prologue already stored them.
+
+Running the linked image moved the failure rather than ending it:
+
+```
+before: trap 4 after 48 steps
+after:  trap 4 at 0x00000000 after 50 steps
+```
+
+So the argument convention is fixed -- the callee now adds 1.5 and 2.5 -- and the program now dies later, **jumping to address zero**. That is a different fault: something returns through a zeroed link. The FP task stays open on it, with the argument half now correct and witnessed by the generated code.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
