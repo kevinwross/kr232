@@ -2687,6 +2687,21 @@ That message was produced by running the check against `blank-flip.k232` with a 
 Suites: `kr232` **12 of 12** with the kernel and **10 of 10** without, `krcompiler` **33 of 33**, `krc_tests` **3704**, `krdbg` **17 of 17**.
 
 Item 3 of 8 closed. Next: the kernel's read call with real input.
+### 2026-11-24T18:55:00-08:00 — Item 4 closed: the kernel's read call moves bytes into user memory
+
+Host: CROSBY (Windows). `kr232-emu --input <text>` queues text on the console before the run, through the same queue the device uses, so a program that reads input can be tested without a terminal. `tests/fixtures/user-echo.k232` reads up to eight bytes into a buffer, writes back exactly as many as arrived, and exits:
+
+```
+kr232_kernel_read    --input hey!    console: hey!    exit 0
+```
+
+`hey!` can only reach the console through the *buffer*, so this is the kernel's `read` moving bytes into user memory rather than a call that answers 0. `CheckKr232Kernel.cmake` also grew `EXPECT_CONSOLE` and now asks for `--transcript` on every run.
+
+Two defects in my own new code, both caught by running it: the row failed with *unknown option '--input'* because `build/kernel-check` had a stale emulator, and the frame check broke because `string(REGEX REPLACE ...)` keeps the surrounding text -- `CMAKE_MATCH_1` is the right read.
+
+Suites: `kr232` **13 of 13** with the kernel and **11 of 11** without, **87 unit cases**; `krcompiler` **33 of 33** and **3704** assertions; `krdbg` **17 of 17**.
+
+Item 4 of 8 closed. Next: `gfx_draw_text`, honest or working.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
