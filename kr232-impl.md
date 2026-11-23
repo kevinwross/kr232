@@ -613,6 +613,16 @@ Closed: the device task. Eight pages — timer, console, framebuffer, keyboard, 
 Two named gaps remain from this milestone's device work, not part of its check: the 10×20 glyph atlas, which would let the terminal render and `DRAW_TEXT` draw, and the frame hash, which belongs to the next task.
 Next: frame commit and `--frame-hash`.
 
+### 2026-11-22T20:54:08-08:00 — M1: the frame hash
+
+Host: CROSBY (Windows `windows-msvc`) and CROSBY WSL (`linux-wsl`)
+Added: `include/kr232/frame.h` and `src/frame.cpp`. FNV-1a 64 over the committed frame's visible pixels, `width * 4` bytes per row, so the stride only decides where a row starts and padding never enters the hash. `frame_hash_text` prints sixteen lowercase hex digits, fixed width, so two printed hashes compare as strings. An uncommitted frame hashes to the FNV offset basis rather than to whatever happens to be in the aperture, and a successful `FLIP` now pages VRAM in so a committed frame is always readable.
+Ran: Windows 71 cases and 0 failed checks; WSL build and `ctest` 3 of 3.
+Tests: the empty frame's basis value and its text; identical pixels hashing equal and a one-byte change hashing differently; a 32-byte and a 64-byte stride over the same visible pixels hashing equal; pixels written but never committed staying out of the hash; and the text format.
+Found: the first version hashed whenever VRAM existed, and the default committed descriptor is 800×600 even before a flip — so an uncommitted machine hashed 1.9 MB of zeros instead of the empty value. The fix was to key emptiness on the committed frame number, which is what "has been committed" actually means.
+Not ticked yet: `--frame-hash` in the emulator. The flag needs a program to run, and loading one is the next task; wiring the flag without it would print the hash of an empty machine and prove nothing.
+Next: the flat loader and the CLI, which makes `--frame-hash` real.
+
 ### 2026-11-22T20:06:19-08:00 — the BitWhiz alias now matches both spellings
 
 Host: CROSBY and BitWhiz

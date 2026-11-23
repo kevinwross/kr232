@@ -38,6 +38,7 @@ endif()
 add_library(kr232_core STATIC
     src/decoder.cpp
     src/devices.cpp
+    src/frame.cpp
     src/machine.cpp
     src/memory.cpp
     src/version.cpp
@@ -85,6 +86,7 @@ if(KR232_BUILD_TESTS)
         tests/main.cpp
         tests/test_decode.cpp
         tests/test_devices.cpp
+        tests/test_frame.cpp
         tests/test_machine.cpp
         tests/test_memory.cpp
         tests/test_version.cpp

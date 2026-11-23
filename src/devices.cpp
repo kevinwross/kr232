@@ -912,7 +912,8 @@ void Devices::flip() noexcept {
     committed_.stride = fb_stride_;
     std::swap(fb_front_, fb_back_);
     ++committed_.number;
-    terminal_sync_geometry();  // the committed mode may have changed the grid
+    (void)vram();               // the frame hash must read a committed frame
+    terminal_sync_geometry();   // the committed mode may have changed the grid
 }
 
 std::vector<std::uint8_t>& Devices::vram() {
