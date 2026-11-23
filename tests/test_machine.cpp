@@ -365,3 +365,17 @@ TEST_CASE(a_byte_store_keeps_every_bit_of_its_value) {
         }
     }
 }
+
+TEST_CASE(a_load_into_r11_cannot_write_the_hardware_flags) {
+    // R11 is the flags word. `ld r11, [r10]` loads 0x50, but bit 4 is I and bit 6
+    // is K: the hardware owns them, so the value lands with those bits as they
+    // were. Data must not live in R11 -- a byte held there loses bit 4, which is
+    // what made a kernel's console output arrive 0x10 low.
+    Program program{0x8E, 0xBA};
+    program.machine.set_reg(10, 0x2000);
+    (void)program.machine.memory().write8(0x2000, 0x50);
+    program.run(1);
+    CHECK((program.machine.reg(11) & 0x10u) == 0u);        // I stayed clear
+    CHECK((program.machine.reg(11) & 0x2Fu) == 0x00u);     // Z N C V T all clear
+    CHECK(program.machine.kernel_mode());
+}

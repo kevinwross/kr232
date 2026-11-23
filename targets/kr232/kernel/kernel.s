@@ -61,8 +61,8 @@ write_loop:
   bcs write_done
   mov r10, r2
   add r10, r9
-  ldbu r11, [r10]
-  st [r8], r11
+  ldbu r5, [r10]
+  st [r8], r5
   add r9, #1
   jmp write_loop
 write_done:
