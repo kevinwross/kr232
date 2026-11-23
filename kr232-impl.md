@@ -2476,6 +2476,15 @@ Evidence: a guest program writes `hello` through `SYS 1` and it appears on the t
 Suites: `kr232` **8 of 8** and **86 cases**, `krcompiler` **29 of 29** kr232 rows, `krdbg` **17 of 17**.
 
 Goal item 1 of 5 done (item 2 was the 32-bit status). Next: the encoding round-trip test.
+### 2026-11-24T10:00:00-08:00 — Items 3 and 5 of the priority list
+
+Host: CROSBY (Windows).
+
+**Encodings round-trip.** `cmake/CheckKr232EncodingRoundTrip.cmake` assembles eleven address spellings — `[rN]`, `[rN+8]` for loads and stores, `[sp]`, `[sp+8]`, `[sp-8]` for both, and `[pc+8]` — links the image, disassembles it with `kr232-dis`, and requires each spelling to come back **verbatim**. All eleven pass, which also settles the `[sp]` store path that the load fix left untested: it was already correct, and the earlier `st [r0]` observation predated the parse fix. The check was **proved to bite** by adding `ld r2, [r3+0]`, which assembles to the compact form and comes back as `ld r2, [r3]`: the row failed with `'ld r2, [r3+0]' did not come back verbatim`. `krc_kr232_encoding_roundtrip` is a CTest row, so it runs with the others; **30 of 30** kr232 rows.
+
+**The test harness can hold user RAM.** `Program` hard-coded a 64 KiB machine, so a write at `0x08000000` went nowhere and said nothing -- four rounds blamed the protection path for it. It now takes a size, the default stays small, and `the_default_test_machine_cannot_address_user_ram` asserts that the small machine answers `Unmapped` there while the full one answers `Ok`.
+
+Goal items 3 and 5 done; item 4 (varargs) is the only one left.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
