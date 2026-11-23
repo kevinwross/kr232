@@ -2911,6 +2911,24 @@ Host: CROSBY (Windows).
 Suites: `krcompiler` **35 of 35** kr232 rows and **3704** assertions, `kr232` **15 of 15** kernel rows.
 
 Items 10, 11 and 12 of 25 closed.
+### 2026-11-25T05:25:00-08:00 — Items 13 and 14 closed: one host-dependent hash left, and one dead field gone
+
+Host: CROSBY (Windows) and BitWhiz (aarch64).
+
+**Item 14 -- `.Lfp` was still `std::hash<double>`.** That hash is implementation-defined, so a program with a double constant assembled to different images under MSVC and libstdc++. The same program now matches exactly:
+
+```
+Windows  0DBD151402C3F2E51576ECDED9766CB8F4331235EE63C5DC70349C268207ED63
+ARM64    0dbd151402c3f2e51576ecded9766cb8f4331235ee63c5dc70349c268207ed63
+```
+
+The label is the constant's **IEEE-754 bit pattern in hex**, and `materialize_float` uses the same function, so a reference and its definition cannot drift apart.
+
+**Item 13 -- `profile_` was dead.** The field was stored and never read; its widths are constants. The parameter stays because the factory passes the profile to every backend, and the constructor says why. Both the Windows build and the Linux clang build (which flags unused private fields) are clean.
+
+Suites: `krcompiler` **35 of 35** kr232 rows; the image comparison above is the cross-host evidence.
+
+Items 13 and 14 of 25 closed.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
