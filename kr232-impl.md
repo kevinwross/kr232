@@ -3113,6 +3113,30 @@ kr232 ctest (kernel)        15 of 15      kr232 unit       87 cases
 krdbg krdbg_tests          110 of 110     krdbg kr232      17 of 17
 spec lint                   81/81 vectors
 ```
+### 2026-11-23T10:40:00-08:00 — The kr32 C runtime runs on kr232
+
+Host: CROSBY (Windows).
+
+**What was there.** `krcompiler/targets/kr32/runtime`: `libc.c` 2,686 lines and 183 functions (printf with `%f`/`%e`/`%g`, malloc over a free list, the whole `str*` family, `strtol`/`strtod`, time.h, locale, `atexit`, the C++ `__cxa_*` entry points), `fileio.s` 81 lines of `SYSCALL #34`–`#44` host services, `eh.s` 128 lines of `.cpp_except` walking, `crt0.s` 35 lines.
+
+**The diagnostic chain, in the order it appeared.** Each is a toolchain gap, not a library one:
+
+| Diagnostic | What it meant | Resolution |
+|---|---|---|
+| `'long long' is not supported` (21 errors) | the profile has no 64-bit integer (plan §2.3) | stripped from the port; `<stdlib.h>` could not even be included, so the generator now emits `KRC_HAS_LONG_LONG` and the header tests it |
+| `expected declaration specifiers` | my `lldiv_t` edit collided | `lldiv` not defined: the profile never declared it |
+| `remainder is not implemented` | `%` was absent from the backend | `a − (a ÷ b) × b`, exactly as ISA §12 prescribes |
+| `wrong number of arguments` | two `strftime` helpers took five and six | packed into `struct append_target` |
+| `opcode 21` | `FPTrunc`: the ISA has no `FCVT` | `strtof` removed: one floating-point format |
+| `opcode 31` | `FCmp` | `FCMP`'s N/Z/V flags map onto the integer branch conditions |
+| `'digit_value' is out of the 16-bit branch range` | the object is 50,580 lines of assembly, ~150 KB, and rel16 reaches ±32 KiB | the assembler lays out again with the offending call widened to `ld r8, #symbol; call r8` |
+| `link relocation overflows its width` | a linker patches a field, it cannot grow one | `--far-calls` emits every call wide for an object whose calls leave it |
+
+**The tiers that run.** Tier 0 (`printf`, `malloc`/`free`, `str*`, `strtol`, `atoi`, math) and Tier 1's console half run: `krc_kr232_runtime` builds `fixtures/c/kr232_runtime.c` against `libc_full.c` and `fileio_full.s` and requires `total=50` on the console. File calls (`open`, `close`, `seek`, `stat`, `rename`, `truncate`, `dup`, `chdir`) answer -1; `_Unwind_Resume` exits rather than corrupt the stack; exceptions remain Tier 3 and need a backend that emits tables.
+
+**Two limits worth naming.** The heap moved from kr32's `0x00100000` -- reachable only in kernel mode -- to `0x09000000`, inside the user window and clear of a 150 KB image and of the stack. And an image this size executes ~9,000 instructions for one `printf` of five fields, which is why the emulator's default step budget and the debugger's `--run` default matter for anything built on it.
+
+Suites: krcompiler **38 of 38** kr232 rows, `krc_tests` **3704** assertions, kr232 **15 of 15**, krdbg **110 of 110** and **17 of 17**.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
