@@ -117,6 +117,17 @@ int main(int argc, char** argv) {
     // a transcript check reads the screen without a renderer.
     if (want_transcript) {
         const auto& devices = machine.devices();
+        // The console page's bytes first: they are what a program wrote, whether
+        // or not a renderer ever saw them.
+        std::string console;
+        for (const std::uint8_t byte : devices.console_output()) {
+            if (byte >= 0x20 || byte == '\n' || byte == '\t') {
+                console.push_back(static_cast<char>(byte));
+            }
+        }
+        if (!console.empty()) {
+            std::printf("console:\n%s\n", console.c_str());
+        }
         std::printf("transcript:\n");
         for (std::uint32_t y = 0; y < devices.terminal_rows(); ++y) {
             std::string row;

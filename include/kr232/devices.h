@@ -126,6 +126,11 @@ public:
     [[nodiscard]] const Cell& terminal_cell(std::uint32_t x, std::uint32_t y) const noexcept;
     [[nodiscard]] std::uint32_t terminal_cursor_x() const noexcept { return cursor_x_; }
     [[nodiscard]] std::uint32_t terminal_cursor_y() const noexcept { return cursor_y_; }
+    // The console's output bytes, in the order a program wrote them. This is the
+    // console page's observable behaviour, independent of any renderer.
+    [[nodiscard]] const std::deque<std::uint8_t>& console_output() const noexcept {
+        return console_output_;
+    }
 
 private:
     void flip() noexcept;
