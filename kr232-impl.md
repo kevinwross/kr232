@@ -2777,6 +2777,20 @@ krcompiler ctest -R kr232    33 of 33
 The thirty-third needed a fix, and it is a real platform difference: **a POSIX process status keeps only its low eight bits**, so a program that exits 300 reads back as **44** on Linux while Windows reports 300. The 32-bit truth is the machine's own printed status, so the runner gained `EXPECT_STATUS` and `krc_kr232_run_exit300` checks that everywhere, keeping `EXPECT_EXIT=300` only on Windows where it means something.
 
 That also sharpens the earlier 32-bit exit-status work: the *machine* holds 32 bits, and on POSIX only the last eight reach the parent.
+### 2026-11-24T23:15:00-08:00 — Items 2 and 4 closed: every fixture has a source, and two of them had none
+
+Host: CROSBY (Windows) and BitWhiz (aarch64). Two checked-in images had **no source at all**: krdbg's `userprint.k232` and kr232's `kernel-gate.bin`. Both now do, and both reproduce byte for byte:
+
+- **`tests/fixtures/kr232/userprint.s`** prints `hello` through `SYSCALL` and exits 3, which is what the checked-in image did; rebuilding from it produces the same file.
+- **`tests/fixtures/kernel-gate.s`** writes `K` to the terminal, an 8x8 green rectangle and a flip: `frame dddcd2efdafe5925` in 21 steps, the same drawing the golden has always named. It joins `kr232_fixtures_match_source`.
+
+`regenerate.ps1` in krdbg was broken in three ways and never built `kernel.k232` or `userprint.k232` at all: its repo path was one level short, it wrote to the system temp directory, and it passed `--source-root` as a separate argument, which the linker reads as a file name. It now builds all six fixtures with relative source paths.
+
+The loaded-state golden is a hash of the first guest page, so rebuilt fixtures moved it: **751BE2BDFA24D8FD becomes 81A7220B18CE534D**, recorded through the test's own recording path and then asserted; **17 of 17** adapter tests pass.
+
+**Host independence, checked on both hosts**: `krdbg_kr232_fixtures_match_source` (new, item 4) and `kr232_fixtures_match_source` both pass on Windows *and* on BitWhiz.
+
+Items 2 and 4 of 25 closed.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
