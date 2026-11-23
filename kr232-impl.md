@@ -299,7 +299,7 @@ The per-target loops, determinism, KDBG invariants, the clean gate, `-S` byte-id
 - [ ] `[krdbg]` Host wiring: `--kr232`, the include under `KRDBG_HAVE_KR232`, `load_any` on the `.k232` extension and `--target kr232`, `tests/test_host_build.cpp` with `KRDBG_KRC_PREFIX`. Check: the prefix is installed at the krcompiler revision recorded in the log, `test_host_build` **runs** rather than skipping, and the demo loads the fixture both ways.
 - [ ] `[krdbg]` Fixtures and golden: `tests/fixtures/kr232/` assembled by M2's toolchain with a `regenerate.ps1`, and `goldens/kr232-loaded.hash`. Check: the golden matches on x64; the ARM64 run excludes it.
 - [ ] `[krdbg]` `tests/test_kr232_adapter.cpp`: load, layout, execution, inspection, line stepping, reload, no-debug-info, bad input, COM, framebuffer. Check: ten cases green.
-- [ ] `[krdbg]` Boundary check and host gate. Check: `krdbg_platform_boundary` clean; the host gate passes on the changed rows; the adapter build is reported separately because the repository gate builds adapter-OFF.
+- [x] `[krdbg]` Boundary check and host gate. Check: `krdbg_platform_boundary` clean; the host gate passes on the changed rows; the adapter build is reported separately because the repository gate builds adapter-OFF.
 - [ ] `[kr232]` Log the gate. Check: `## Gate verification` block.
 
 ### Tests
@@ -1390,6 +1390,23 @@ The two symptoms share a cause, and it is one of rendering metrics: a click cali
 I did not run it (it is a multi-minute two-configuration gate, and its result should be reported with the gate, not inferred). I did not regenerate any golden.
 
 Landed meanwhile: `krdbg_kr232_tests` is its own binary and is **green**, so the adapter's correctness no longer depends on the UI goldens at all.
+### 2026-11-23T13:00:00-08:00 — M4: the gate passes, and my ad-hoc builds were the anomaly
+
+Host: CROSBY (Windows). Ran the repository's own gate: `scripts/gate-windows.ps1`.
+
+```
+windows-msvc-release: 3/3 tests passed
+hash empty 56BCC5339740DCA6 (matches goldens/empty.hash)
+hash loaded 3DAD6F9400E135E2 (matches goldens/loaded.hash)
+no SDL2.dll dependency and no SDL2.dll in the tree
+GATE WINDOWS: PASS
+```
+
+So the thirteen golden mismatches and the failing gutter click were **my ad-hoc `-G Ninja` builds without the project's build type**, not krdbg's state. The goldens hold in the configurations the repo configures; my builds rendered differently, which is a property of those builds and not a repository claim I should have made. The previous entry's "red on main" is withdrawn.
+
+Ticked: **the boundary check and host gate** -- `platform_boundary` clean in the gate, the gate passes, and the adapter's build and its green own-binary are recorded. The separate `krdbg_kr232_tests` binary is what lets the adapter be tested without enabling it in the gate's builds, which is why the goldens and the adapter can both be green.
+
+Remaining in M4: `unwind` (caller pc and locals), `load_any`'s windowed observation, the no-debug-info case, and the gate record.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
