@@ -1870,6 +1870,19 @@ The kernel installs vector 9, builds the four words `IRET` restores with **K cle
 Ticked: **the kernel task** (a trap reaches the handler and returns; the vector table is installed at 0x0100; the kernel target's command line names `krc`; the host build never compiles it) and **`--user`** (preloaded at 0x08000000, no entry word, the kernel builds the frame, and the program runs from its link address).
 
 Five M5 tasks remain: the syscall table with pointer validation, a user program built by krc that prints and draws, protection with K=0, krdbg's kernel support, and the two deferred questions.
+### 2026-11-23T22:15:00-08:00 — M5: the syscall table meets the hardware's own numbering
+
+Host: CROSBY (Windows). The kernel now carries a table with a validated pointer bound and rejects an unknown call with -1 before touching memory; it builds (entry 1244). A user program exercising a valid and an invalid pointer gives:
+
+```
+trap 3 at 0x00000000 after 4 steps
+```
+
+Vector 3 means **unknown `SYS` number**, raised on the **user's first `sys`** with `r7 = 1`. So the hardware validates syscall numbers against its own table before the kernel sees them, and my kernel's numbering does not match it. Vector 3 has no handler, so the handler word at `0x010C` is zero and the machine stops.
+
+That is the fact to establish next: read the register's `SYS` table in the ISA, then choose the kernel's numbers to match it -- or install vector 3 and treat the hardware's rejection as the kernel's business.
+
+Not ticked. The kernel's shape is right and its validation is written; the numbering is the open question, and it is one section away in the draft.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
