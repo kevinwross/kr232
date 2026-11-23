@@ -2337,6 +2337,23 @@ r11 & 0xFF     == 0x50     FAIL   the load returned something else
 The program's console output, `0x40` for a stored `0x50`, is the loaded value rather than the stored one -- so `ld r11, [r10]` returns a word whose low byte has bit 4 clear, which is exactly the kind of near-miss that looks like a bit-drop in the store.
 
 The failing test was withdrawn to keep the suite green; the finding is here. Next: the Compact load's address computation -- `address = regs_[b]` -- with a debug print of the address the load actually uses, compared with the address the store used.
+### 2026-11-24T07:40:00-08:00 — M3: a single `ld r11, [r10]` cannot read a byte that is there
+
+Host: CROSBY (Windows). The smallest possible case:
+
+```
+ld r11, [r10]  (8E BA), r10 = 0x2000, memory[0x2000] = 0x50
+
+pc   == 0x1002   PASS   the instruction ran and its length is right
+r10  == 0x2000   PASS   the base register is untouched
+r11 & 0xFF == 0x50  FAIL
+```
+
+So the instruction executes with the correct operands, does not disturb the base, and still produces a value whose low byte is not the byte that is in memory. The disassembler reads the same two bytes as `ld r11, [r10]`, and `ld r8, [r8]` (8E 88) works everywhere in the kernel -- so the difference between a working and a failing load is the **register numbers**: 8 and 8 work, 11 and 10 do not.
+
+That points at the decode of the two 4-bit register fields when either is 8 or above, and it is testable without another guess: the next round adds an env-gated print of `d.a`, `d.b`, the address and the value inside the machine's compact memory path, the same instrument that settled the trap-policy question.
+
+The test was withdrawn; `ctest` is 8 of 8.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
