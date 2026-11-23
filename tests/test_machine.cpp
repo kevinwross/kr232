@@ -13,9 +13,15 @@ namespace {
 // Loads a byte sequence at 0x1000, which is inside kernel RAM, and points PC at
 // it. Each test then steps a known number of instructions.
 struct Program {
-    Machine machine{0x10000};
+    Machine machine;
 
-    explicit Program(std::initializer_list<std::uint8_t> code) {
+    // The default machine is 64 KiB: enough for the code page and a stack, and
+    // too small to hold user RAM at 0x08000000. A test that writes there needs
+    // the bigger size; `write8` answers Unmapped rather than pretending, and
+    // `the_default_test_machine_cannot_address_user_ram` pins that.
+    explicit Program(std::initializer_list<std::uint8_t> code,
+                     std::uint32_t bytes = 0x10000)
+        : machine(bytes) {
         std::uint32_t at = 0x1000;
         for (const std::uint8_t byte : code) {
             (void)machine.memory().write8(at++, byte);
@@ -484,4 +490,14 @@ TEST_CASE(sys_debug_write_and_a_reserved_number) {
     const kr232::StepResult result = reserved.machine.step();
     CHECK(result.stop == Stop::Trapped);
     CHECK(result.vector == 3u);
+}
+
+TEST_CASE(the_default_test_machine_cannot_address_user_ram) {
+    // The hazard this documents: a write to user RAM in the 64 KiB machine fails
+    // silently unless the test looks at the result, which cost four rounds of
+    // wrong conclusions about the protection path.
+    Machine small{0x10000};
+    CHECK(small.memory().write8(0x08000000u, 0x50) == kr232::Access::Unmapped);
+    Machine full{256u * 1024u * 1024u};
+    CHECK(full.memory().write8(0x08000000u, 0x50) == kr232::Access::Ok);
 }
