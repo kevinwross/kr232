@@ -2983,6 +2983,25 @@ A probe with `write(0xFFFFFFF0, 0x20)` answers **-1**; before the fix it trapped
 Suites: `kr232` **87** unit cases, `kr232` kernel rows re-run after the kernel change.
 
 Items 18, 19 and 20 of 25 closed.
+### 2026-11-25T08:15:00-08:00 — Items 21-25 closed: the list is empty
+
+Host: CROSBY (Windows) and BitWhiz (aarch64).
+
+- **Item 24** -- `krc_kr232_status_high` returns **0x80000005** from `main`, and the row requires the machine's printed status to be **2147483653**. A POSIX process status cannot carry it, which is why the check reads the printed value.
+- **Item 25** -- the package row links with `--source-root`, so its objects name their sources relative to the compiler checkout instead of to the machine that built them.
+- **Item 23** -- the round-trip table now lists **source and expected text** side by side, so `[sp+0]`, `[r3+0]` and `[sp+0]` for stores assert their canonical compact form instead of being absent: eighteen spellings, all matching what the table says.
+- **Item 21** -- `AGENTS.local.md`'s verified line names what ran and when: the lint, the Windows suite with the kernel and package rows, and `scripts/check-arm64.ps1` on BitWhiz.
+- **Item 22** -- the same file now states what the lint **cannot** see: it reads the two drafts only, and the plan's status row and §14's gate records are prose kept true by review.
+
+Final state of the repository, all four suites run after the last change:
+
+```
+krcompiler ctest -R kr232   36 of 36      krc_tests        3704 assertions
+kr232 ctest (kernel rows)   15 of 15      kr232 unit       87 cases
+krdbg kr232 adapter         17 of 17      spec lint        81/81 vectors
+```
+
+**All 25 items on the priority list are closed.**
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
