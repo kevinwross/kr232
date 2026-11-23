@@ -505,6 +505,17 @@ Also fixed on the way: `reset()` discarded a `[[nodiscard]]` result (now checks 
 Not ticked: the executor's check is "one test per vector from bytes to architectural state", and 12 targeted cases are not 81. The per-vector table is the next piece of work, and the task stays open until it exists.
 Next: the per-vector state table, then protection and traps.
 
+### 2026-11-22T20:27:41-08:00 — M1: the per-vector table designed, not written
+
+Host: CROSBY (no build)
+Settled the shape of the check, because it decides how the task is split:
+- A single loop over the 81 Appendix A vectors, each executed on a **canonical machine**: SP at `0x8000`, R2–R10 holding addresses in kernel RAM, F0–F3 holding distinct doubles, `[SP]` a `ret` target, an `IRET` frame at `0x6000`, and a saved FP at `0x7000`. The fixture is what makes one table serve every form.
+- **The expectation is the effect's shape, chosen per mnemonic**, not a hand-written value per vector: `push` must move SP down and write; `pop` up; `call` down and jump; `ret` jump to the frame's PC; a branch either advances by its length or lands on its computed target; `brk` traps 1; `syscall` traps 9; `sys` with R7 = 0 halts; `enter` moves SP down, `leave` restores it; a load changes a register; a store changes memory; `cmp` changes only flags; `rdcycle` writes R2; `iret` resumes at the frame's PC.
+- Where a value is unambiguous the table will carry it (`ld r2,#0x1234` → R2 = 0x1234); where the value would duplicate the executor's own arithmetic, the check asserts the shape and says so, because a second implementation of ADD in the test proves agreement with itself, not with the ISA.
+Split: three commits, not one — the harness with the integer shapes, then the FP shapes, then the value table for the vectors where the value is fixed by the Appendix. Each lands verified rather than half-written.
+Not landed: any code this round. A no-op edit to `tests/test_decode.cpp` was reverted and the tree is clean at `38b2ef3`.
+Next: the harness and its integer shapes.
+
 ### 2026-11-22T20:06:19-08:00 — the BitWhiz alias now matches both spellings
 
 Host: CROSBY and BitWhiz
