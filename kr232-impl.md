@@ -2851,6 +2851,29 @@ Getting there found three defects, all in the writing rather than the checking:
 - **Its upload was invalid** and always had been: a four-pixel row with an eight-byte stride is narrower than a row, so the device refused every time. It passed before because the block overlapped the counters beside it; with the globals fixed, the refusal became visible. Stride 16 is accepted and the frame is unchanged.
 
 Items 5 and 6 of 25 closed.
+### 2026-11-25T03:30:00-08:00 — Items 7 and 8 closed: both gates run the checks, not a list of them
+
+Host: CROSBY (Windows) and BitWhiz (aarch64).
+
+- **`gate-linux.sh`** now builds the suite with the kr216 and kr232 adapters and runs it through `ctest`, which picks the right invocation per host and excludes the x64 golden comparison on ARM64. A full run on BitWhiz ended:
+
+```
+== two adapters
+100% tests passed, 0 tests failed out of 4
+GATE LINUX ARM64: PASS
+```
+
+  Its first version built only `krdbg_tests` and then ran `ctest`, which also runs the demo and the kr232 binary: two tests reported **Not Run**. It builds the whole tree now.
+
+- **`scripts/gate-windows.ps1`** is the kr232 repository's entry point: the spec lint, the unit tests, the default suite, and -- when `-Krc` and `-Krld` are given -- the kernel rows, package row and fixture drift row in their own build directory, saying they were skipped when they were:
+
+```
+15 of 15 kernel rows ... GATE KR232: PASS
+```
+
+  Its first version passed the compiler paths inside a scriptblock and CMake saw neither; they go as an argument array now, and one debug echo was removed before the commit.
+
+Items 7 and 8 of 25 closed.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
