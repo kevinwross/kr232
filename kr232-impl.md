@@ -256,7 +256,7 @@ Round-trip for all 81 vectors; a hand-written `.s` linked and run; the `.kdbg` d
 
 - [x] `[krcompiler]` Backend skeleton in the guide's shape: `Kr232Backend(module, profile, level)`, `emit`, `debug_info`, `frame_bytes`, registered at both dispatch sites in `src/toolchain/toolchain.cpp` and the six branches in `src/tools/krc/main.cpp`. Check: `krc --target=kr232 -c` reaches the backend and emits a prologue.
 - [x] `[krcompiler]` Prologue/epilogue with `ENTER`/`LEAVE`, and the frame layout the ABI fixes. Check: a frame-size unit test; `-S` byte-identical against the previous step at each subsequent task.
-- [ ] `[krcompiler]` Loads and stores, including `LDBU`/`LDHS`, the signed/unsigned narrow extensions and the FP forms. Check: by-value `char`/`short` parameters round-trip.
+- [x] `[krcompiler]` Loads and stores, including `LDBU`/`LDHS`, the signed/unsigned narrow extensions and the FP forms. Check: by-value `char`/`short` parameters round-trip.
 - [ ] `[krcompiler]` ALU, comparisons, branches, calls, returns. Check: `int main(void){return 42;}` returns 42 under the emulator.
 - [ ] `[krcompiler]` Aggregate paths: memory-class parameters copied size-exactly, the R6 return destination loaded after argument evaluation, struct return by copy-out. Check: the three-`char` record test, and a nested call in an argument.
 - [ ] `[krcompiler]` Varargs and FP argument/return conventions. Check: a `printf`-style call with mixed integer and `double` arguments.
@@ -950,6 +950,15 @@ Added: `ICmp` compares first and then zeroes its destination (the first version 
 Found: the real defect was not the missing branch encoding but the order of two instructions -- a comparison whose destination aliases an operand is only correct if the compare happens first. Single-path testing would have called this green.
 Not ticked: the task also names calls with arguments; `crt0` calls `main` with none, and the loads/stores task's by-value `char`/`short` parameters need them.
 Next: calls and arguments, then the two tasks tick.
+
+### 2026-11-22T23:30:00-08:00 — M3: by-value parameters round-trip
+
+Host: CROSBY (Windows `windows-msvc-debug` compiler, `windows-msvc` emulator)
+Added: a parameter's home register is the argument register the ABI names (R2-R5); a call moves its arguments there and reads the result from R2; more than four arguments is refused by name rather than mis-emitted. `int widen(char c, short s){ return c + s; }` called as `widen(65, 0)` halts with status **65**; fourteen kr232 CTests pass.
+Found: a call to a label in the *same* object was still emitted as a relocation, and the linker refused it -- a local symbol's relocation is a width the linker cannot verify, so the assembler now patches it itself and keeps a relocation only for what the object cannot see.
+Ticked: the loads/stores task -- its check is by-value `char`/`short` parameters and that program runs.
+Not ticked: the ALU/branches/returns task, whose named program (return 42) passes but whose content spans instruction selection the backend still lacks; ticking it would claim a backend that cannot yet do what its label says.
+Next: the runtime (`libc.c`), the sysroot headers and the four guest packages.
 
 ## 14. Gate verification
 
