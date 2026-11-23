@@ -293,7 +293,7 @@ Commands draw into a target surface inside the aperture:
 | 3 | `FILL_RECT` | x, y, w, h, colour | fill a rectangle |
 | 4 | `COPY_RECT` | source offset, x, y, w, h | copy within the target |
 | 5 | `DRAW_LINE` | x0, y0, x1, y1, colour | Bresenham, both endpoints included |
-| 6 | `DRAW_TEXT` | x, y, pointer, length, fg, bg | 10x20 text from guest memory; `fg` and `bg` are XRGB colours |
+| 6 | `DRAW_TEXT` | x, y, pointer, length, fg, bg | **not implemented**: accepted, answers `STATUS` bit 0 `ERROR`, and changes no pixels — the 10x20 atlas belongs with the terminal page |
 | 7 | `FLIP` | — | the framebuffer `FLIP` of §5.3 |
 | 8 | `SET_SURFACE` | offset, width, height, stride | select the target |
 | 9 | `COPY_RECT_STRIDED` | source offset, source stride, x, y, w, h | copy from another surface |
@@ -307,6 +307,7 @@ Commands draw into a target surface inside the aperture:
 - `SET_SURFACE` is rejected (error, no change) when the width is 0 or above 1920, the height is 0 or
   above 1080, the stride is not a multiple of 4 or below `width*4` or above 7680, the offset is not
   a multiple of 4, or `offset + height*stride` leaves the 32 MiB aperture.
+- `DRAW_TEXT` answers `STATUS` bit 0 `ERROR` and changes no pixels: the command is accepted so a caller learns that text-to-surface is not available, and the 10x20 atlas ships with the terminal page.
 - `DRAW_TEXT` is rejected when the source range `[pointer, pointer+length)` leaves RAM (the device
   region is not readable as text). Length is clamped to 4096 bytes.
 - `UPLOAD` is rejected when the source rows do not fit in RAM, when the source stride is below

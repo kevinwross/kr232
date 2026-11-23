@@ -139,6 +139,15 @@ if(KR232_BUILD_TESTS)
     # block-pointer drawing calls; the frame it commits is the golden.
     # The kernel's read call: the program echoes whatever the console holds, so
     # the text coming back out proves the bytes reached user memory.
+    # DRAW_TEXT must say it is not supported rather than answer success: the
+    # program exits 0 only when STATUS bit 0 ERROR came back through the kernel.
+    add_test(NAME kr232_kernel_text_reports_error
+        COMMAND ${CMAKE_COMMAND}
+                -DVM=$<TARGET_FILE:kr232-emu>
+                -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.k232
+                -DPROGRAM=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-text.k232
+                -DEXPECT_EXIT=0
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232Kernel.cmake)
     add_test(NAME kr232_kernel_read
         COMMAND ${CMAKE_COMMAND}
                 -DVM=$<TARGET_FILE:kr232-emu>
