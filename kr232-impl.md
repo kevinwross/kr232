@@ -977,6 +977,14 @@ Found: the first draft copied KR216's header, which defines `int64_t` as `long l
 Ticked: the sysroot `bits/` task.
 Next: the four guest packages, the per-target loops, and the `-O1` measurement.
 
+### 2026-11-23T00:25:00-08:00 — M3: the drawing library compiles; determinism is now a test
+
+Host: CROSBY (Windows `windows-msvc-debug`)
+Added: `cmake/CheckKr232Determinism.cmake` and its test -- the same program built twice into different paths must hash equal; seventeen kr232 CTests pass.
+Diagnosed the drawing trap: `gfx_set_colour` stores its argument to `current_colour`, a file-scope object, and the emitted code was `ld r6, [fp-4]; st [r7], r6` -- r7 holds nothing, so the store went to address zero and the machine trapped. The cause is not the store: it is that **the backend has no address for a global**, the same gap that made a string literal trap earlier. `.data` is not emitted at all, and an immediate cannot yet name a symbol.
+Named gap, in order: emit module globals into `.data` with labels; let `ld rD, #symbol` emit an `Abs32` relocation; materialise a `GlobalVariable` operand by loading its address. Until those exist, no runtime state can live across calls and the `gfx`/`cons` packages cannot hold a current colour, cursor or mode.
+Next: global data addressing.
+
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
