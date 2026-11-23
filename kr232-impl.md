@@ -2107,6 +2107,24 @@ userdraw.k232   frame 2bf050200a5e1325    halted status 0     (identical on a se
 The frame hash is the golden for this program: **`2bf050200a5e1325`**, reproducible across runs, and it is the same value the M3 kernel-mode drawing fixture produces -- which is the point: the API and its arguments are identical in both modes.
 
 Ticked: **the user-mode program that prints, draws and exits through the table**. M5 at 5 of 7. Remaining: krdbg's kernel support, and the two deferred questions.
+### 2026-11-24T03:10:00-08:00 — M5: the debugger can load a kernel and a program
+
+Host: CROSBY (Windows). `kr232adapter::kernel_supported()` and `load_kernel()` exist and behave:
+
+```
+krdbg_kr232_tests: 16 tests, 0 failures
+```
+
+`load_kernel` loads the kernel as the machine's image, places the program at `0x08000000`, **keeps the kernel's PC across the load**, hands the program's entry to the kernel **in R2**, and takes its **debug payload from the program image** -- because that is what a debugger steps through. A program based below user RAM is refused with the same message the emulator gives.
+
+**Not ticked:** the task's check wants the debugger to load kernel then program and **step the program through a syscall**. That needs the kernel and program as checked-in fixtures and a test that runs the syscall path; both are next, so the task stays open with the code in place.
+### 2026-11-24T03:10:00-08:00 — M5: the debugger can load a kernel and a program
+
+Host: CROSBY (Windows). `kr232adapter::kernel_supported()` and `load_kernel()` exist and behave; `krdbg_kr232_tests` is **16 tests, 0 failures** (commit **5facfe0**).
+
+`load_kernel` loads the kernel as the machine's image, places the program at `0x08000000`, **keeps the kernel's PC across the load**, hands the program's entry to the kernel **in R2**, and takes its **debug payload from the program image**, because that is what a debugger steps through. A program based below user RAM is refused with the same message the emulator gives.
+
+**Not ticked:** the task's check wants the debugger to load kernel then program and **step the program through a syscall**. That needs both images as checked-in fixtures and a test that runs the syscall path; the code is in place and the evidence is not.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
