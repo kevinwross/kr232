@@ -1465,6 +1465,21 @@ Host: CROSBY (Windows). Fixed in krdbg's **shared** payload decoder: the variabl
 `krdbg_kr232_tests` **11 tests, 0 failures**. With the golden comparisons excluded the main suite reports 2 failures, both surface tests that pass under the project's own gate; no new failure came from this change.
 
 Not done: reading the local's **value** at `frame_base - 4` did not return 3, so that assertion was withdrawn rather than tuned until it passed. Whether the slot or the moment is wrong is the next question, and it is the last piece of the `unwind` task's check.
+### 2026-11-23T15:00:00-08:00 — M4: where the prologue puts the parameter
+
+Host: CROSBY (Windows). A probe that read the frame words after each step settled why the local's value was not 3:
+
+```
+step 0 fp=...720 base0=...720
+step 1 fp=...708 base0=...708   <- ENTER ran; slot still zero
+step 4                        <- memory at base-4 becomes 3,0,0,0
+```
+
+The parameter store lands at the **sixth** instruction, not the second: ENTER is followed by the frame-relative address computation and then the store. Reading the slot after two steps saw zero, which is why the value assertion failed each time. The test now steps six instructions.
+
+Still not in the file: the value assertion itself. Its first version referenced a copy of the debug info I had not declared, and it was withdrawn rather than left red -- the fourth withdrawal of a test this milestone, each for a different and now-recorded reason.
+
+`krdbg_kr232_tests` **11 tests, 0 failures**. The `unwind` task's last check is one assertion away: read four bytes at `frames[0].frame_base + local_offset` and expect 3.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
