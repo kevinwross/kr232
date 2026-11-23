@@ -568,8 +568,19 @@ register set, and the command numbering in §8.2 with only `SET_COLOR` retired. 
 explicit XRGB colours rather than the terminal's palette indices, because a gfx program is not
 bound by the console's palette.
 
-## 14. Deferred to 2.0
+## 14. Settled at M5
 
-1. **Display call numbers and errors.** The layout (ISA §15.36), the shared 0–2 numbering (ISA
-   §15.49) and the copy (ISA §15.50) are fixed; the display call numbers from 16 up and the error
-   values are still open. They settle with the kernel's syscall table in M5.
+**None.** The display call numbers and their errors are settled here, at M5:
+
+| Call | Number | Arguments (`R2`-`R6`) |
+|---|---|---|
+| `gfx_fill_rect` | 16 | x, y, w, h, colour |
+| `gfx_flip` | 17 | -- |
+| `gfx_copy_rect` | 18 | source offset, x, y, w, h |
+| `gfx_draw_line` | 19 | x0, y0, x1, y1, colour |
+| `gfx_draw_text` | 20 | x, y, pointer, length, fg, bg |
+| `gfx_upload` | 21 | source address, surface offset, w, h, source stride |
+
+Numbers 0-2 keep their shared meaning (ISA §15.49) and 3-15 stay reserved. Errors are the ISA
+§18 values: -1 for a refused argument, -2 for an unknown call; the device's own rejection is
+reported in `R2` as the graphics `STATUS` word rather than as a trap.

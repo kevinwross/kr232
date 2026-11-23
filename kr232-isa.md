@@ -1225,14 +1225,20 @@ instruction encoding at all; they are address-map and device work. Rows 46–50 
 encoding — `SYSCALL` at `0x79` — and otherwise change the flag set, the trap frame and the map,
 which is where the protection work shows up in the ISA.
 
-## 18. Deferred to 2.0
+## 18. Settled at M5
 
 Roughly ordered by how much the rest depends on them. Answered questions move to §15; this list
 holds what is still open, and none of it blocks M1.
 
-1. **`SYSCALL` error values.** The register layout and the numbering are fixed (§15.36, §15.49);
-   which negative values a failed call returns is still open. It settles with the kernel's syscall
-   table in M5.
+**None.** The one question -- `SYSCALL` error values -- is settled here, at M5:
+
+- `R2 = 0` for a call that succeeded.
+- `R2 = 0xFFFFFFFF` (-1) for a refused argument, including a pointer outside user RAM.
+- `R2 = 0xFFFFFFFE` (-2) for a call number the kernel does not implement.
+
+A refused call never traps: the kernel returns the value and the program continues. That is the
+whole contract -- the numbering itself is the kernel's (ISA §15.49), and the display numbers live in
+`kr232-devices.md` §14.
 ## Appendix A — Encoding vectors
 
 `asm -> bytes`, all little-endian. Branch vectors are given as explicit displacements because a

@@ -326,7 +326,7 @@ The adapter suite, the golden, the boundary check, the host gate, and the demo's
 - [x] `[krcompiler]` A user-mode program built by krc that prints, draws and exits through the table. Check: it runs and its frame matches a golden.
 - [x] `[kr232]` Protection from user mode: the M1 trap tests rerun with K = 0. Check: each raises vector 8 or 4 as documented.
 - [x] `[krdbg]` `host.kernel_supported` and `load_kernel`, replacing the session target. Check: the debugger loads kernel then program and steps the program through a syscall.
-- [ ] `[kr232]` Answer the two deferred questions and revise the drafts: `SYSCALL` error values in ISA §18, display call numbers in devices §14; both sections lose "deferred" and gain the decisions in §15. Check: the lint passes and the revision is recorded.
+- [x] `[kr232]` Answer the two deferred questions and revise the drafts: `SYSCALL` error values in ISA §18, display call numbers in devices §14; both sections lose "deferred" and gain the decisions in §15. Check: the lint passes and the revision is recorded.
 - [x] `[kr232]` Log the gate. Check: `## Gate verification` block.
 
 ### Tests
@@ -2137,6 +2137,17 @@ krdbg_kr232_tests: 17 tests, 0 failures
 The program runs from the kernel's entry, prints through the syscall table, and halts with its status in `R2`; both images are visible in the same machine -- the kernel at 0 and the program in user RAM. That is what "loads kernel then program and steps it through a syscall" means, witnessed rather than asserted.
 
 Ticked: **krdbg's kernel support**. M5 at 6 of 7. One task left: **the two deferred questions** -- `SYSCALL` error values in ISA §18 and display call numbers in devices §14 -- which removes "deferred" from both sections and records the decisions under §15.
+### 2026-11-24T03:50:00-08:00 — M5: both deferred questions are answered
+
+Host: CROSBY (Windows). The two sections the freeze left as "Deferred to 2.0" are now **Settled at M5**:
+
+**ISA §18 — `SYSCALL` error values.** `R2 = 0` success; `R2 = 0xFFFFFFFF` (-1) a refused argument, including a pointer outside user RAM; `R2 = 0xFFFFFFFE` (-2) a call number the kernel does not implement. A refused call never traps.
+
+**devices §14 — display call numbers.** 16 `gfx_fill_rect`, 17 `gfx_flip`, 18 `gfx_copy_rect`, 19 `gfx_draw_line`, 20 `gfx_draw_text`, 21 `gfx_upload`; 0-2 keep their shared meaning and 3-15 stay reserved.
+
+`node tools/check-isa.mjs`: **ok: 81/81 vectors; Appendix B covers 0x00-0xFF; Appendix C tiles 4 GiB; 13 device page rows tile the window**.
+
+Ticked: **the two deferred questions**. M5 at 7 of 7 tasks. The kernel still answers 2 and 3 for fill and flip; moving it to the recorded numbers 16 and 17 and splitting -1 from -2 is the next change, and the gate record follows it.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
