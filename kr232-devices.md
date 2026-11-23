@@ -588,3 +588,10 @@ bound by the console's palette.
 Numbers 0-2 keep their shared meaning (ISA §15.49) and 3-15 stay reserved. Errors are the ISA
 §18 values: -1 for a refused argument, -2 for an unknown call; the device's own rejection is
 reported in `R2` as the graphics `STATUS` word rather than as a trap.
+
+`write` (1) and `read` (2) take a pointer and a length, and both **refuse a range before touching
+it**: an address below `0x08000000`, a length whose sum with the address wraps, or a sum above
+`0xFC000000` answers -1 with no byte copied. There is **no other length cap** -- the range rule is
+the only limit, and the kernel cannot see a machine whose physical RAM is smaller than the ISA's
+maximum, so a range inside the ISA limit but beyond the installed memory still traps where it is
+accessed. A caller that must not trap has to keep its range inside the RAM it was given.

@@ -423,11 +423,13 @@ TEST_CASE(sys_write_sends_guest_bytes_to_the_console) {
         CHECK(out[1] == 'i');
     }
 
-    // A refused descriptor answers -1 and writes nothing.
+    // A refused descriptor answers -1 and writes nothing. Descriptor 2 is the
+    // conventional error stream and is not one the host serves, so it is refused
+    // like any other number (ISA §13: 1 is the console, 0 its input).
     Program refusal{0x73};
     (void)refusal.machine.memory().write8(0x2000, 'x');
     refusal.machine.set_reg(7, 1);
-    refusal.machine.set_reg(2, 9);
+    refusal.machine.set_reg(2, 2);
     refusal.machine.set_reg(3, 0x2000);
     refusal.machine.set_reg(4, 1);
     (void)refusal.machine.step();
@@ -457,8 +459,9 @@ TEST_CASE(sys_read_takes_console_input_and_time_answers_two_words) {
     (void)empty.machine.step();
     CHECK(empty.machine.reg(2) == 0u);
 
-    // time fills R2:R3 with seconds; the high word is zero for any date we care
-    // about, and the low word is not.
+    // time fills R2:R3 with 64-bit seconds. The high word is zero until 2106,
+    // which is why no test can reach the carry through it: the contract is
+    // checked, the top half is not exercisable on a host clock today.
     Program time_call{0x73};
     time_call.machine.set_reg(7, 3);
     (void)time_call.machine.step();

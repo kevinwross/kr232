@@ -76,11 +76,20 @@ exit_call:
   sys
 
 write_call:
-  ; R2 user pointer, R3 length: refuse anything below user RAM before touching it.
+  ; R2 user pointer, R3 length: refuse a range that leaves user RAM before
+  ; touching it, so a long length is an argument error and not a trap halfway.
   ld r9, #user_low
   ld r9, [r9]
   cmp r2, r9
   bcc bad_argument
+  mov r5, r2
+  add r5, r3
+  cmp r5, r2             ; a wrapped sum lands below the pointer
+  bcc bad_argument
+  ld r10, #user_high
+  ld r10, [r10]
+  cmp r5, r10
+  bhi bad_argument
   ld r8, #console
   ld r8, [r8]
   ld r9, #0
@@ -278,6 +287,8 @@ submit:
 .data
 user_low:
   .word 0x08000000
+user_high:
+  .word 0xFC000000       ; one past the last user byte
 console:
   .word 0xFFF02000
 gfx:
