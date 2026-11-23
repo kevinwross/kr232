@@ -233,7 +233,7 @@ The 81 vectors, the protection suite, the eight device suites, the blitter rejec
 - [x] `[krcompiler]` `cmake/RunKr232Image.cmake` and the `KRC_KR232_VM` cache variable in `CMakeLists.txt`, with the sibling fallback. Check: a deliberate wrong exit status fails with `expected exit N, got M`.
 - [ ] `[kr232]` `kr232-dis`: the canonical decoder and text form, shared with the emulator. Check: a disassembly test over all 81 vectors and over the assembled fixture.
 - [x] `[kr232]` The `.k232` loader replaces the flat loader and dispatches on the container magic. Check: a bad checksum, a section outside the map and a base mismatch each fail at load.
-- [ ] `[kr232]` A `.s` fixture assembles to an object, links to a `.k232`, and runs under M1. Check: exit status and screen match.
+- [x] `[kr232]` A `.s` fixture assembles to an object, links to a `.k232`, and runs under M1. Check: exit status and screen match.
 - [ ] `[kr232]` Log the gate. Check: `## Gate verification` block with every M2 item.
 
 ### Tests
@@ -856,6 +856,14 @@ Found: the emulator returned 0 whatever the program did, so the runner could not
 Ticked: `RunKr232Image.cmake` with `KRC_KR232_VM`, and the `.k232` loader replacing the flat loader.
 Not ticked: the `.s` fixture task, whose check also asks the screen to match; the fixture draws nothing yet, so a frame hash would be the empty basis and prove nothing.
 Next: give the fixture a drawing and a flip, pin its frame hash, then `kr232-dis` and the M2 gate.
+
+### 2026-11-22T21:54:30-08:00 — M2: the drawing fixture runs and its screen is pinned
+
+Host: CROSBY (Windows `windows-msvc` emulator, `windows-msvc-debug` compiler)
+Added: `tests/fixtures/kr232-draw.s` -- eight instructions that write `0x00112233` into the back surface, flip through the framebuffer register and exit 0 -- assembled with `krc -c` and linked with `krld --entry=main --base=0x200` into a checked-in container. `RunKr232Image.cmake` gained an optional `FRAME_HASH`: when set it asks the emulator for `--frame-hash` and requires the printed value, so the rendered screen is compared rather than described. Two more tests: the fixture run with its pinned hash `e8bda242f061f369`, and a wrong hash marked `WILL_FAIL` so the comparison is known to run.
+Ran: `ctest -R kr232` **6 of 6 passed**.
+Ticked: the `.s` fixture task -- exit status and screen both match.
+Next: `kr232-dis`, then the assembler task's disassemble half, then the gate record.
 
 ## 14. Gate verification
 
