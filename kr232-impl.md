@@ -2566,6 +2566,23 @@ trap 8 at 0x00000000 after 476 steps
 The trace puts the fault inside `fb_height()`: it loads the cached value, stores it to `[fp-12]`, and **`fp` is `0x258`** -- a value, not an address -- so the store lands below user RAM and raises vector 8. The generated call sequence for the stub was read and is correct: five arguments pushed last-first in eight-byte slots, `call`, `add r15, #48`. So the frame pointer is being restored from the wrong slot somewhere between the package call and the next function entry, and the next round starts by printing `r13` at each `enter` and `leave` rather than reading more assembly.
 
 Gap 3 stays open; gaps 1 and 2 are closed.
+### 2026-11-24T13:05:00-08:00 — The corrupt frame pointer is a local array on top of it
+
+Host: CROSBY (Windows). The instrumented frame trace named the fault in one run:
+
+```
+ENTER pc=08004E7C fp=0FFFFF94 frame=12
+ENTER pc=08004D28 fp=0FFFFF80 frame=100      <- fetch_mode, the package's frame
+LEAVE pc=08004E78 fp_before=0FFFFF80 fp_after=00000258
+```
+
+`leave` read `0x258` -- the cached height, an ordinary value -- out of the slot that should hold the saved frame pointer. The cause is in the compiler, not the packages: a local array took its **first** slot's address, and slot addresses fall as the index rises, so `unsigned block[3]` was placed at `FP-8` and spanned `FP-8`..`FP+3`. Its last word **overwrote `[FP]`**, and the next `leave` returned to `0x258`.
+
+The frontend's own debug record says the same thing without running anything: `.debug_var fetch_mode block -8 0 12`.
+
+Fixed in `kr232_backend.cpp`: an alloca's address now comes from the **last** slot of its run, and a minimal three-word array is placed at `FP-12` instead of `FP-8`. **31 of 31** kr232 rows and **3704** assertions still pass.
+
+Not fixed yet: `fb_user.c`'s array is still emitted at `FP-8`, so a second site computes the same address -- the arrangement that reaches `.debug_var`'s slot rather than the `materialize` alloca branch. The next step is to find every emission of `mov rX, r13` followed by `sub rX, #(4+4*slot)` and send it through the helper, then re-run the package program.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
