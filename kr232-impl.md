@@ -199,11 +199,11 @@ The gate block under `## Gate verification`, quoting the failing test's output, 
 - [x] `[kr232]` `executor`: ALU, shifts, branches, loads/stores, `ENTER`/`LEAVE`, `CALL`/`RET`, `PUSH`/`POP`, halfword and byte forms, `SYS`, `IRET`, `BRK`, `RDCYCLE`. Check: one test per vector from bytes to architectural state — the 81-vector effect harness, plus the twelve value cases.
 - [x] `[kr232]` Protection and traps: the 16-byte frame, vector 4 for the gaps and null page, vector 8 for the two user ranges and kernel-only instructions, vector 9 for `SYSCALL`, `IRET`'s restore of K, I and SP, and the K/I write rules. Check: the M1 gate's protection list, case by case.
 - [x] `[kr232]` Devices: timer, console, framebuffer, keyboard, terminal, graphics commands, system, blitter — registers, `ID` at `0x3C`, reset values, and the trap rules for undefined offsets and reserved pages. Check: per-page tests, and the `ID` word of all eight.
-- [ ] `[kr232]` Blitter: `COPY`, `FILL`, `UPLOAD`, range validation before any byte moves. Check: a rejected range leaves memory unchanged.
-- [ ] `[kr232]` Frame commit and `--frame-hash`: the committed surface's hash, with a checked-in golden. Check: the golden matches on x64 and the ARM64 row records "excluded".
-- [ ] `[kr232]` Flat image loader and CLI: `vm <image> --max-steps N`, `--trace`, `--screenshot`, `--frame-hash`, with the program's `SYS exit` status as the process status. Check: a hand-encoded image runs and exits with its status.
-- [ ] `[kr232]` A hand-encoded kernel-mode image that writes to the terminal, draws through the graphics page and flips. Check: its frame hash equals the golden.
-- [ ] `[kr232]` Record the gate. Check: `## Gate verification` block with the plan's five items, each naming its test.
+- [x] `[kr232]` Blitter: `COPY`, `FILL`, `UPLOAD`, range validation before any byte moves. Check: a rejected range leaves memory unchanged.
+- [x] `[kr232]` Frame commit and `--frame-hash`: the committed surface's hash, with a checked-in golden. Check: the golden matches on x64 and the ARM64 row records "excluded".
+- [x] `[kr232]` Flat image loader and CLI: `vm <image> --max-steps N`, `--trace`, `--screenshot`, `--frame-hash`, with the program's `SYS exit` status as the process status. Check: a hand-encoded image runs and exits with its status.
+- [x] `[kr232]` A hand-encoded kernel-mode image that writes to the terminal, draws through the graphics page and flips. Check: its frame hash equals the golden.
+- [x] `[kr232]` Record the gate. Check: `## Gate verification` block with the plan's five items, each naming its test.
 
 ### Tests
 
