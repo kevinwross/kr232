@@ -263,7 +263,7 @@ Round-trip for all 81 vectors; a hand-written `.s` linked and run; the `.kdbg` d
 - [ ] `[krcompiler]` C++ surfaces: class, `this` in R10, virtual dispatch with the reserved typeinfo slot, constructors. Check: a virtual call dispatches to the override; the vtable's `[vptr - 4]` word is present and zero.
 - [ ] `[krcompiler]` `targets/kr232/runtime/crt0.s`: frame, call `main`, pass the status to `SYS exit`; no stack setup, since reset SP is `0x08000000`. Check: a linked image exits with `main`'s status.
 - [ ] `[krcompiler]` `targets/kr232/runtime/libc.c`: console output, the `SYS` write/read/exit stubs, blitter-backed `memcpy`/`memset`. Check: output appears on the terminal transcript.
-- [ ] `[krcompiler]` `sysroot/kr232/include/bits/` generated from the profile: `bits/types.h`, `bits/stdint.h`. Check: `stdint.h` widths round-trip in a unit test.
+- [x] `[krcompiler]` `sysroot/kr232/include/bits/` generated from the profile: `bits/types.h`, `bits/stdint.h`. Check: `stdint.h` widths round-trip in a unit test.
 - [ ] `[krcompiler]` The four guest packages: `<kr232/fb.h>`, `<kr232/gfx.h>`, `<kr232/cons.h>`, `<kr232/input.h>`, with kernel-mode implementations. Check: the drawing program fills, draws and flips through `gfx`.
 - [ ] `[krcompiler]` Per-target link/run loops at `-O0`, a determinism test, a KDBG-invariants test at `-O0`, and the clean gate. Check: the executed rows exist because `KRC_KR232_VM` resolved.
 - [ ] `[krcompiler]` The `-O1` measurement ADR 0049 requires, recorded whether it lands or not. Check: the measurement is in the log; the `_o1` twins appear only if it does.
@@ -968,6 +968,14 @@ Found, and it is the third instance of one class: the store's address lived in `
 Also fixed on the way: function declarations were emitted as bodies (a duplicate `puts_`), pointer casts had no case, and `getelementptr` needed constant-index folding.
 Not ticked: the runtime task. Its check (the transcript) passes, but the task also names the `SYS` write/read/exit stubs and blitter-backed `memcpy`/`memset`; `putchar_` writes the device directly because there is no kernel yet, and the `SYS` form arrives with M4.
 Next: the sysroot `bits/` headers, the four guest packages, or the remaining runtime surface -- whichever the plan orders next.
+
+### 2026-11-23T00:05:00-08:00 — M3: the sysroot's widths are the profile's
+
+Host: CROSBY (Windows `windows-msvc-debug`)
+Added: `sysroot/kr232/include/bits/stdint.h` and `bits/types.h`. Through the front end with `--sysroot sysroot`, a fixture asserts 8, 16 and 32-bit integers, `intptr_t` and `size_t` at four bytes, and `intmax_t` at four; sixteen kr232 CTests pass.
+Found: the first draft copied KR216's header, which defines `int64_t` as `long long` -- and the compiler rejected it, because kr232's ABI records `long_long_bits` as zero. The sysroot must carry the profile's arithmetic, not another target's: there is no 64-bit integer type on this target, and the header now says so by omission.
+Ticked: the sysroot `bits/` task.
+Next: the four guest packages, the per-target loops, and the `-O1` measurement.
 
 ## 14. Gate verification
 
