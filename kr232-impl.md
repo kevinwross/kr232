@@ -935,6 +935,14 @@ Found: `crt0` called `sys` with whatever R7 held, and R7 is both the SYS number 
 Not ticked: the loads/stores task's check is by-value `char`/`short` *parameters*, which need calls with arguments; the ALU/branches task names instruction selection this backend does not yet have. Both stay open, and the programs above are their evidence in progress.
 Next: arguments and calls, then ALU and branches.
 
+### 2026-11-22T23:00:00-08:00 — M3: the integer ALU computes
+
+Host: CROSBY (Windows `windows-msvc-debug` compiler, `windows-msvc` emulator)
+Added: `Add`, `Sub`, `Mul`, `And`, `Or`, `Xor`, `Shl`, `LShr` and `AShr`, with an immediate when the right operand is a constant. `int a = 20; int b = 22; return a + b;` halts with status **42** and the process exits 42, so the result is computed rather than folded by the front end; eleven kr232 CTests pass.
+Found: the case block's `name` shadowed the function's `name` and MSVC treats C4456 as an error here, so the build refused a correct emission -- renaming the local was the whole fix, and it is why the warning level is worth keeping high.
+Not ticked: the ALU/branches/returns task still lacks comparisons (`ICmp`) and the branch opcodes (`Br`, `CondBr`).
+Next: comparisons and branches, then calls with arguments.
+
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
