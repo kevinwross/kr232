@@ -357,7 +357,7 @@ The kernel's entry and return, the syscall table's validation, protection from u
 | Milestone | State | Gate recorded |
 |---|---|---|
 | M0 | complete — gate recorded 2026-11-22T20:07:37-08:00 | M0 |
-| M1 | in progress — 9 of 11 tasks | — |
+| M1 | complete — 11 of 11 tasks | met 2026-11-22T21:01:09-08:00 |
 | M2 | not started | — |
 | M3 | not started | — |
 | M4 | not started | — |
@@ -658,4 +658,20 @@ Evidence: ADR **0057** and ADR **0058**; `docs/abi-kr232.md` (265 lines); **D-05
 ARM64: **not run** — M0 changes documentation and one test registration, and no `kr232` build exists to run there; the first ARM64 row is M1's.
 Gate: plan §5 — both ADRs merged, the ABI document merged, id 5 recorded, and the failing test fails for the documented reason. **Met.**
 
-*(M1's gate block follows when that milestone closes.)*
+### 2026-11-22T21:01:09-08:00 — M1 gate (Windows x64, WSL x64, BitWhiz ARM64)
+
+Builds: `cmake --preset windows-msvc` (MSVC 14.52.37025), `linux-wsl` (GCC 15.2.0), and `linux-arm64` on BitWhiz (aarch64, GCC 14.2.0, Debian 13) from a fresh clone of this commit.
+Tests: `ctest` **6 of 6** on each host — 2 hygiene and 4 unit: `kr232_version` (the suite itself), `kr232_cli_frame_hash`, `kr232_cli_kernel`, `kr232_cli_kernel_golden`.
+Lint: `node tools/check-isa.mjs` → `ok: 81/81 vectors; Appendix B covers 0x00-0xFF; Appendix C tiles 4 GiB; 13 device page rows tile the window; tables well-formed`.
+
+Evidence by exit criterion:
+
+1. **81 vectors.** `every_vector_executes_with_the_effect_its_form_requires` runs each Appendix A vector from its bytes on a canonical machine and asserts its form's effect; the twelve value cases in `test_machine.cpp` carry the arithmetic and flag semantics.
+2. **Protection.** Tests cover user access below `0x08000000` and at or above `0xFC000000` → 8; both gaps in both modes, with the high gap 4 in kernel mode and 8 in user mode; the null page in kernel mode → 4; `EI`, `DI`, `HALT`, `SYS` and `IRET` in user mode → 8 with a frame naming the instruction; `SYSCALL` → 9 and resuming after it; and `IRET` restoring I, K and SP.
+3. **Devices.** Eight pages answer their `ID` at `0x3C`; an undefined offset, a reserved page and a mis-shaped access trap with vector 4; a rejected `FLIP` sets `FLIP_ERROR` and commits nothing; the blitter validates both ranges before moving a byte.
+4. **Gate image.** `tests/fixtures/kernel-gate.bin`, hand-encoded at base 0, writes `'K'` to the terminal page, fills an 8×8 rectangle of `0x0000FF00` through the graphics command page, flips through the framebuffer page and exits through `SYS 0` — 21 instructions. `kr232_cli_kernel_golden` compares `--frame-hash` against `tests/fixtures/kernel-gate.hash`, the checked-in `2bf050200a5e1325`, and matches on all three hosts, so the hash is stable across compilers, libc and architecture.
+5. **Lint** as above.
+
+Known gaps, named rather than hidden: the 10×20 glyph atlas does not exist, so the terminal maintains and mirrors its grid but renders no pixels and `DRAW_TEXT` sets `ERROR`; the gate image's terminal write therefore exercises the page and the mirror, not pixels. Windows and WSL ran the full suite; BitWhiz was cloned fresh for this gate and is not kept as a working tree.
+
+Gate: plan §6 items 1–5 — **met**.
