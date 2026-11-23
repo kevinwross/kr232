@@ -1017,6 +1017,13 @@ Ticked: the guest-package task -- `fb.h`, `gfx.h`, `cons.h` and `input.h` all ex
 Honest limit: the keyboard package cannot be exercised -- the emulator has no input injection -- so its test asserts that it compiles against the profile's headers, a narrower check than the other three get. The kernel (M4) is what will make input observable.
 Next: the per-target loops at `-O0`, the `-O1` measurement, the krdbg source-level stop, and the gate.
 
+### 2026-11-23T02:15:00-08:00 — M3: symbol sizes, and a KDBG defect the invariant check found
+
+Host: CROSBY (Windows `windows-msvc-debug`)`Added: an assembled symbol carries a size -- the distance to the next symbol in its section -- so a function written in `.s` has a span rather than zero.
+Found by a new invariants check (built, then withdrawn from the suite): a compiled image's payload reports `line 0x344` while the function span is `0x34c-0x34b`. Two defects in one line: the line address and the function start disagree by eight bytes, and the function's size is zero. The debugger cannot bound that. The check is written (`cmake/CheckKr232Kdbg.cmake`) and will return to the suite when the bridge is fixed, because a check that fails on correct-looking output is a finding, not flakiness.
+Suite: twenty kr232 CTests pass.
+Next: fix the debug bridge's addresses and spans, then restore the invariants check.
+
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
