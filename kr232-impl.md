@@ -298,7 +298,7 @@ The per-target loops, determinism, KDBG invariants, the clean gate, `-S` byte-id
 - [ ] `[krdbg]` Source level: load `.k232`, locate `.kdbg`, `kdbg::read_payload`, resolve paths, `replace_target(std::move(target), info)` on reload. Check: line breakpoints resolve after a reload.
 - [ ] `[krdbg]` Host wiring: `--kr232`, the include under `KRDBG_HAVE_KR232`, `load_any` on the `.k232` extension and `--target kr232`, `tests/test_host_build.cpp` with `KRDBG_KRC_PREFIX`. Check: the prefix is installed at the krcompiler revision recorded in the log, `test_host_build` **runs** rather than skipping, and the demo loads the fixture both ways.
 - [ ] `[krdbg]` Fixtures and golden: `tests/fixtures/kr232/` assembled by M2's toolchain with a `regenerate.ps1`, and `goldens/kr232-loaded.hash`. Check: the golden matches on x64; the ARM64 run excludes it.
-- [ ] `[krdbg]` `tests/test_kr232_adapter.cpp`: load, layout, execution, inspection, line stepping, reload, no-debug-info, bad input, COM, framebuffer. Check: ten cases green.
+- [x] `[krdbg]` `tests/test_kr232_adapter.cpp`: load, layout, execution, inspection, line stepping, reload, no-debug-info, bad input, COM, framebuffer. Check: ten cases green.
 - [x] `[krdbg]` Boundary check and host gate. Check: `krdbg_platform_boundary` clean; the host gate passes on the changed rows; the adapter build is reported separately because the repository gate builds adapter-OFF.
 - [ ] `[kr232]` Log the gate. Check: `## Gate verification` block.
 
@@ -1431,6 +1431,19 @@ Built a container **without** a `.kdbg` section by renaming the section's string
 Ran: the **emulator accepts and runs it** -- `halted status 0 after 2 steps` -- so the file is a valid container, its CRC holds, and `kr232::load_image` is satisfied. The **adapter refuses it**, and the test's `CHECK(ok)` failed without the error text, so what the adapter complained about is not yet known.
 
 Not committed: the crafted fixture and its test were removed again rather than left red. The next step is to capture the adapter's `error` string -- a probe writing it to a file is two minutes and ends the guessing, which is the lesson this session keeps re-learning.
+### 2026-11-23T13:50:00-08:00 — M4: the no-debug case, and the measurement that ended it
+
+Host: CROSBY (Windows). The adapter's refusal was one line long, captured by a two-minute probe:
+
+```
+ok=0  error=the .kdbg payload: KDBG header checksum mismatch
+```
+
+So it **found** a `.kdbg` section after all: the container holds the string ten times -- the section name, the payload's own text, and the bridge records -- and my first craft renamed only the first occurrence. Renaming every occurrence and recomputing the CRC gave a container the adapter loads with `DebugPath::None` and no info, while still disassembling and halting.
+
+`krdbg_kr232_tests` **10 tests, 0 failures**. Ticked: **the adapter's test file**, whose list now has every item -- load, layout, execution, inspection, line stepping, reload, no-debug-info, bad input, COM and framebuffer.
+
+M4 at 9 of 14. Remaining: the `unwind` task's local value (needs variable records in `.kdbg`), the windowed `load_any` observation, the golden-hash task's fixture half, and the gate record.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
