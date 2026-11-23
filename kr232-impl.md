@@ -1314,6 +1314,12 @@ Added `krdbg/tests/fixtures/kr232/regenerate.ps1` (**6d4387a**): it rebuilds all
 Ran: `ctest --test-dir build/kr232-adapter` -- **3 of 3 passed**, including `platform_boundary`, so the adapter adds no platform dependency to a boundary that is checked.
 
 Not done: the gate script's own run (`scripts/gate-windows.ps1`, which configures Debug and Release, runs CTest and checks the headless hashes) and `goldens/kr232-loaded.hash`, whose subject is undecided -- what a "loaded" hash covers for this target is a decision, not a detail, and picking it in passing would be a guess.
+### 2026-11-23T11:00:00-08:00 — M4: a frame is published only when its words read
+
+Host: CROSBY (Windows, `build/kr232-adapter`)
+`unwind` now reads the return address and the saved frame pointer **before** pushing a frame, so a frame whose words cannot be read is absent rather than present with `pc` 0 -- which is exactly how the caller looked absent in the previous round. `krdbg_tests` **115 tests, 0 failures**.
+
+Still unexplained, and therefore unasserted: the caller frame's `pc` is not where I expect it. Two frames with distinct bases are asserted; the return address is not, because a check I cannot explain is a check that would be adjusted until it passes. The `unwind` task stays open on it, and on the local's value its check names.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
