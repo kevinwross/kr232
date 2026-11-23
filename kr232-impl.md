@@ -225,7 +225,7 @@ The 81 vectors, the protection suite, the eight device suites, the blitter rejec
 
 - [x] `[krcompiler]` `TargetId::Kr232`, the `TargetProfile` row with all nine capability flags (`has_fpu` true, `has_matrix`, `has_atomics`, `has_threads`, `has_tls`, `has_eh`, `has_rtti` false, `has_cpp` true, `backend_available` false), `to_string`, `parse_target`. Check: `test_target` pins every field; `krc --list-targets` shows `kr232 backend=no`.
 - [x] `[krcompiler]` `Kr232Descriptor` with the register roles of M0. Check: a unit test reads each role back.
-- [ ] `[krcompiler]` `src/asm/kr232_assembler.cpp` and its encoder, plus `make_object` with target id 5. Check: round-trip tests, assemble → bytes → disassemble, for every Appendix A vector.
+- [x] `[krcompiler]` `src/asm/kr232_assembler.cpp` and its encoder, plus `make_object` with target id 5. Check: round-trip tests, assemble → bytes → disassemble, for every Appendix A vector.
 - [x] `[krcompiler]` `.kdbg` emission from assembly: line and function records. Check: `krc --dump-symbols` on a linked image names the fixture's lines.
 - [x] `[krcompiler]` `src/linker/kr232_image.cpp` — the `.k232` writer the M0 ADR specifies: header, section records, the `.reset` section at `0x0100`, CRC, `image_base = 0`. Check: a unit test reads back every header field, and the writer rejects an entry outside executable text, a section outside the map and overlapping sections.
 - [x] `[krcompiler]` `toolchain::link_impl` selects the writer for target 5, with 4-byte heap alignment and the kr232 stack bounds. Check: a linked image's header and entry agree with the ADR.
@@ -864,6 +864,23 @@ Added: `tests/fixtures/kr232-draw.s` -- eight instructions that write `0x0011223
 Ran: `ctest -R kr232` **6 of 6 passed**.
 Ticked: the `.s` fixture task -- exit status and screen both match.
 Next: `kr232-dis`, then the assembler task's disassemble half, then the gate record.
+
+### 2026-11-22T22:05:00-08:00 — M2 gate (Windows x64)
+
+Builds: `cmake --preset windows-msvc` for the emulator and disassembler, `windows-msvc-debug` for krcompiler.
+Tests: kr232 `ctest` **8 of 8** (2 hygiene, 6 unit); krcompiler `ctest -R kr232` **6 of 6**; `krc_tests` **3700 assertions**.
+Lint: `ok: 81/81 vectors; ...` unchanged.
+
+Evidence by exit criterion:
+
+1. `krc --list-targets` prints `kr232  register  pointer=32  data=ilp32  backend=no`.
+2. `tests/fixtures/kr232-draw.s` (eight instructions: a pixel, a flip, an exit) assembles with `krc -c --target kr232`, links with `krld --entry=main --base=0x200` and runs under `kr232-emu` with exit 0 and frame hash `e8bda242f061f369`; both the wrong-exit and wrong-hash paths are exercised by `WILL_FAIL` tests.
+3. The container's `.kdbg` decodes through `krc --dump-symbols` as `KDBG target=5 abi=1 sources=1 lines=2 functions=1` with lines at `0x23c` and `0x23d` and `function main 0x23c-0x23e`; `image_base` is asserted to be 0 by a unit test, and the payload's base had to be corrected to record the *container's* base rather than the link address.
+4. Round trip: the 71 canonical Appendix A rows assemble to their exact bytes, and all 81 vectors decode in full with the Appendix mnemonic and byte count.
+5. Two builds of one image are byte-identical: both the object and the container hash `56863835937BEFA4C31EF9AFE3FA326C94F5F9FDE064AD2F4477543ACA5F8DDA`.
+
+Not run: the krcompiler suite on WSL, and ARM64. Both are named here rather than assumed; the Windows row is the one that ran.
+Gate: plan §7 items 1-5 — **met on Windows**, with WSL and ARM64 outstanding.
 
 ## 14. Gate verification
 
