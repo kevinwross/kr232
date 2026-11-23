@@ -1688,6 +1688,25 @@ Two things had to be true first, and both were found by measurement this round:
 The task stays **open**: its check also wants the demo to load the fixture by extension and by `--kr232`, which a windowed application cannot demonstrate here.
 
 M4 at 11 of 14. The host-build halves are done and witnessed; what is left is an observation this environment cannot make, the golden's ARM64 half, and the gate record.
+### 2026-11-23T19:35:00-08:00 — M3: the FP fault is the argument convention, not the frame
+
+Host: CROSBY (Windows). Read the generated assembly for `double add(double a, double b){return a+b;} int main(void){double r=add(1.5,2.5); return (int)r;}` and the caller does not pass its arguments in the FP registers at all:
+
+```
+main:
+  enter #28, #0
+  ld r2, #0
+  ld r3, #0
+  call add
+```
+
+`add`'s prologue is right -- it stores `f0` and `f1` into the parameter slots -- but `main` loads **two integer registers with zero** instead of loading 1.5 and 2.5 into `f0` and `f1`. The call lowering (`src/backend/kr232_backend.cpp:828`) materializes every operand into `r2 + i` with no type check, so a `double` argument goes to an integer register and the callee reads whatever `f0`/`f1` happen to hold.
+
+That also explains the old symptom: with garbage in `f0`/`f1`, `fadd` produces a NaN double, and the fault after the callee returns was a consequence of nonsense values rather than of the frame chain.
+
+The fix is a typed argument assignment in the call path: FP arguments to `f0..f3` in order, integers to `r2..r5`, matching the prologue that already stores them that way. The constant-pool labels for 1.5 and 2.5 are already emitted in `.data`, so the materialization has an address to load from.
+
+Not attempted this round: the budget went to locating it. The M3 FP task stays open, now with its cause named.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
