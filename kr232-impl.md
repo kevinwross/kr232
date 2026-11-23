@@ -2392,6 +2392,23 @@ krdbg       krdbg_kr232_tests 17 of 17   (BitWhiz, aarch64)
 ```
 
 Two tasks remain open across every milestone, and both are named by their own records: **M3's varargs and FP argument/return conventions**, which need IR support the compiler does not have, and **M4's host wiring check**, whose remaining observation is a windowed application loading a file. Neither is a defect; both are work that has not been done.
+### 2026-11-24T08:20:00-08:00 — M3: what the varargs task would actually take
+
+Host: CROSBY (Windows). Before spending rounds on it, the check was measured against the compiler rather than assumed:
+
+| Piece | State |
+|---|---|
+| IR variadic function type | **exists** -- `ir.cpp:325` builds it, `type->variadic` is compared and printed |
+| IR `VaStart` | **exists** -- `Opcode::VaStart` at `src/ir/ir.h:220` |
+| IR `VaArg` | **absent** -- there is no opcode for it |
+| kr16 variadic convention | every argument on the stack (ADR 0029), and its backend lowers that |
+| kr232 backend | no `VaStart` handling at all; the call path passes four fixed registers |
+
+So a `printf`-style call cannot be written in C today: `va_arg` has no IR opcode to lower, which means no guest program can read a variadic argument, whatever the backend does with the stack. This is a **compiler feature**, not a kr232 gap, and the plan places it in M3 only because that is where the runtime lives.
+
+**Deferred, not ticked**, with the reason recorded here: implementing it needs an IR `VaArg`, a kr232 variadic calling convention in the ABI draft, caller stack passing and callee lowering -- four pieces, none of which the milestone's other checks depend on.
+
+The FP **argument and return conventions** that the same task names are done and pinned by `krc_kr232_run_fp`; it is the variadic half that is missing.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
