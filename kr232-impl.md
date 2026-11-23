@@ -798,6 +798,14 @@ Ran: krcompiler's suite 3634 assertions, all passing.
 Found: three compile-level misses in my own test -- a missing `linker.h` include, and an enum value I guessed instead of reading (the section type became a cast to its documented number, 1). Each was caught by the build, which is the reason the writer and the test were built together rather than apart.
 Next: `link_impl` choosing this writer for target 5 with the 4-byte heap alignment and kr232 stack bounds, then `.kdbg` emission.
 
+### 2026-11-22T21:38:10-08:00 — M2: kr232 objects link to a kernel container
+
+Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2` at `39d989a`
+Added: target 5's default link base is **0x200**, so text follows the reset word and the sixteen vectors; the container records **image base 0** because ADR 0058 defines a kernel image that way, and only a link at `0x08000000` records a user base. Sections now carry container flags through the object writer, so text is alloc|execute and the entry lands inside it. An end-to-end test links one kr232 object and checks the container's magic, target id 5, base and a non-zero entry.
+Ran: krcompiler's suite 3645 assertions, all passing.
+Found: without section flags the container's entry check rejected every linked image -- the object writer had no flags field, so a text section looked unallocated. And with the previous default base of 0 the entry was 0, inside the null page the ISA reserves; 0x200 is the first address after the vector table. Both were found by the end-to-end test, not by reading the writer.
+Next: `.kdbg` emission from assembly, `krc --dump-symbols`, `RunKr232Image.cmake`, then `kr232-dis` and the `.s` fixture run through `kr232-emu`.
+
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
