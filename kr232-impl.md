@@ -1182,6 +1182,16 @@ The disassembly names the real defect:
 `add` has no call in its source, and the call it does contain targets **main**. So a local `call` was patched to the wrong label: the assembler's local-call patch resolves the relocation against the wrong symbol or the wrong offset, and the frame fault is downstream of that recursion.
 
 Next: the local-call patch in `kr232_assembler.cpp` -- the relocation's field offset and the label it resolves must be checked against each other, and a call site that appears with no call in the source is the signature.
+### 2026-11-23T06:45:00-08:00 — M3: the fault is a clobbered return address; correcting my own log
+
+Host: CROSBY (Windows `windows-msvc-debug`, `windows-msvc` emulator)
+**Correction.** Round 115's entry says the callee contains a call to main. It does not: the `call -123` at `0x920` is inside `main` and targets `0x8a8` = `add`, which is correct. I mis-levelled the two functions (the frame-54 one is `add`, not `main`). The log's claim was wrong and this entry replaces it.
+
+What the widened trace shows: the last forty instructions are the whole of `add` from `0x8b4` to its `leave`/`ret` at `0x912`, and the trap follows **one step later with PC 0 and fp 0**. So `ret` popped a **return address of zero** -- the word at `[FP+4]` was clobbered during the callee's body, and the frame pointer was clobbered with it.
+
+Prime suspect, and it is checkable: an FP store with a **negative displacement encoded as positive** would write at `FP+4` (the return address) instead of `FP-4` (slot 0). The FP memory forms were the ones the assembler initially refused with a frame offset, and the parameter spill still emits `fst f0, [fp-44]`.
+
+Next: assemble a two-line `.s` with `fst f0, [fp-4]` and decode the bytes to confirm the sign, which is a five-minute check and settles it.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
