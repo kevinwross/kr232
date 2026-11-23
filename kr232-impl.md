@@ -2077,6 +2077,20 @@ The user program is `krc`-built guest code linked at `0x08000000`; its `syscall`
 **One device fact found by the machine's own refusal:** a **byte** store to `OUT` is a *mis-shaped* device access and raises vector 4. The register is a word, and the kernel now stores word-wise. That is the sixth defect this milestone has turned from a silent trap into an explicit rule.
 
 Not ticked yet: the task also wants the program to **draw** and its frame to match a golden. Printing is done; drawing through the table is next.
+### 2026-11-24T02:30:00-08:00 — M5: fill and flip reach the device; the frame does not move
+
+Host: CROSBY (Windows). The kernel now serves `syscall 2` (FILL_RECT: x, y, w, h, colour through R2-R6) and `syscall 3` (FLIP), both as command blocks on the graphics page with the doorbell.
+
+```
+userdraw.k232: halted status 0 after 50 steps
+frame cbf29ce484222325
+```
+
+`cbf29ce484222325` is the **FNV offset basis** -- the hash of an **empty** frame. So the calls were accepted, the program exited cleanly, and **nothing reached the committed surface**. Either the command was rejected by the device (`STATUS` bit 0) or the doorbell/offset is wrong.
+
+Next, and it is one measurement: have the kernel read `STATUS` at `0xFFF09028` after the doorbell and return it in R2, so the program's exit status is the device's verdict. The frame hash then means something either way.
+
+Not ticked: the user-program task needs the drawing to land.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
