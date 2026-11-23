@@ -2826,6 +2826,31 @@ The size now comes from the global's **element type**, and `krc_kr232_globals` p
 Suites: `krcompiler` **34 of 34** rows and **3704** assertions, `kr232` **15 of 15** kernel rows.
 
 Item 3 of 25 closed.
+### 2026-11-25T02:40:00-08:00 — Items 5 and 6 closed: the ARM64 run is one command
+
+Host: BitWhiz (aarch64). `krc_tests` had never run there:
+
+```
+krc_tests    252 test cases, 3704 assertions, 0 failed
+```
+
+and `scripts/check-arm64.ps1` now performs the whole ARM64 check from a Windows shell -- pull three checkouts, build the compiler and the emulator, register the emulator with the compiler's tests, run four suites -- and prints:
+
+```
+== kr232 (kernel rows)      100% tests passed, 0 failed out of 15
+== krcompiler (kr232 rows)  100% tests passed, 0 failed out of 34
+== krc_tests                3704 assertions, 0 failed
+== krdbg fixture drift      100% tests passed, 0 failed out of 1
+ARM64 CHECKS: PASS
+```
+
+Getting there found three defects, all in the writing rather than the checking:
+
+- **The script printed PASS after a failing suite**, because `ctest ... | grep` reports grep's status. Each suite now writes a log and a failure is remembered.
+- **`user-calls.k232` was stale**: the drift row rebuilt only the `.s` fixtures, so the C one was never compared, and it predated the global-size fix.
+- **Its upload was invalid** and always had been: a four-pixel row with an eight-byte stride is narrower than a row, so the device refused every time. It passed before because the block overlapped the counters beside it; with the globals fixed, the refusal became visible. Stride 16 is accepted and the frame is unchanged.
+
+Items 5 and 6 of 25 closed.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
