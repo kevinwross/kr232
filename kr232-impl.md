@@ -2001,6 +2001,22 @@ c1 30 10   st [r0+16], r3
 In **kernel** mode `st [r0+16], r3` traps vector 4 (null page), so the instruction really does access memory. In **user** mode, entered by IRET with K clear, **both** the store and the load **retire** -- neither vector 8 nor vector 4. The protection check exists in the `load`/`store` lambdas (`src/machine.cpp:288`, `:337`), so either the C0/C1 family does not go through them, or K is not actually clear at that moment despite the earlier assertion passing.
 
 The next test must assert `kernel_mode()` **and** the trap in the same case, in that order, so the two possibilities separate in one run instead of two rounds. The test was removed; `ctest` is 8 of 8.
+### 2026-11-24T01:00:00-08:00 — M5: user mode says one thing and does another
+
+Host: CROSBY (Windows). One case, both facts in order, and the contradiction is now precise:
+
+```
+after IRET:  kernel_mode() == false        (the check passes)
+             pc() == 0x1001               (the check passes)
+`sys` there: halted instead of trapping    (it performed the kernel-only hypercall)
+`st [r0+16]`: retired instead of trapping  (it performed the store)
+```
+
+So the machine reports **user mode** and then **executes as kernel mode**: instruction protection and memory protection are both skipped while `kernel_mode()` says false. The two notions of K disagree -- the flag the accessors read and the state the instruction dispatch uses.
+
+That is a single, named hypothesis for the next round: find where the dispatch decides "kernel" for the opcode and address checks, and make it read the same flag `kernel_mode()` reads.
+
+Both tests were removed rather than left red; `ctest` is 8 of 8. The protection task stays open, and it is no longer a mystery -- it is a disagreement between two reads of one flag.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
