@@ -676,7 +676,14 @@ Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2`
 Added: `src/asm/kr232_parser.{h,cpp}` with `parse_instruction` — case-insensitive mnemonic lookup, operands split on commas and trimmed, the ten zero-operand Short forms, `push`/`pop`/`inc`/`dec`/`call` with a register, the unary `neg`/`not`/`sxtb`/`sxth`, and the two-register compact operations. Every other shape — immediate, bracketed address, branch displacement, FP — is refused with an error rather than guessed at.
 Ran: krcompiler's suite 2875 assertions, all passing; two parser cases.
 Found: the first version of the file carried helpers for immediates and conditions that nothing called yet, which `/W4` treats as dead code; they were removed rather than suppressed and will come back with the shapes that use them. A brace-initialised operand also narrowed `unsigned` to `uint8_t`, which the same warning level caught.
-Next: `make_object` with target id 5, then the disassembler direction.
+Next: `.kdbg` emission, then the `.k232` image writer.
+
+### 2026-11-22T21:31:00-08:00 — M2: the kr232 object writer
+
+Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2` at `ad92565`
+Added: `src/asm/kr232_object.{h,cpp}` — a `Program` of sections and symbols becomes a `KroObject` with kind object, **target id 5** through `kROTargetId`, ABI version 1, the profile's 32-bit pointer width, little-endian, one section per program section and one symbol per program symbol with its binding. An empty program, a symbol naming a missing section, and another target's profile are each refused.
+Ran: krcompiler's suite 243 cases, 3595 assertions, all passing.
+Next: `.kdbg` line and function records from assembly, then the `.k232` image writer of ADR 0058.
 
 ### 2026-11-22T21:29:13-08:00 — M2: every Appendix A vector round-trips
 
