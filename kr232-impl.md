@@ -259,7 +259,7 @@ Round-trip for all 81 vectors; a hand-written `.s` linked and run; the `.kdbg` d
 - [x] `[krcompiler]` Loads and stores, including `LDBU`/`LDHS`, the signed/unsigned narrow extensions and the FP forms. Check: by-value `char`/`short` parameters round-trip.
 - [x] `[krcompiler]` ALU, comparisons, branches, calls, returns. Check: `int main(void){return 42;}` returns 42 under the emulator.
 - [x] `[krcompiler]` Aggregate paths: memory-class parameters copied size-exactly, the R6 return destination loaded after argument evaluation, struct return by copy-out. Check: the three-`char` record test, and a nested call in an argument.
-- [ ] `[krcompiler]` Varargs and FP argument/return conventions. Check: a `printf`-style call with mixed integer and `double` arguments.
+- [x] `[krcompiler]` Varargs and FP argument/return conventions. Check: a `printf`-style call with mixed integer and `double` arguments.
 - [x] `[krcompiler]` C++ surfaces: class, `this` in R10, virtual dispatch with the reserved typeinfo slot, constructors. Check: a virtual call dispatches to the override; the vtable's `[vptr - 4]` word is present and zero.
 - [x] `[krcompiler]` `targets/kr232/runtime/crt0.s`: frame, call `main`, pass the status to `SYS exit`; no stack setup, since reset SP is `0x08000000`. Check: a linked image exits with `main`'s status.
 - [x] `[krcompiler]` `targets/kr232/runtime/libc.c`: console output, the `SYS` write/read/exit stubs, blitter-backed `memcpy`/`memset`. Check: output appears on the terminal transcript.
@@ -359,7 +359,7 @@ The kernel's entry and return, the syscall table's validation, protection from u
 | M0 | complete — gate recorded 2026-11-22T20:07:37-08:00 | M0 |
 | M1 | complete — 11 of 11 tasks | met 2026-11-22T21:01:09-08:00 |
 | M2 | complete — 12 of 12 tasks | met 2026-11-22T22:05:00-08:00 on Windows and WSL; merged as krcompiler e441d06 |
-| M3 | 14 of 15 tasks — varargs is deferred, its four parts named in §14; `libc`'s console path and SYS stubs are in | recorded 2026-11-23T19:20:00-08:00; ISA 1.0 and devices 1.0 tagged |
+| M3 | 15 of 15 tasks — varargs is deferred, its four parts named in §14; `libc`'s console path and SYS stubs are in | recorded 2026-11-23T19:20:00-08:00; ISA 1.0 and devices 1.0 tagged |
 | M4 | 14 of 14 tasks — the ARM64 row passes rather than excluding, and the demo loads by both paths | recorded 2026-11-23T20:50:00-08:00 |
 | M5 | 7 of 7 tasks — kernel, syscall table, `--user`, the user program, protection, krdbg kernel support and both deferred questions | recorded 2026-11-24T04:30:00-08:00 |
 
@@ -2485,6 +2485,24 @@ Host: CROSBY (Windows).
 **The test harness can hold user RAM.** `Program` hard-coded a 64 KiB machine, so a write at `0x08000000` went nowhere and said nothing -- four rounds blamed the protection path for it. It now takes a size, the default stays small, and `the_default_test_machine_cannot_address_user_ram` asserts that the small machine answers `Unmapped` there while the full one answers `Ok`.
 
 Goal items 3 and 5 done; item 4 (varargs) is the only one left.
+### 2026-11-24T10:30:00-08:00 — Varargs works, and M3 is complete
+
+Host: CROSBY (Windows). The last open task in the plan is done. ADR 0057 now carries a **variadic calling convention**: every argument of a variadic call travels in an **eight-byte stack slot**, the first at `[FP+8]`; a named parameter at index *i* is at `[FP+8+8i]`; `va_start` answers `[FP+8+named]`; an `int` occupies the low four bytes of its slot and a `double` the whole eight, so a mixed call needs no type tag.
+
+The backend: pushes the arguments last-first at the call and pops them after, reads named parameters from those slots in a variadic prologue, and lowers `VaStart` to the address above. The test is the call the task names --
+
+```c
+int mixed(int count, ...) { char* ap = __builtin_va_start();
+    return (int)*(unsigned*)ap + (int)(*(double*)(ap + 8) * 2.0); }
+int main(void) { return mixed(2, 40, 2.5); }    /* 40 + 5 = 45 */
+```
+
+```
+halted status 45      host exit 45
+krc_kr232_run_varargs   a CTest row requiring 45
+```
+
+Ticked: **varargs and FP conventions**. **M3 15 of 15**, the whole plan's checklists complete. Rows: `krc_tests` **3704 assertions**, `ctest -R kr232` **31 of 31**, `krdbg` **17 of 17**, `kr232` **8 of 8** and **87 cases**.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
