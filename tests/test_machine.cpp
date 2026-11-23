@@ -125,7 +125,10 @@ TEST_CASE(syscall_vectors_to_the_handler_and_the_frame_saves_the_next_pc) {
     Program program{0x79};
     (void)program.machine.memory().write32(0x100 + 4 * 9, 0x3000);  // vector 9 handler
     const auto result = program.machine.step();
-    CHECK(result.stop == Stop::Trapped);
+    // A vector with a handler installed continues into it: the step retires and
+    // the vector is still reported. Only a vector whose handler word is zero
+    // stops as Trapped, which is what the protection tests rely on.
+    CHECK(result.stop == Stop::Retired);
     CHECK(result.vector == 9);
     CHECK(program.machine.pc() == 0x3000);
     std::uint32_t saved_pc = 0;

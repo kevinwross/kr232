@@ -172,7 +172,11 @@ StepResult Machine::enter_trap(unsigned vector) {
     }
     regs_[kPc] = handler;
     StepResult result;
-    result.stop = Stop::Trapped;
+    // A vector whose handler word is zero is unhandled: there is nothing to run,
+    // so the trap is the stop. A vector with a handler continues into it, because
+    // that is what a kernel is for; the result still reports the vector so a
+    // caller that wants to log traps can see it.
+    result.stop = handler == 0 ? Stop::Trapped : Stop::Retired;
     result.vector = vector;
     result.jumped = true;
     return result;
