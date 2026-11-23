@@ -1820,6 +1820,27 @@ Two parts of the kernel task's check are therefore satisfied: the **kernel targe
 **Not ticked:** the check also needs *a trap to reach the handler and return*, and there is no vector table or handler yet. That is the next task's work, and claiming it now would be the same mistake as the earlier "green" suites.
 
 Also recorded this round: **M4's gate is logged** with a table that marks the windowed load **NOT OBSERVED** and the ARM64 golden half **not run**, so the gate is recorded rather than declared met.
+### 2026-11-23T21:20:00-08:00 — M5: the kernel takes its trap, and the emulator stops there
+
+Host: CROSBY (Windows). The kernel now installs vector 1 and raises a breakpoint:
+
+```
+_start:
+  ld r8, #0x0100
+  ld r9, #breakpoint
+  st [r8+4], r9          ; vector 1
+  brk
+  ld r7, #0
+  sys
+```
+
+Result: `trap 1 at 0x0000031e after 4 steps`.
+
+`Machine::enter_trap` implements ISA §11.3 correctly -- it builds the frame, sets EFP, sets K, clears I, reads the handler word from `0x0100 + 4 * vector` and sets PC -- but it returns `Stop::Trapped`, and the CLI treats that as terminal, so the handler is never executed.
+
+That is the **M5 blocker**, and it is a design question rather than a bug: when is a trap terminal? A kernel needs traps to be **handled** (execution continues into the handler), while every M1 test expects a trap to be **reported** as a stop. Something must distinguish the two -- an unhandled vector (handler word zero), a `--stop-on-trap` flag for the tests, or an explicit "trap reported, continued" result the CLI prints and carries on from.
+
+Not decided this round, because choosing it silently would change what every existing trap test means. The kernel task stays open.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
