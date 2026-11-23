@@ -193,7 +193,7 @@ The gate block under `## Gate verification`, quoting the failing test's output, 
 
 ### Tasks
 
-- [ ] `[kr232]` Build skeleton: `CMakeLists.txt`, `CMakePresets.json` (`windows-msvc`, `linux-wsl`, `linux-arm64`, each with its own `binaryDir` and the prefix-map flags of §1), `include/kr232/`, `src/`, `targets/kr232/`, `tests/`, `scripts/wsl-mirror.sh`, and `scripts/gate-windows.ps1` / `gate-linux.sh` cloned from krdbg. Check: configure and build clean on Windows `-j10` and WSL `-j10`; the layout check fails when a `targets/` file is added to a host target; the path-hygiene test fails on a deliberately absolute `__FILE__` string and passes on the real binary.
+- [x] `[kr232]` Build skeleton: `CMakeLists.txt`, `CMakePresets.json` (`windows-msvc`, `linux-wsl`, `linux-arm64`, each with its own `binaryDir` and the prefix-map flags of §1), `include/kr232/`, `src/`, `targets/kr232/`, `tests/`, `scripts/wsl-mirror.sh`, and `scripts/gate-windows.ps1` / `gate-linux.sh` cloned from krdbg. Check: configure and build clean on Windows `-j10` and WSL `-j10`; the layout check fails when a `targets/` file is added to a host target; the path-hygiene test fails on a deliberately absolute `__FILE__` string and passes on the real binary.
 - [ ] `[kr232]` `memory`: the 4 GiB space with the seven regions of ISA §2.3, load/store of 1/2/4 bytes, and the unbacked-gap behaviour. Check: unit tests per region boundary.
 - [ ] `[kr232]` `decoder`: every class of ISA §3.1, including `F0`/`F4` lengths resolved from the bytes after the prefix. Check: `kr232-dis`-quality decode of all 81 Appendix A vectors, bytes in, text out.
 - [ ] `[kr232]` `executor`: ALU, shifts, branches, loads/stores, `ENTER`/`LEAVE`, `CALL`/`RET`, `PUSH`/`POP`, halfword and byte forms, `SYS`, `IRET`, `BRK`, `RDCYCLE`. Check: one test per vector from bytes to architectural state.
@@ -357,7 +357,7 @@ The kernel's entry and return, the syscall table's validation, protection from u
 | Milestone | State | Gate recorded |
 |---|---|---|
 | M0 | complete — gate recorded 2026-11-22T20:07:37-08:00 | M0 |
-| M1 | not started | — |
+| M1 | in progress — 1 of 11 tasks | — |
 | M2 | not started | — |
 | M3 | not started | — |
 | M4 | not started | — |
@@ -444,6 +444,15 @@ Ran: `git fetch`, `switch master`, `pull --ff-only` → already up to date at `f
 Found: the `krc` binary had not been relinked by the gate build, so its modification time would have stamped the gate with a moment when nothing was built — the trap krcompiler's own `AGENTS.local.md` warns about. The build's printed start line is the stamp instead, and the block says so.
 Gate: **M0 met** — see `## Gate verification`. M1's precondition is now satisfied.
 Next: M1's build skeleton — `CMakeLists.txt`, three presets, the layout check, the path-hygiene test.
+
+### 2026-11-22T20:15:10-08:00 — M1: the build skeleton stands on both x64 hosts
+
+Host: CROSBY (Windows x64 `windows-msvc`, `-j10`) and CROSBY WSL (Ubuntu 26.04, `linux-wsl`, `-j10`, from `~/mirrors/kr232`)
+Added: `CMakeLists.txt`, `CMakePresets.json` (three presets, each with its own `binaryDir`, build and test presets at `-j10`/`-j10`/`-j4`), `include/kr232/version.h`, `src/version.cpp`, `src/main.cpp` (the `vm`/`--version`/`--help` skeleton), a header-only test harness with one case, `cmake/CheckPathHygiene.cmake`, `targets/kr232/README.md` and its `probe.cpp` canary, `scripts/gate-windows.ps1`, `scripts/gate-linux.sh`, `scripts/wsl-mirror.sh`.
+Ran: Windows configure+build+`ctest` → 3 of 3 (version, hygiene, hygiene selftest). WSL mirror then configure+build+`ctest` → 3 of 3. Layout selftest: `cmake -DKR232_LAYOUT_SELFTEST=ON` → **fails as required**, `kr232_core lists 'targets/kr232/probe.cpp', which is guest code under targets/`.
+Found, and it is why the check exists: the first WSL build **failed** the hygiene test — `kr232-emu` carried `/home/kevinro/mirrors/kr232/src/main.cpp`. The prefix-map flags live on the `kr232_warnings` interface target and only `kr232_core` linked it, so `main.cpp`, `tests/main.cpp` and `test_version.cpp` were compiled unmapped. Windows had passed because an MSVC Debug executable carries its PDB path rather than DWARF; GCC links the DWARF section into the binary, which is why the same defect was invisible on one host and fatal on the other. Fixed by linking `kr232_warnings` into every target with sources, and both hosts now pass.
+Found also: `cl` warns **D9007** — `/pathmap` is ignored without `/experimental:deterministic` — so the MSVC mapping had been a no-op. Both flags are now set, and a clean rebuild prints no warning.
+Next: M1's `memory` region tests, then the decoder and the 81 vectors.
 
 ### 2026-11-22T20:06:19-08:00 — the BitWhiz alias now matches both spellings
 
