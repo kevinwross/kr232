@@ -387,3 +387,55 @@ TEST_CASE(upload_copies_rows_from_guest_ram_into_the_surface) {
     CHECK(pixel(devices, 0) == 0x00000011u);
     CHECK(pixel(devices, 4) == 0x00000022u);
 }
+
+TEST_CASE(the_terminal_grid_follows_the_committed_mode) {
+    Devices devices;
+    std::uint32_t status = 0;
+    CHECK(read_register(devices, 8, 0x04, status) == DeviceResult::Ok);
+    CHECK((status & 1u) != 0);                 // READY
+    CHECK(((status >> 8) & 0xFFu) == 80);      // 800 / 10
+    CHECK(((status >> 16) & 0xFFu) == 30);     // 600 / 20
+    CHECK(devices.terminal_columns() == 80);
+    CHECK(devices.terminal_rows() == 30);
+}
+
+TEST_CASE(a_terminal_write_stores_the_cell_and_mirrors_to_the_console) {
+    Devices devices;
+    CHECK(write_register(devices, 8, 0x10, 0x1Eu) == DeviceResult::Ok);  // fg 14, bg 1
+    CHECK(write_register(devices, 8, 0x00, 'A') == DeviceResult::Ok);
+    const Devices::Cell& cell = devices.terminal_cell(0, 0);
+    CHECK(cell.ch == 'A');
+    CHECK(cell.fg == 14);
+    CHECK(cell.bg == 1);
+    CHECK(devices.terminal_cursor_x() == 1);
+
+    std::uint8_t mirrored = 0;
+    CHECK(devices.console_pop_output(mirrored));
+    CHECK(mirrored == 'A');
+}
+
+TEST_CASE(terminal_control_characters_move_the_cursor_and_clear) {
+    Devices devices;
+    CHECK(write_register(devices, 8, 0x00, 'a') == DeviceResult::Ok);
+    CHECK(write_register(devices, 8, 0x00, 0x0D) == DeviceResult::Ok);  // CR
+    CHECK(devices.terminal_cursor_x() == 0);
+    CHECK(write_register(devices, 8, 0x00, 0x0A) == DeviceResult::Ok);  // LF
+    CHECK(devices.terminal_cursor_y() == 1);
+    CHECK(write_register(devices, 8, 0x00, 0x09) == DeviceResult::Ok);  // tab
+    CHECK(devices.terminal_cursor_x() == 8);
+    CHECK(write_register(devices, 8, 0x00, 0x7F) == DeviceResult::Ok);  // ignored
+    CHECK(devices.terminal_cursor_x() == 8);
+    CHECK(write_register(devices, 8, 0x0C, 1) == DeviceResult::Ok);     // clear
+    CHECK(devices.terminal_cell(0, 1).ch == ' ');
+    CHECK(devices.terminal_cursor_y() == 0);
+}
+
+TEST_CASE(a_write_at_the_bottom_row_scrolls_the_grid) {
+    Devices devices;
+    CHECK(write_register(devices, 8, 0x00, 'q') == DeviceResult::Ok);
+    for (int i = 0; i < 31; ++i) {
+        CHECK(write_register(devices, 8, 0x00, 0x0A) == DeviceResult::Ok);
+    }
+    CHECK(devices.terminal_cursor_y() == 29);
+    CHECK(devices.terminal_cell(0, 0).ch != 'q');  // the top row scrolled away
+}

@@ -592,6 +592,16 @@ Tests: a fill landing at the right byte offsets with the neighbours untouched; a
 Not implemented, and loud about it: `DRAW_TEXT` (op 6) sets `ERROR` and draws nothing until the 10×20 glyph set lands with the terminal page. A guest asking for text gets a defined failure rather than silently wrong pixels — that is the intermediate state, and it is the one entry of §8.2 that is not yet real.
 Next: the terminal page, which brings the glyph set and closes `DRAW_TEXT`.
 
+### 2026-11-22T20:50:30-08:00 — M1: the terminal grid
+
+Host: CROSBY (Windows `windows-msvc`) and CROSBY WSL (`linux-wsl`)
+Added: **page 8** with `DATA`, `STATUS` (`READY`, columns, rows), `CONTROL`, `COMMAND` (1 clear, 2 full reset), `COLOR` and the ID. The grid follows the *committed* framebuffer mode — 800×600 gives 80×30 — and a flip that changes the mode re-sizes it and homes the cursor. Newline, carriage return, backspace, tab to the next multiple of eight, form feed, wrap at the right margin and scroll at the bottom are implemented; bytes below `0x20` other than those and `0x7F` are ignored; each cell keeps the foreground and background indices current when it was written, so a later `COLOR` does not recolour it; and every accepted character is mirrored to the console stream as §7.4 asks.
+Ran: Windows 62 cases and 0 failed checks; WSL build and `ctest` 3 of 3.
+Tests: geometry from the committed mode; a write storing the cell with its two indices and mirroring to the console; the control characters moving the cursor, ignoring `0x7F` and clearing; and scrolling dropping the top row.
+Found: the first scroll test wrote thirty characters and asserted which one survived, and its expectation was wrong — the loop's last newline is what triggers the scroll, so the assertion described the grid one step out of phase. Rewritten to the property that matters: after 31 newlines the row that held the first character is gone and the cursor sits on the last row.
+Not done, and named: rendering the grid into the back surface, and `DRAW_TEXT`, both need the 10×20 glyph atlas, which is a data asset of its own and not part of the device protocol. Until it lands the terminal maintains and mirrors its grid and `DRAW_TEXT` keeps setting `ERROR` — two defined gaps rather than wrong pixels.
+Next: the blitter, then the device task's check.
+
 ### 2026-11-22T20:06:19-08:00 — the BitWhiz alias now matches both spellings
 
 Host: CROSBY and BitWhiz

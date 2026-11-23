@@ -267,6 +267,83 @@ void Devices::run_graphics(const Memory& ram) {
     }
 }
 
+void Devices::terminal_sync_geometry() noexcept {
+    const std::uint32_t cols = committed_.width / 10u;
+    const std::uint32_t rows = committed_.height / 20u;
+    if (cols == term_cols_ && rows == term_rows_) {
+        return;
+    }
+    term_cols_ = cols > 0 ? cols : 1;
+    term_rows_ = rows > 0 ? rows : 1;
+    terminal_clear();
+}
+
+void Devices::terminal_clear() noexcept {
+    grid_.assign(static_cast<std::size_t>(term_cols_) * term_rows_, Cell{});
+    cursor_x_ = 0;
+    cursor_y_ = 0;
+}
+
+void Devices::terminal_scroll() noexcept {
+    if (term_rows_ < 2) {
+        terminal_clear();
+        return;
+    }
+    const std::size_t row = term_cols_;
+    grid_.erase(grid_.begin(), grid_.begin() + static_cast<std::ptrdiff_t>(row));
+    grid_.insert(grid_.end(), row, Cell{});
+    cursor_y_ = term_rows_ - 1;
+}
+
+void Devices::terminal_put(std::uint8_t ch) noexcept {
+    terminal_sync_geometry();
+    switch (ch) {
+        case 0x0A:  // newline
+            ++cursor_y_;
+            break;
+        case 0x0D:  // carriage return
+            cursor_x_ = 0;
+            break;
+        case 0x08:  // backspace, no erase
+            if (cursor_x_ > 0) {
+                --cursor_x_;
+            }
+            break;
+        case 0x09:  // tab to the next multiple of eight
+            cursor_x_ = (cursor_x_ / 8u + 1u) * 8u;
+            break;
+        case 0x0C:  // form feed
+            terminal_clear();
+            break;
+        default:
+            if (ch < 0x20 || ch == 0x7F) {
+                return;  // ignored, and not mirrored
+            }
+            grid_[static_cast<std::size_t>(cursor_y_) * term_cols_ + cursor_x_] =
+                Cell{ch, static_cast<std::uint8_t>(term_color_ & 0x0Fu),
+                     static_cast<std::uint8_t>((term_color_ >> 4) & 0x0Fu)};
+            ++cursor_x_;
+            break;
+    }
+    if (cursor_x_ >= term_cols_) {
+        cursor_x_ = 0;
+        ++cursor_y_;
+    }
+    while (cursor_y_ >= term_rows_) {
+        terminal_scroll();
+    }
+    // §7.4: every accepted character also reaches the console stream.
+    console_output_.push_back(ch);
+}
+
+const Devices::Cell& Devices::terminal_cell(std::uint32_t x, std::uint32_t y) const noexcept {
+    static const Cell blank{};
+    if (x >= term_cols_ || y >= term_rows_) {
+        return blank;
+    }
+    return grid_[static_cast<std::size_t>(y) * term_cols_ + x];
+}
+
 DeviceResult Devices::read(std::uint32_t address, std::uint32_t width,
                            std::uint32_t& value) noexcept {
     unsigned page = 0;
@@ -414,6 +491,28 @@ DeviceResult Devices::read(std::uint32_t address, std::uint32_t width,
                 return DeviceResult::Ok;
             case 0x24:
                 value = static_cast<std::uint32_t>(committed_.number & 0xFFFFFFFFu);
+                return DeviceResult::Ok;
+            default:
+                return DeviceResult::Undefined;
+        }
+    }
+    if (page == 8) {  // terminal
+        terminal_sync_geometry();
+        switch (offset) {
+            case 0x00:  // DATA is write-only
+                value = 0;
+                return DeviceResult::Ok;
+            case 0x04:  // READY, columns, rows
+                value = 1u | (term_cols_ << 8) | (term_rows_ << 16);
+                return DeviceResult::Ok;
+            case 0x08:
+                value = term_control_;
+                return DeviceResult::Ok;
+            case 0x0C:  // COMMAND is write-only
+                value = 0;
+                return DeviceResult::Ok;
+            case 0x10:
+                value = term_color_;
                 return DeviceResult::Ok;
             default:
                 return DeviceResult::Undefined;
@@ -570,6 +669,32 @@ DeviceResult Devices::write(std::uint32_t address, std::uint32_t width, std::uin
                 return DeviceResult::Undefined;
         }
     }
+    if (page == 8) {  // terminal
+        switch (offset) {
+            case 0x00:
+                terminal_put(static_cast<std::uint8_t>(value & 0xFFu));
+                return DeviceResult::Ok;
+            case 0x04:  // STATUS is read-only
+                return DeviceResult::Ok;
+            case 0x08:
+                term_control_ = value;
+                return DeviceResult::Ok;
+            case 0x0C:
+                if (value == 1) {
+                    terminal_clear();
+                } else if (value == 2) {  // full reset
+                    term_control_ = 0;
+                    term_color_ = 0x07;
+                    terminal_clear();
+                }
+                return DeviceResult::Ok;
+            case 0x10:
+                term_color_ = value & 0xFFu;
+                return DeviceResult::Ok;
+            default:
+                return DeviceResult::Undefined;
+        }
+    }
     if (page == 9) {  // graphics commands
         switch (offset) {
             case 0x00:
@@ -654,6 +779,7 @@ void Devices::flip() noexcept {
     committed_.stride = fb_stride_;
     std::swap(fb_front_, fb_back_);
     ++committed_.number;
+    terminal_sync_geometry();  // the committed mode may have changed the grid
 }
 
 std::vector<std::uint8_t>& Devices::vram() {

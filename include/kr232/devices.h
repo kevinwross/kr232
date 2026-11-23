@@ -109,10 +109,30 @@ public:
     };
     [[nodiscard]] Surface target_surface() const noexcept;
 
+    // The terminal's character grid (page 8). A cell remembers the character and
+    // the palette indices current when it was written (kr232-devices.md §7.3).
+    struct Cell {
+        std::uint8_t ch = ' ';
+        std::uint8_t fg = 7;
+        std::uint8_t bg = 0;
+    };
+    [[nodiscard]] std::uint32_t terminal_columns() const noexcept { return term_cols_; }
+    [[nodiscard]] std::uint32_t terminal_rows() const noexcept { return term_rows_; }
+    [[nodiscard]] const Cell& terminal_cell(std::uint32_t x, std::uint32_t y) const noexcept;
+    [[nodiscard]] std::uint32_t terminal_cursor_x() const noexcept { return cursor_x_; }
+    [[nodiscard]] std::uint32_t terminal_cursor_y() const noexcept { return cursor_y_; }
+
 private:
     void flip() noexcept;
     [[nodiscard]] bool mode_ok() const noexcept;
     [[nodiscard]] std::vector<std::uint8_t>& vram();
+
+    // Terminal helpers. Geometry follows the committed framebuffer mode, so a
+    // flip that changes the mode re-sizes the grid and homes the cursor.
+    void terminal_sync_geometry() noexcept;
+    void terminal_clear() noexcept;
+    void terminal_scroll() noexcept;
+    void terminal_put(std::uint8_t ch) noexcept;
 
     [[nodiscard]] DeviceResult decode(std::uint32_t address, std::uint32_t width, unsigned& page,
                                       std::uint32_t& offset) const noexcept;
@@ -156,6 +176,15 @@ private:
     std::uint32_t clip_y_ = 0;
     std::uint32_t clip_w_ = 0;
     std::uint32_t clip_h_ = 0;
+
+    // Page 8.
+    std::vector<Cell> grid_;
+    std::uint32_t term_cols_ = 0;
+    std::uint32_t term_rows_ = 0;
+    std::uint32_t cursor_x_ = 0;
+    std::uint32_t cursor_y_ = 0;
+    std::uint32_t term_control_ = 0;
+    std::uint32_t term_color_ = 0x07;
 };
 
 }  // namespace kr232
