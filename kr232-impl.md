@@ -2896,6 +2896,21 @@ an input pair is malformed: '...'
 Suites after the change: `krcompiler` **228** rows in the affected groups, and the kr232 rows unchanged.
 
 Item 9 of 25 closed.
+### 2026-11-25T04:50:00-08:00 — Items 10, 11 and 12 closed: the last unguarded frame address, and a frame that proves it
+
+Host: CROSBY (Windows).
+
+**Item 11 -- the audit and the fix.** Every `[r13-N]` emission checked: `frame_load` and `frame_store` were deep-safe, one inline `fst` was already deep-aware, and **`address_of` still returned a raw operand**, so an alloca past 128 bytes could not be addressed -- the assembler refused the displacement. It forms the address in R8 now, as the others already did.
+
+`krc_kr232_deep_frame` makes it run: a forty-word array whose base sits at **FP-168**, with `MIN_DEPTH=128` so the row fails if the fixture ever stops being deep, and `EXPECT_PARAM=seed` so it also proves parameters are recorded.
+
+**Item 12 -- parameters.** They already had `.debug_var` records (the prologue spills them into slots), but nothing checked them. The check now requires the record for a named parameter on both frame fixtures.
+
+**Item 10 -- the CLI.** `kr232-plan.md` §6 records `--input <text>`, and states that a POSIX process status keeps only the low eight bits of the exit status while the printed `halted status N` line carries the whole value.
+
+Suites: `krcompiler` **35 of 35** kr232 rows and **3704** assertions, `kr232` **15 of 15** kernel rows.
+
+Items 10, 11 and 12 of 25 closed.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
