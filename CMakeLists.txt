@@ -141,6 +141,17 @@ if(KR232_BUILD_TESTS)
     # the text coming back out proves the bytes reached user memory.
     # DRAW_TEXT must say it is not supported rather than answer success: the
     # program exits 0 only when STATUS bit 0 ERROR came back through the kernel.
+    # Every checked-in image must equal a fresh build of its source: a stale
+    # fixture keeps passing tests against a program nobody has.
+    if(KR232_BUILD_KERNEL AND EXISTS "${KR232_KRC}")
+        add_test(NAME kr232_fixtures_match_source
+            COMMAND ${CMAKE_COMMAND}
+                    -DKRC=${KR232_KRC}
+                    -DKRLD=${KR232_KRLD}
+                    -DFIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures
+                    -DWORK=${CMAKE_BINARY_DIR}/fixtures
+                    -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232FixtureDrift.cmake)
+    endif()
     add_test(NAME kr232_kernel_text_reports_error
         COMMAND ${CMAKE_COMMAND}
                 -DVM=$<TARGET_FILE:kr232-emu>

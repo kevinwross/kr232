@@ -19,7 +19,6 @@ set(sources
     "${RUNTIME}/crt0_user.s"
     "${RUNTIME}/syscall6.s"
     "${RUNTIME}/cons_user.c"
-    "${RUNTIME}/cons_input_user.c"
     "${RUNTIME}/gfx_user.c"
     "${RUNTIME}/fb_user.c"
     "${RUNTIME}/input_user.c"
