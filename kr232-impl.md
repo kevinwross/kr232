@@ -1592,6 +1592,24 @@ That is the fourth episode this milestone of an edit whose effect was not observ
 Until that discrepancy is explained, no statement about the host-build task is trustworthy -- including statements that it fails.
 
 Next: stop editing logic. Add a unique marker string to the test, rebuild, and **`findstr` the binary for it** before interpreting any run. If the marker is absent, the build is not rebuilding that file and everything after it is noise.
+### 2026-11-23T17:45:00-08:00 — M4: found it -- the kr232 block was nested inside KR16's guard
+
+Host: CROSBY (Windows). The discrepancy is explained, and it was in the source all along:
+
+```
+111: #if defined(KRDBG_HAVE_KR16)      <- opens at line 91
+126: #if defined(KRDBG_HAVE_KR232)     <- my block, INSIDE it
+156: #endif
+186: #endif                           <- KR16's guard finally closes here
+```
+
+The kr232 block sat **inside** the KR16 conditional, so with the KR16 adapter off it was compiled out -- which is why the object never contained the fixture string, the case never built anything, and every run "passed" by taking the empty-prefix path or by never reaching the code. My earlier claim that the block was compiled came from a `findstr` hit on the KR14 branch's own text.
+
+The probe was worth it: `prefix=[C:\Users\kevin\repos\krcompiler\dist]` proved the environment reaches the test, which left the preprocessor as the only remaining explanation.
+
+**Reverted a botched repair.** Lifting the block out with an index script inserted it after the first `#endif` in the file -- the include guard at line 17 -- which scattered it into the includes section. `git checkout -- tests/test_host_build.cpp` restored the committed file, which builds and passes 15 tests. The move needs the editor with exact text, not index arithmetic.
+
+Next: move lines 126-156 to after line 186 with the editor, rebuild, and only then run with the prefix.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
