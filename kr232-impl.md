@@ -1202,6 +1202,16 @@ Ran: the gate's C++ program -- a class with a virtual call, a record passed by v
 Also settled: the FP frame displacement sign is **correct** (`fst f0, [r13-4]` encodes `f4 11 d0 fc` and decodes to `[fp-4]`), so the round-115 suspect is eliminated. Floating point remains parked with its own fault.
 
 Process note: last round I damaged a working record-copy line with a scripted replacement and did not catch it until the assembler refused the empty operand. It is repaired here, and the fixture that found it is now a test.
+### 2026-11-23T07:20:00-08:00 — M3: floating point parked, with its fault stated
+
+Host: CROSBY (Windows `windows-msvc-debug`, `windows-msvc` emulator)
+The hoisted frame helper emits `op [addr], reg`, which is right for integer stores and wrong for `fst`, whose register comes first; the FP path now emits `fst fD, [addr]` itself. The fixture compiles again and runs 48 steps.
+
+The fault is unchanged and is parked deliberately: after the callee's `leave`/`ret`, the caller resumes with **fp = 0**. `ENTER`/`LEAVE` are symmetric and correct per the machine, the FP store displacements are proven correct, and the callee's frame (56 bytes) contains every slot it uses. Something outside those three loses the caller's frame pointer, and four rounds have not found it.
+
+Why parking is the right call: **the milestone's gate does not require a floating-point program** -- §8's three programs are C, C++, drawing, and all three run. The FP task stays unticked, so M3 cannot be declared complete, but its gate can be evaluated and the remaining work is in M4, whose adapter the plan names as M3's own precondition for the krdbg row.
+
+Next: M4, beginning with the adapter that lets krdbg attach to a kr232 image at assembly level.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
