@@ -2726,6 +2726,28 @@ GATE WINDOWS: PASS
 and the wiring was **proved to bite**: with the child's success test changed to something impossible, the gate stopped at `== two adapters` and never printed PASS.
 
 Item 6 of 8 closed. Next: the user-mode fixtures' drift rows.
+### 2026-11-24T20:25:00-08:00 — Item 7 closed: fixtures cannot drift from their sources
+
+Host: CROSBY (Windows). The five checked-in images (`user-exit42`, `user-calls`, `user-echo`, `user-text`, `blank-flip`) had sources beside them and **nothing comparing the two**, so a stale image would keep passing tests against a program nobody has.
+
+- **`kr232_fixtures_match_source`** rebuilds each `.s` with `krc` and `krld` and compares the bytes, naming the exact commands in the failure.
+- **`tests/fixtures/regenerate.ps1`** is the regeneration path.
+
+Proved both ways: corrupting one byte of `user-echo.k232` failed the row with
+
+```
+user-echo.k232 does not match user-echo.s: rebuild it with
+  krc -c --target kr232 user-echo.s -o user-echo.o
+  krld --base=0x08000000 --entry=_start user-echo.o -o user-echo.k232
+```
+
+and running the regeneration afterwards rebuilt **all five** to byte-identical files -- `git status` stayed clean, which is the evidence that the script and the checker agree.
+
+One defect in my own script, caught by running it: `krld` wants `--base=0x08000000`, not `--base 0x08000000`, which it read as an input file (*cannot open '0x08000000'*).
+
+Suites: `kr232` **15 of 15** with the kernel, **87 unit cases**; `krcompiler` **33 of 33**; `krdbg` **17 of 17**.
+
+Item 7 of 8 closed. Next: the ARM64 run.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
