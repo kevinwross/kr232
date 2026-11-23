@@ -325,7 +325,7 @@ The adapter suite, the golden, the boundary check, the host gate, and the demo's
 - [x] `[kr232]` `--user <program.k232>` on the CLI: preload at `0x08000000`, no entry word, the kernel builds the frame. Check: the kernel enters the program at its link address.
 - [x] `[krcompiler]` A user-mode program built by krc that prints, draws and exits through the table. Check: it runs and its frame matches a golden.
 - [x] `[kr232]` Protection from user mode: the M1 trap tests rerun with K = 0. Check: each raises vector 8 or 4 as documented.
-- [ ] `[krdbg]` `host.kernel_supported` and `load_kernel`, replacing the session target. Check: the debugger loads kernel then program and steps the program through a syscall.
+- [x] `[krdbg]` `host.kernel_supported` and `load_kernel`, replacing the session target. Check: the debugger loads kernel then program and steps the program through a syscall.
 - [ ] `[kr232]` Answer the two deferred questions and revise the drafts: `SYSCALL` error values in ISA §18, display call numbers in devices §14; both sections lose "deferred" and gain the decisions in §15. Check: the lint passes and the revision is recorded.
 - [x] `[kr232]` Log the gate. Check: `## Gate verification` block.
 
@@ -2125,6 +2125,18 @@ Host: CROSBY (Windows). `kr232adapter::kernel_supported()` and `load_kernel()` e
 `load_kernel` loads the kernel as the machine's image, places the program at `0x08000000`, **keeps the kernel's PC across the load**, hands the program's entry to the kernel **in R2**, and takes its **debug payload from the program image**, because that is what a debugger steps through. A program based below user RAM is refused with the same message the emulator gives.
 
 **Not ticked:** the task's check wants the debugger to load kernel then program and **step the program through a syscall**. That needs both images as checked-in fixtures and a test that runs the syscall path; the code is in place and the evidence is not.
+### 2026-11-24T03:30:00-08:00 — M5: the debugger steps a kernel program through a syscall
+
+Host: CROSBY (Windows). `kernel.k232` and `userprint.k232` are fixtures, and the test loads both into **one machine**:
+
+```
+kr232_adapter_steps_a_kernel_program_through_a_syscall   PASS
+krdbg_kr232_tests: 17 tests, 0 failures
+```
+
+The program runs from the kernel's entry, prints through the syscall table, and halts with its status in `R2`; both images are visible in the same machine -- the kernel at 0 and the program in user RAM. That is what "loads kernel then program and steps it through a syscall" means, witnessed rather than asserted.
+
+Ticked: **krdbg's kernel support**. M5 at 6 of 7. One task left: **the two deferred questions** -- `SYSCALL` error values in ISA §18 and display call numbers in devices §14 -- which removes "deferred" from both sections and records the decisions under §15.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
