@@ -295,7 +295,7 @@ The per-target loops, determinism, KDBG invariants, the clean gate, `-S` byte-id
 - [x] `[krdbg]` `disassemble` through `kr232-dis`, advancing by decoded length. Check: a one-byte `RET` is followed by the next instruction, not by a four-byte gap.
 - [x] `[krdbg]` `unwind()` through the EFP chain, `FunctionInfo::frame` 0, and `Location::FrameOffset` negated. Check: two frames and a local's value at each.
 - [x] `[krdbg]` `IComPort` over page 2 and `IVideoSource` over the committed frame, with `has_com_port` and `has_framebuffer` agreeing. Check: a byte through the port reaches the guest, and a frame hash matches the emulator's.
-- [ ] `[krdbg]` Source level: load `.k232`, locate `.kdbg`, `kdbg::read_payload`, resolve paths, `replace_target(std::move(target), info)` on reload. Check: line breakpoints resolve after a reload.
+- [x] `[krdbg]` Source level: load `.k232`, locate `.kdbg`, `kdbg::read_payload`, resolve paths, `replace_target(std::move(target), info)` on reload. Check: line breakpoints resolve after a reload.
 - [ ] `[krdbg]` Host wiring: `--kr232`, the include under `KRDBG_HAVE_KR232`, `load_any` on the `.k232` extension and `--target kr232`, `tests/test_host_build.cpp` with `KRDBG_KRC_PREFIX`. Check: the prefix is installed at the krcompiler revision recorded in the log, `test_host_build` **runs** rather than skipping, and the demo loads the fixture both ways.
 - [ ] `[krdbg]` Fixtures and golden: `tests/fixtures/kr232/` assembled by M2's toolchain with a `regenerate.ps1`, and `goldens/kr232-loaded.hash`. Check: the golden matches on x64; the ARM64 run excludes it.
 - [x] `[krdbg]` `tests/test_kr232_adapter.cpp`: load, layout, execution, inspection, line stepping, reload, no-debug-info, bad input, COM, framebuffer. Check: ten cases green.
@@ -1528,6 +1528,13 @@ The failures had three causes, in order of how long they hid:
 Also committed: the two C fixtures (`kr232_nested_frames.c`, `kr232_session.c`) that the tests and containers reference but which were untracked, so a clone could not rebuild them.
 
 Lesson: `ctest -R kr232` is a filter, not the suite. `krc_tests` was red for many rounds while every filter run was green, and the failures were mine.
+### 2026-11-23T16:10:00-08:00 — M4: line breakpoints resolve after a reload
+
+Host: CROSBY (Windows). `kr232_adapter_line_breakpoints_survive_a_reload`: the session stops on a line of `nested_frames.k232`, `restart` runs the reload callback (which resets the target), the breakpoint count is unchanged, and the next `run` stops at the same address. That is the source-level task's check -- load `.k232`, locate `.kdbg`, read the payload, resolve paths, `replace_target` on reload -- exercised end to end rather than piece by piece.
+
+`krdbg_kr232_tests` **12 tests, 0 failures**. Ticked: **source level**.
+
+M4 at 11 of 14. Remaining: `test_host_build` with an installed `krc` prefix (which needs the prefix installed at this revision), the golden's ARM64 half, and the gate record.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
