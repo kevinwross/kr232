@@ -1444,6 +1444,20 @@ So it **found** a `.kdbg` section after all: the container holds the string ten 
 `krdbg_kr232_tests` **10 tests, 0 failures**. Ticked: **the adapter's test file**, whose list now has every item -- load, layout, execution, inspection, line stepping, reload, no-debug-info, bad input, COM and framebuffer.
 
 M4 at 9 of 14. Remaining: the `unwind` task's local value (needs variable records in `.kdbg`), the windowed `load_any` observation, the golden-hash task's fixture half, and the gate record.
+### 2026-11-23T14:20:00-08:00 — M4: the local is emitted, and the decoder drops its sign
+
+Host: CROSBY (Windows). The compiler now writes a real variable into the payload:
+
+```
+KDBG target=5 ... variables=1
+variable inner.x offset=4294967292 type=0 size=4
+```
+
+`offset=4294967292` is **0xFFFFFFFC**, which is -4 as a signed 32-bit frame offset -- the slot is 4 bytes below the frame base, exactly where the backend put it. A probe showed the debugger then decodes it as `frame_offset = 4294967292`, kind FrameOffset, size 4, flags Local.
+
+So the defect is in **krdbg's payload decoder**: it stores the 32-bit offset into an `int64` without **sign extension**, and `variables.cpp` adds that field to the frame base. A variable 4 bytes below the base would be read 4 GiB above it. The fix is one cast where the field is read, and it belongs in the shared decoder, not in this adapter.
+
+The test for the local was withdrawn again rather than left red; the payload half is verified by the dump above.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
