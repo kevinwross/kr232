@@ -1407,6 +1407,22 @@ So the thirteen golden mismatches and the failing gutter click were **my ad-hoc 
 Ticked: **the boundary check and host gate** -- `platform_boundary` clean in the gate, the gate passes, and the adapter's build and its green own-binary are recorded. The separate `krdbg_kr232_tests` binary is what lets the adapter be tested without enabling it in the gate's builds, which is why the goldens and the adapter can both be green.
 
 Remaining in M4: `unwind` (caller pc and locals), `load_any`'s windowed observation, the no-debug-info case, and the gate record.
+### 2026-11-23T13:15:00-08:00 — M4: the unwind mystery was my assertion
+
+Host: CROSBY (Windows). A probe that wrote the frames to a file settled two rounds of guessing:
+
+```
+frames=2
+inner_begin=1144  main_begin=1181
+frame 0 base=134217708 (0x07FFFFEC) pc=1191   <- inside main
+frame 1 base=134217720 (0x07FFFFF8) pc=1139   <- inside the entry stub
+```
+
+The entry stub is placed **before** `main`, so the outer frame's return address is *below* main's first instruction. My assertion `frames[1].pc >= main_begin` encoded the opposite belief and was wrong; the walker was right all along. The test now asserts what the layout actually is: the inner return address inside `main`, the outer one nonzero and below it.
+
+`krdbg_kr232_tests` **9 tests, 0 failures**. The `unwind` task stays open on the **local's value** its check names: the fixtures carry no variables in their `.kdbg`, so there is nothing to read through a frame offset yet.
+
+Lesson, again the same one: two rounds were spent on a suspicion when one written-down measurement would have ended it immediately.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
