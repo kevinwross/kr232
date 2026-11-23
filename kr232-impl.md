@@ -107,7 +107,7 @@ Push what has been verified, at the size of a reviewable unit, and never leave a
 | `krcompiler` or `krdbg` at a milestone exit | branch, then a pull request | the full gate, both hosts |
 | Fixing a red `main` | immediately | the row that was red, plus its neighbours |
 
-1. **Branch by repository.** `kr232` is the coordinator's own repository and works on `main`. `krcompiler` and `krdbg` carry KR32, KR16, KR216 and their users, so kr232 work goes on `kr232-m0` … `kr232-m5` and reaches `main` by pull request at that milestone's gate.
+1. **Branch by repository.** `kr232` is the coordinator's own repository and works on `main`. `krcompiler` and `krdbg` carry KR32, KR16, KR216 and their users, so kr232 work goes on `kr232-m0` … `kr232-m5` and reaches their default branch — `master` in `krcompiler`, `main` in `krdbg` — by pull request at that milestone's gate.
 2. **ARM64 is a milestone cadence.** BitWhiz runs at each gate and additionally whenever a change is platform-sensitive: alignment, word size, endianness, or anything reading host byte order.
 3. **Log before push.** The entry names host, command, result and revision. A push whose entry is missing has no evidence.
 4. **No force-push. Tags only at approvals and freezes**: `spec-approval-1` exists; `isa-1.0` and `devices-1.0` are cut at M3's gate. Milestones get commits, not tags.
@@ -157,7 +157,7 @@ Both forms are ISO-8601 with the host offset to the second, like the plan's vers
 
 ### Tasks
 
-- [ ] `[kr232]` Add `README.md`: what kr232 is, the three documents, and the one command that checks them. Check: the file names the lint command and the approved versions.
+- [x] `[kr232]` Add `README.md`: what kr232 is, the three documents, and the one command that checks them. Check: the file names the lint command and the approved versions.
 - [ ] `[krcompiler]` Write the ADR (next free number under `docs/decisions/`, 0055 at the time of writing): kr232 fits descriptor schema v2, `sret_register = 6`, `aggregate_rules = MemoryOnly`, data model `Ilp32`, `has_matrix` false, and the target id **5** for both KRO and KDBG. Check: the ADR is committed and names every field it fixes.
 - [ ] `[krcompiler]` Add the `plan.md` Appendix A decision row for kr232, next after D-050. Check: the row exists and the ADR number is cited.
 - [ ] `[krcompiler]` Write `docs/abi-kr232.md`: data model (`Ilp32`; 32-bit pointers, `size_t`/`ptrdiff_t` 32, `intmax_t` 32, no 64-bit integer, `long double` 64, signed `char`), argument registers R2–R5, result R2, `this` R10, FP R13, SP R15, callee-saved R8–R9, frame layout (saved caller FP at `[FP]`, EFP chain in R12), 4-byte alignment with 8 recommended, narrow-type extension, varargs, aggregates and the R6 sret convention, the floating-point convention over F0–F3, vtable and typeinfo layout with the reserved `[vptr - 4]` slot, and FP register preservation. Check: every section `abi-kr216.md` carries has a kr232 counterpart or a stated "not applicable".
@@ -353,7 +353,7 @@ The kernel's entry and return, the syscall table's validation, protection from u
 
 | Milestone | State | Gate recorded |
 |---|---|---|
-| M0 | not started | — |
+| M0 | in progress — 1 of 9 tasks | — |
 | M1 | not started | — |
 | M2 | not started | — |
 | M3 | not started | — |
@@ -362,7 +362,13 @@ The kernel's entry and return, the syscall table's validation, protection from u
 
 ## 13. Log
 
-*(Appended as work proceeds. The first entry is written after the first task.)*
+### 2026-11-22T19:49:28-08:00 — M0: README added, sibling remotes checked
+
+Host: CROSBY (Windows; documentation only, no build)
+Changed: `README.md` added; §2's branch rule corrected — krcompiler's default branch is `master`, not `main`; M0 task 1 ticked.
+Ran: `node tools/check-isa.mjs` → `ok: 81/81 vectors; Appendix B covers 0x00-0xFF; Appendix C tiles 4 GiB; 13 device page rows tile the window; tables well-formed`. `git -C ..\krcompiler remote -v` and `git -C ..\krdbg remote -v` → both have push remotes; both trees clean on `master` and `main` respectively.
+Failed: nothing.
+Next: ADR and `docs/abi-kr232.md` in krcompiler, on branch `kr232-m0`.
 
 ## 14. Gate verification
 
