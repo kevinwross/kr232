@@ -2433,6 +2433,20 @@ Host: CROSBY (Windows). The task asks for "a disassembly test over all 81 vector
 Ticked: **`kr232-dis`**. M2 is now 13 of 13.
 
 Two tasks remain unticked in the whole plan, and only one of them is work: **M3's varargs**, deferred with its parts named. The other was this one, and it was already done -- the checklist had not been read against the suite since M2.
+### M2 — profile, assembler, object writer, disassembler, container
+
+Host: CROSBY (Windows). Recorded 2026-11-22T22:05:00-08:00, with its detail in §13; this row exists so that every milestone's gate appears in this section.
+
+| Plan §7 criterion | Evidence |
+|---|---|
+| `krc --list-targets` shows `kr232` with `backend=no` at this point | `krc_kr232_list_targets`, and the row moved to `backend=yes` once M3's generator landed |
+| A hand-written `.s` assembles, links and runs under M1 with the expected status and screen | `krc_kr232_run_fixture`, `krc_kr232_run_draw`, `krc_kr232_wrong_frame` |
+| The image's `.kdbg` decodes through `krc --dump-symbols` with the fixture's lines, functions and `image_base = 0` | `krc_kr232_dump_symbols` |
+| Every Appendix A vector round-trips byte-exactly | `every_appendix_a_vector_decodes_to_its_mnemonic_and_length`, `disassembly_names_every_appendix_vector` |
+| Two builds of one image are byte-identical | `krc_kr232_determinism` |
+| `kr232-dis` disassembles the assembled fixture | the `kr232-dis tests/fixtures/...` CTest rows |
+
+13 of 13 tasks ticked.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
