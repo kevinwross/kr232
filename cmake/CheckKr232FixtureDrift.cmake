@@ -18,7 +18,8 @@ set(fixtures
     "user-calls.s|user-calls.k232|--base=0x08000000"
     "user-echo.s|user-echo.k232|--base=0x08000000"
     "user-text.s|user-text.k232|--base=0x08000000"
-    "blank-flip.s|blank-flip.k232|none")
+    "blank-flip.s|blank-flip.k232|none"
+    "kernel-gate.s|kernel-gate.bin|none")
 
 set(failures "")
 foreach(entry IN LISTS fixtures)
