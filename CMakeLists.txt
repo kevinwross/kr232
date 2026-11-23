@@ -113,6 +113,16 @@ if(KR232_BUILD_TESTS)
         LABELS "unit"
         PASS_REGULAR_EXPRESSION "frame cbf29ce484222325")
 
+    # The hand-encoded kernel image: two pixels into the aperture, a FLIP through
+    # the framebuffer register, and a clean exit. The hash is what makes the run
+    # reproducible across hosts and runs.
+    add_test(NAME kr232_cli_kernel
+        COMMAND kr232-emu vm "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel-draw.bin"
+                --max-steps 100 --frame-hash)
+    set_tests_properties(kr232_cli_kernel PROPERTIES
+        LABELS "unit"
+        PASS_REGULAR_EXPRESSION "frame 1628b6c37bf7a2ad")
+
     add_test(NAME kr232_path_hygiene
         COMMAND ${CMAKE_COMMAND}
             "-DBINARY=$<TARGET_FILE:kr232-emu>"

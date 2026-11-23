@@ -357,7 +357,7 @@ The kernel's entry and return, the syscall table's validation, protection from u
 | Milestone | State | Gate recorded |
 |---|---|---|
 | M0 | complete — gate recorded 2026-11-22T20:07:37-08:00 | M0 |
-| M1 | in progress — 8 of 11 tasks | — |
+| M1 | in progress — 9 of 11 tasks | — |
 | M2 | not started | — |
 | M3 | not started | — |
 | M4 | not started | — |
@@ -629,7 +629,14 @@ Ran: Windows 75 cases and 0 failed checks, `ctest` 4 of 4; WSL build and `ctest`
 Found: the loader's fit check probed with `read8`, which refuses the null page — so a kernel image at base 0 could never load, since the host must be able to fill `0x0000`-`0x00FF` even though a guest access there traps. `Memory` gained a host-side `load()` that bypasses only that rule.
 Also found: the CLI test first used a `[\s\S]` expression that CMake's regex engine does not implement, so it failed on both hosts while the command itself was correct; it now pins the exact frame hash, which is the stronger assertion.
 Ticked: frame commit and `--frame-hash`, and the flat loader with the CLI.
-Next: the hand-encoded kernel image, then the M1 gate.
+### 2026-11-22T20:58:44-08:00 — M1: a hand-encoded kernel image runs from the CLI
+
+Host: CROSBY (Windows `windows-msvc`) and CROSBY WSL (`linux-wsl`)
+Added: `tests/fixtures/kernel-draw.bin`, 295 bytes of hand-encoded instructions at base 0 with the reset word at `0x0100` pointing at `0x0104`. It loads the aperture address of the default back surface, writes two `0x00112233` pixels sixteen bytes apart, writes 1 to the framebuffer `FLIP` register, clears R2 and exits through `SYS 0`. Ten instructions, no assembler involved.
+Ran: `kr232-emu vm tests/fixtures/kernel-draw.bin --max-steps 100 --frame-hash` prints `halted status 0 after 10 steps` and `frame 1628b6c37bf7a2ad`; `ctest` 5 of 5 on Windows and 5 of 5 on WSL, with `kr232_cli_kernel` pinning that hash.
+Found: the test's first expression used `[\r\n]+`, which CMake's regex engine does not implement, so it failed while the run was correct — the same class of mistake as the previous CLI test. The pinned hash plus the exit code is the assertion that does not depend on the reporter's line endings.
+Ticked: the hand-encoded kernel image.
+Next: the M1 gate record.
 
 ### 2026-11-22T20:06:19-08:00 — the BitWhiz alias now matches both spellings
 
