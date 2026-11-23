@@ -163,7 +163,7 @@ Both forms are ISO-8601 with the host offset to the second, like the plan's vers
 - [x] `[krcompiler]` Add the `plan.md` Appendix A decision row for kr232 as **D-051**. Check: the row exists and ADR 0057 is cited (b16e3be).
 - [x] `[krcompiler]` Write `docs/abi-kr232.md`: data model (`Ilp32`; 32-bit pointers, `size_t`/`ptrdiff_t` 32, `intmax_t` 32, no 64-bit integer, `long double` 64, signed `char`), argument registers R2–R5, result R2, `this` R10, FP R13, SP R15, callee-saved R8–R9, frame layout (saved caller FP at `[FP]`, EFP chain in R12), 4-byte alignment with 8 recommended, narrow-type extension, varargs, aggregates and the R6 sret convention, the floating-point convention over F0–F3, vtable and typeinfo layout with the reserved `[vptr - 4]` slot, and FP register preservation. Check: every section `abi-kr216.md` carries has a kr232 counterpart or a stated "not applicable" (682f7ee).
 - [x] `[krcompiler]` Extend the `target_id` line in `docs/symbols.md` to `5` kr232. Check: the line names all five — it named only 1–3, so KR216's 4 was added at the same time. The `kROTargetId` case waits for the profile row in M2 (b16e3be).
-- [ ] `[krcompiler]` Add the failing test: `krc --target=kr232 -c` is expected to stop with "has no code generator yet". Check: the test **fails** at M0 with `unknown target` and the log quotes both messages.
+- [x] `[krcompiler]` Add the failing test: `krc --target=kr232 -c` is expected to stop with "has no code generator yet". Check: the test **fails** at M0 with `unknown target` and the log quotes both messages (7952efb).
 - [x] `[kr232]` Update `AGENTS.local.md` to point at the approved plan and this file. Check: both are named in its Authoritative-for row.
 
 ### Tests
@@ -353,7 +353,7 @@ The kernel's entry and return, the syscall table's validation, protection from u
 
 | Milestone | State | Gate recorded |
 |---|---|---|
-| M0 | in progress — 6 of 8 tasks | — |
+| M0 | tasks complete — 8 of 8; gate pending the merge decision | — |
 | M1 | not started | — |
 | M2 | not started | — |
 | M3 | not started | — |
@@ -388,6 +388,25 @@ Wrote: the ABI appendix differs from KR216's where the machine does — a 4-byte
 Ran: `node tools/check-isa.mjs` → ok, unchanged (no draft edited).
 Failed: nothing.
 Next: the failing refusal test, then M0's gate.
+
+### 2026-11-22T19:55:47-08:00 — M0: the refusal test is in and red
+
+Host: CROSBY (Windows, MSVC 14.52, CMake 4.3.1-msvc1 via the VS developer environment)
+Changed (`kr232-m0`): `tests/CMakeLists.txt` gains `krc_kr232_no_backend` (7952efb), registered rather than hidden.
+Ran: `cmake --build --preset windows-msvc-debug -j 10 --target krc` → clean, reconfigured with the new test; `ctest -R krc_kr232_no_backend --output-on-failure` → **failed as designed**:
+`Required regular expression not found. Regex=[target 'kr232' has no code generator yet]` and the tool printed `krc: error: unknown target 'kr232' (expected kr32, kr16, or kr64)`.
+Found: that message omits **kr216** as well, so the expected-target list has been stale since ADR 0053. M2 fixes it when it adds kr232 to `to_target` — recorded here so it is not rediscovered.
+Environment: `cmake` and `ctest` exist only inside the Visual Studio developer environment; `vcvarsall.bat x64` is required, and the doctor confirms it (`msvc 14.52.37025`, `cmake version 4.3.1-msvc1`). The doctor's own note that a confined session cannot answer no longer applies at this policy.
+Pending: the full `ctest` row was started to confirm the suite grows by exactly one failure; its result belongs in the M0 gate block.
+Next: M0's gate, which needs the owner's merge of `kr232-m0` (or a ruling that a pushed branch is what "merged" means).
+
+### 2026-11-22T20:00:11-08:00 — M0: the host row is 919 of 920, one red by design
+
+Host: CROSBY (Windows, `windows-msvc-debug`, `-j10`)
+Ran: `ctest --preset windows-msvc-debug` → **919 passed, 1 failed of 920**, 266 s. The only failure is `krc_kr232_no_backend`, the test this milestone added; it fails because the tool still answers `unknown target 'kr232'`.
+Reads: the two failures krcompiler used to carry have been fixed since they were recorded, so the row is otherwise clean — the new red is the only one, and it names its own removal condition.
+Failed: nothing unexpected.
+Next: the M0 gate. Its merge clause is the owner's action, so the gate block waits for that decision.
 
 ## 14. Gate verification
 
