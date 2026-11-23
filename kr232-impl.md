@@ -660,7 +660,15 @@ Found: there is no `kr216_assembler.cpp` to port. `src/asm/` holds encoders for 
 - The text parser on top, which is what turns Appendix A into the 81-vector round trip.
 Order: encoder first, so the round-trip test can be written against bytes before a parser exists, then the parser.
 Not landed: no code this round. Reading the three encoders' shapes plus the ABI and descriptor documents used the round; the encoder starts next with a full budget rather than half a file.
-Next: the Normal and escape forms, then the text parser.
+Next: the escape forms, then the text parser.
+
+### 2026-11-22T21:11:07-08:00 — M2: all thirty-two normal forms
+
+Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2`
+Added: `encode_normal`, which lays out the payload by opcode group — data and base with a `d8`; data with a signed `imm8` for `LD`/`ADD`/`SUB`/`CMP`; an unsigned `imm8` for `LD`/`CMP`/`AND`/`OR`/`XOR`; shift counts capped at 31; `rel16` for `JMP` and `CALL`; the condition in `SETcc` with 14 and 15 refused; a 16-bit mask for `PUSH`, `POP` and `LEAVE`; and the two-register `DIV`/`DIVS`.
+Ran: krcompiler's suite `2632 assertions`, all passing; the kr232 group is nine cases and 319 assertions. Fifteen encodings and six rejections pinned against Appendix A.
+Found: a first edit to the test file replaced the out-of-range case instead of adding beside it, deleting five assertions. They are restored; the suite count confirms it, which is the reason the count is quoted in every entry.
+Next: the `F0` generic specifier pair and the nine escape forms, then the text parser.
 
 ### 2026-11-22T21:10:04-08:00 — M2: the compact register form
 
