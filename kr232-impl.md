@@ -2210,6 +2210,21 @@ eceb`mode`c`eakingJ          <- meant "user mode speaking"
 That is the next measurement: write a single byte (`'A'`, `0x41`) and see what the console receives, which separates a load bug from a device width bug in one run.
 
 The M3 libc task stays open and the reason is now specific.
+### 2026-11-24T05:25:00-08:00 — M3: the corruption is in the characters, not the call
+
+Host: CROSBY (Windows). Four single-character experiments through the same C path:
+
+| Text | Console |
+|---|---|
+| one `'A'` from assembly | `A` |
+| `ABCD` | `ABCD` |
+| `hello` | `hello` |
+| `abcd xyz` | `abcd`hij |
+| `user mode speaking` | `eceb`mode`c`eaking` |
+
+So short ASCII strings are exact, and the failures are **specific characters**: every byte in `0x70`-`0x7F` arrives `0x10` low, a space arrives as `0x60`, and letters in `0x60`-`0x6F` are untouched. Preserving `R8`-`R10` in the stub (which the ABI requires and the trap does not do for it) changed nothing, so the call path is not the culprit.
+
+The next place to look is the **constant in the user image**: dump its `.data` and the code `puts_` emits, and compare the bytes the program holds with the bytes the console receives. One dump separates a compiler bug from a device translation.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
