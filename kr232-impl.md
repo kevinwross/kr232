@@ -806,6 +806,14 @@ Ran: krcompiler's suite 3645 assertions, all passing.
 Found: without section flags the container's entry check rejected every linked image -- the object writer had no flags field, so a text section looked unallocated. And with the previous default base of 0 the entry was 0, inside the null page the ISA reserves; 0x200 is the first address after the vector table. Both were found by the end-to-end test, not by reading the writer.
 Next: `.kdbg` emission from assembly, `krc --dump-symbols`, `RunKr232Image.cmake`, then `kr232-dis` and the `.s` fixture run through `kr232-emu`.
 
+### 2026-11-22T21:40:03-08:00 — M2: the kr232 text assembler
+
+Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2` at `3c7238b`
+Added: `src/asm/kr232_assembler.{h,cpp}` — reads `.text`, `.data`, `.globl`, `.word`, `.byte`, labels and the instructions the parser accepts, and produces a `Program` plus one `DebugLine` per instruction with its source line and text offset. A label operand on `bra`, `call`, `jmp` or the common conditions becomes a two-byte compact branch patched once every label is placed; an out-of-range target is an error rather than a truncation; each label records its own section.
+Ran: krcompiler's suite 3679 assertions, all passing.
+Found: two of my own expectations were wrong, not the code — a branch to the label immediately following has displacement 0, not 2, and line records are one per instruction rather than one per statement (labels are not statements). Both were caught by asserting exact bytes and exact counts.
+Next: emit the `.debug_info` bridge from these line records so `attach_kdbg` produces a `.kdbg`, then `krc --dump-symbols` on a `.k232`.
+
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
