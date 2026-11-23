@@ -790,6 +790,14 @@ Ran: kr232's suite 78 cases, 0 failed checks; WSL `ctest` 4 of 4.
 Found: the kr232 harness has `CHECK` but no `REQUIRE`; the appended tests did not compile until the macro was corrected -- the two repositories' harnesses are not interchangeable.
 Next: `link_impl` wiring for target 5, `.kdbg` emission, then `kr232-dis` and the end-to-end `.s` fixture.
 
+### 2026-11-22T21:34:41-08:00 — M2: the linked image maps onto the container
+
+Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2` at `9574917`
+Added: `write_kr232_container` takes a `LinkedImage`'s base, entry and sections, sets the debug flag when a debug section is present, and hands them to the container writer. The mapping is tested end to end: a linked image with one executable section becomes a container whose target id is 5 and whose entry is the linked entry.
+Ran: krcompiler's suite 3634 assertions, all passing.
+Found: three compile-level misses in my own test -- a missing `linker.h` include, and an enum value I guessed instead of reading (the section type became a cast to its documented number, 1). Each was caught by the build, which is the reason the writer and the test were built together rather than apart.
+Next: `link_impl` choosing this writer for target 5 with the 4-byte heap alignment and kr232 stack bounds, then `.kdbg` emission.
+
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
