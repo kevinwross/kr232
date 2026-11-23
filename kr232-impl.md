@@ -676,7 +676,16 @@ Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2`
 Added: `src/asm/kr232_parser.{h,cpp}` with `parse_instruction` — case-insensitive mnemonic lookup, operands split on commas and trimmed, the ten zero-operand Short forms, `push`/`pop`/`inc`/`dec`/`call` with a register, the unary `neg`/`not`/`sxtb`/`sxth`, and the two-register compact operations. Every other shape — immediate, bracketed address, branch displacement, FP — is refused with an error rather than guessed at.
 Ran: krcompiler's suite 2875 assertions, all passing; two parser cases.
 Found: the first version of the file carried helpers for immediates and conditions that nothing called yet, which `/W4` treats as dead code; they were removed rather than suppressed and will come back with the shapes that use them. A brace-initialised operand also narrowed `unsigned` to `uint8_t`, which the same warning level caught.
-Next: immediate and bracket operands, branches and the FP forms, then the fixture that assembles text and compares it with the Appendix bytes for all 81 vectors.
+Next: bracketed addresses, then branches, then FP.
+
+### 2026-11-22T21:17:44-08:00 — M2: register-with-immediate text
+
+Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2`
+Added: the shortest-form rule for a register and an immediate — signed bytes for `add`, `sub`, `cmp`; unsigned for `and`, `or`, `xor`; counts for `shl`, `shr`, `sar`; `ld` choosing the signed byte, the unsigned byte, or the five-byte register form by range; and the `push`/`pop`/`leave` mask. Out-of-range immediates are refused by the encoder, which is where the range belongs.
+Ran: krcompiler's suite 2934 assertions, all passing; three parser cases.
+Found: the existing refusal test asserted that `ld r2, #0x1234` could not parse — true before this slice, obsolete after it. It was replaced by a shape that is still unsupported (`ld r2, [r3]`), which is the difference between an obsolete expectation and a weakened test. The parser is being grown one text family at a time after two rounds lost to whole-file rewrites, and each family has its own case.
+Next: bracketed addresses with their modes, then branches, then the FP text; then the fixture that assembles all 81 vectors' text and compares it with the Appendix bytes.
+
 
 
 
