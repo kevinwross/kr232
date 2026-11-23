@@ -918,6 +918,15 @@ Blocked, and precisely: `crt0.s` cannot call `main` because `main` lives in anot
 Not ticked: both the loads/stores task and the ALU/branches/returns task, whose check is the emulator run that this blocker prevents.
 Next: relocations in the assembler and object writer, then the return-42 run.
 
+### 2026-11-22T22:35:00-08:00 — M3: the first compiled program runs
+
+Host: CROSBY (Windows `windows-msvc-debug` compiler, `windows-msvc` emulator)
+Added: relocations for cross-object branch labels -- `call`/`jmp` to a label emit the three-byte rel16 form plus a `PcRel16` relocation with addend -2, `make_object` marks the unresolved symbol with section all ones exactly as the other writers do, and the linker patches it. `crt0.s` calls `main` and `sys`-exits with R2.
+Ran, by hand: `krc -c crt0.s`, `krc -c kr232_return42.c`, `krld --entry=_start` both, `kr232-emu vm` -> `halted status 42 after 6 steps`, process exit **42**. That is the ALU/branches/returns task's named check.
+Found: the red frame test was a stale expectation left by a scripted replacement that silently did nothing, and the reason is now known -- the working tree has CRLF endings (`core.autocrlf` true, index pinned to LF), so a multi-line pattern written with `\\n` never matches. Six silent no-ops had this cause; the editor tool is the only safe path for multi-line edits.
+Not ticked: the task, because its content names ALU, comparisons and branches and only the return path exists; its check passing early is evidence, not completion.
+Next: loads and stores, then ALU and branches, each with a program that returns a value computed by the instruction under test.
+
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
