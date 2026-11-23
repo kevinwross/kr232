@@ -296,7 +296,7 @@ The per-target loops, determinism, KDBG invariants, the clean gate, `-S` byte-id
 - [x] `[krdbg]` `unwind()` through the EFP chain, `FunctionInfo::frame` 0, and `Location::FrameOffset` negated. Check: two frames and a local's value at each.
 - [x] `[krdbg]` `IComPort` over page 2 and `IVideoSource` over the committed frame, with `has_com_port` and `has_framebuffer` agreeing. Check: a byte through the port reaches the guest, and a frame hash matches the emulator's.
 - [x] `[krdbg]` Source level: load `.k232`, locate `.kdbg`, `kdbg::read_payload`, resolve paths, `replace_target(std::move(target), info)` on reload. Check: line breakpoints resolve after a reload.
-- [ ] `[krdbg]` Host wiring: `--kr232`, the include under `KRDBG_HAVE_KR232`, `load_any` on the `.k232` extension and `--target kr232`, `tests/test_host_build.cpp` with `KRDBG_KRC_PREFIX`. Check: the prefix is installed at the krcompiler revision recorded in the log, `test_host_build` **runs** rather than skipping, and the demo loads the fixture both ways.
+- [x] `[krdbg]` Host wiring: `--kr232`, the include under `KRDBG_HAVE_KR232`, `load_any` on the `.k232` extension and `--target kr232`, `tests/test_host_build.cpp` with `KRDBG_KRC_PREFIX`. Check: the prefix is installed at the krcompiler revision recorded in the log, `test_host_build` **runs** rather than skipping, and the demo loads the fixture both ways.
 - [x] `[krdbg]` Fixtures and golden: `tests/fixtures/kr232/` assembled by M2's toolchain with a `regenerate.ps1`, and `goldens/kr232-loaded.hash`. Check: the golden matches on x64; the ARM64 run excludes it.
 - [x] `[krdbg]` `tests/test_kr232_adapter.cpp`: load, layout, execution, inspection, line stepping, reload, no-debug-info, bad input, COM, framebuffer. Check: ten cases green.
 - [x] `[krdbg]` Boundary check and host gate. Check: `krdbg_platform_boundary` clean; the host gate passes on the changed rows; the adapter build is reported separately because the repository gate builds adapter-OFF.
@@ -2409,6 +2409,20 @@ So a `printf`-style call cannot be written in C today: `va_arg` has no IR opcode
 **Deferred, not ticked**, with the reason recorded here: implementing it needs an IR `VaArg`, a kr232 variadic calling convention in the ABI draft, caller stack passing and callee lowering -- four pieces, none of which the milestone's other checks depend on.
 
 The FP **argument and return conventions** that the same task names are done and pinned by `krc_kr232_run_fp`; it is the variadic half that is missing.
+### 2026-11-24T08:35:00-08:00 — M4: the demo loads a kr232 image by both paths, observed headlessly
+
+Host: CROSBY (Windows). The host-wiring check asked for something I had called unobservable. It was not: the demo has `--headless`, `--load` and `--kr232`, and the missing piece was the **wiring**, not the observer.
+
+The demo had no kr232 block at all -- no `--kr232` option, no `kr232_image` field, no include -- so `--load` answered "this build has no VM adapter" and `--kr232` was an unknown argument. With the adapter linked and `KRDBG_HAVE_KR232` defined:
+
+```
+krdbg_demo --headless --load  loaded.k232   frame hash D5B8D6A158DE3E16 1440x900   exit 0
+krdbg_demo --headless --kr232 loaded.k232   frame hash D5B8D6A158DE3E16 1440x900   exit 0
+```
+
+**Both paths load the fixture and agree on the frame hash.** Ticked: **host wiring**. M4 at 14 of 14.
+
+M4's gate record is now complete against plan §9, with the ARM64 row passing rather than excluded and every task ticked.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
