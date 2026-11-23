@@ -379,3 +379,22 @@ TEST_CASE(a_load_into_r11_cannot_write_the_hardware_flags) {
     CHECK((program.machine.reg(11) & 0x2Fu) == 0x00u);     // Z N C V T all clear
     CHECK(program.machine.kernel_mode());
 }
+
+TEST_CASE(the_exit_status_is_the_whole_word) {
+    // A test that exits 300 must read 300 back, not 44: the status is a full
+    // 32-bit value in the machine and in the process the emulator returns.
+    Program program{0x73};  // sys
+    program.machine.set_reg(7, 0);
+    program.machine.set_reg(2, 300);
+    const kr232::StepResult result = program.machine.step();
+    CHECK(result.stop == Stop::Halted);
+    CHECK(result.status == 300u);
+    CHECK(program.machine.exit_status() == 300u);
+
+    // And a value with every byte set survives unchanged.
+    Program wide{0x73};
+    wide.machine.set_reg(7, 0);
+    wide.machine.set_reg(2, 0x12345678u);
+    (void)wide.machine.step();
+    CHECK(wide.machine.exit_status() == 0x12345678u);
+}

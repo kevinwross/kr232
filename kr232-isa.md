@@ -908,13 +908,13 @@ with K = 0 it raises a protection fault. This is the kernel's door to the host â
 
 | Call | Number | Arguments | Result |
 |---|---|---|---|
-| `exit` | 0 | R2 = status | never returns; the machine halts with that status |
+| `exit` | 0 | R2 = status, the **whole 32-bit word** | never returns; the machine halts with that status, and an emulator that reports it as a process status passes it through unmodified |
 | `write` | 1 | R2 = fd, R3 = address, R4 = length | R2 = bytes written, or a negative error |
 | `read` | 2 | R2 = fd, R3 = address, R4 = length | R2 = bytes read, or a negative error; 0 is end of input |
 | `time` | 3 | â€” | R2:R3 = 64-bit seconds since the epoch (low 32 bits, high 32 bits) |
 | `debug_write` | 4 | R2 = address, R3 = length | R2 = 0 |
 
-Call numbers 5 and above are reserved and raise an illegal-operand trap (vector 3). A failed call
+A status is not truncated by the machine: a program that exits with 300 exits with 300, and only the host operating system may narrow it when it reports a process status. Call numbers 5 and above are reserved and raise an illegal-operand trap (vector 3). A failed call
 returns a negative value in R2; the individual codes are the emulator's host-service contract.
 Addresses and lengths are 32-bit; a length is unsigned and the host MAY reject a range that would
 wrap past `0xFFFFFFFF`.

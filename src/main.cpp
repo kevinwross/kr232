@@ -215,5 +215,7 @@ int main(int argc, char** argv) {
         }
     }
     // The program's SYS exit status is the process status (kr232-plan 6).
-    return machine.halted() ? machine.exit_status() : 0;
+    // The program's SYS status is the process exit code, in full: a test that
+    // exits 300 must be distinguishable from one that exits 44.
+    return machine.halted() ? static_cast<int>(machine.exit_status()) : 0;
 }

@@ -17,7 +17,7 @@ enum class Stop : std::uint8_t {
 struct StepResult {
     Stop stop = Stop::Retired;
     unsigned vector = 0;
-    std::uint8_t status = 0;  // the exit status for Halted
+    std::uint32_t status = 0;  // the exit status for Halted, in full
     bool jumped = false;      // the instruction set PC itself
 };
 
@@ -67,7 +67,7 @@ public:
     }
     void set_flag(unsigned bit, bool value) noexcept;
     [[nodiscard]] bool halted() const noexcept { return halted_; }
-    [[nodiscard]] std::uint8_t exit_status() const noexcept { return exit_status_; }
+    [[nodiscard]] std::uint32_t exit_status() const noexcept { return exit_status_; }
     [[nodiscard]] std::uint64_t cycles() const noexcept { return cycles_; }
 
     // K = 1. Trap entry sets it and only IRET clears it (ISA §2.2).
@@ -92,7 +92,7 @@ private:
     double f_[4] = {};
     std::uint64_t cycles_ = 0;
     bool halted_ = false;
-    std::uint8_t exit_status_ = 0;
+    std::uint32_t exit_status_ = 0;
     unsigned access_vector_ = 0;
 };
 

@@ -423,7 +423,9 @@ StepResult Machine::execute(const Decoded& d) {
                 case 0x73: {  // SYS
                     if (regs_[7] == 0) {
                         halted_ = true;
-                        exit_status_ = static_cast<std::uint8_t>(regs_[2] & 0xFFu);
+                        // The status is the whole word: a test that exits 300 must
+                        // read 300 back, not 44.
+                        exit_status_ = regs_[2];
                         return StepResult{Stop::Halted, 0, exit_status_, false};
                     }
                     return enter_trap(3);
