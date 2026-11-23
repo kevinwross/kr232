@@ -1031,6 +1031,13 @@ The fix belongs in one of two places, and the choice is a design one: make the a
 `cmake/CheckKr232Kdbg.cmake` is committed as a tool and stays out of the suite until the payload passes it.
 Suite: twenty kr232 CTests pass.
 
+### 2026-11-23T02:45:00-08:00 — M3: unique line labels; resolution still collapses
+
+Host: CROSBY (Windows `windows-msvc-debug`)`Changed: each source file's synthetic line labels carry a hash of the file name (`.L<hash>_<n>`, `.L<hash>_end`), so two objects no longer share `.L0`. Twenty kr232 CTests pass.
+Found: the payload still reports both sources' lines at the same address (now `0x400`), so uniqueness was necessary and **not sufficient**. The identical addresses suggest a line whose label cannot be resolved falls back to something constant -- the section base -- rather than failing. That fallback is what to read next in `attach_kdbg`: a debugger must not silently place a line at an address it guessed.
+Also observed: `symbols=0` in the payload, which is consistent with the linker not carrying the assembled line symbols into `image.symbols` at all.
+Next: resolve or refuse a line record, and carry the line symbols through the link.
+
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
