@@ -1164,6 +1164,24 @@ Progress: the FP fixture now compiles, links and runs 45+ steps. Closed: a **con
 Two operand orders learned from the assembler's own tests rather than guessed, and they are opposite: **`f2i rD, fS`** and **`i2f fD, rS`**.
 
 Fault, from the trace and the disassembly: after the callee returns, the caller's store uses `fp = 0`. The disassembly shows the prologue saving and reloading the FP arguments correctly (`fst f0, [fp-44]`, `fld f0, [r8]`), so the values are not the problem -- the **frame pointer's restore across the call** is. 26 kr232 CTests pass; the FP task is not ticked.
+### 2026-11-23T06:30:00-08:00 — M3: the frame-pointer fault is a call patched to the wrong target
+
+Host: CROSBY (Windows `windows-msvc-debug`)
+Read the machine's own contract: ENTER does `SP -= 4; [SP] = FP; FP = SP; push mask; SP -= frame`, and LEAVE does `SP = FP - 4*popcount(mask); pop mask; FP = [SP]; SP += 4`. Both are correct and symmetric, so the epilogue was never the suspect.
+
+The disassembly names the real defect:
+
+```
+0x000008a8 enter #56, #0        ; main
+0x00000912 leave #0
+0x00000915 ret
+0x00000916 enter #28, #0        ; add
+0x00000920 call -123            ; -> 0x000008a8, which is main
+```
+
+`add` has no call in its source, and the call it does contain targets **main**. So a local `call` was patched to the wrong label: the assembler's local-call patch resolves the relocation against the wrong symbol or the wrong offset, and the frame fault is downstream of that recursion.
+
+Next: the local-call patch in `kr232_assembler.cpp` -- the relocation's field offset and the label it resolves must be checked against each other, and a call site that appears with no call in the source is the signature.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
