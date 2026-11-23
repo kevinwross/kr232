@@ -11,13 +11,14 @@ if(NOT DEFINED KRC OR NOT DEFINED KRLD OR NOT DEFINED FIXTURE_DIR OR NOT DEFINED
 endif()
 file(MAKE_DIRECTORY "${WORK}")
 
-# source|image|link arguments
+# source|image|link arguments; an empty field is dropped by some CMake policies,
+# so "none" marks the fixtures that need no extra arguments.
 set(fixtures
     "user-exit42.s|user-exit42.k232|--base=0x08000000"
     "user-calls.s|user-calls.k232|--base=0x08000000"
     "user-echo.s|user-echo.k232|--base=0x08000000"
     "user-text.s|user-text.k232|--base=0x08000000"
-    "blank-flip.s|blank-flip.k232|")
+    "blank-flip.s|blank-flip.k232|none")
 
 set(failures "")
 foreach(entry IN LISTS fixtures)
@@ -34,7 +35,7 @@ foreach(entry IN LISTS fixtures)
         message(FATAL_ERROR "compiling ${source} failed:\n${compile_error}")
     endif()
 
-    if(link_args STREQUAL "")
+    if(link_args STREQUAL "none")
         execute_process(COMMAND "${KRLD}" --entry=_start "${WORK}/${stem}.o"
                                 -o "${WORK}/${image}"
                         RESULT_VARIABLE linked ERROR_VARIABLE link_error)
