@@ -1989,6 +1989,18 @@ Host: CROSBY (Windows). Writing a protection test taught two things, one of them
 **And then the load does not trap.** With K = 0, `ld r2, [r0+0x10]` retires instead of raising vector 8. The machine does have the check (`src/machine.cpp:288` on the load path, `:337` on the store path, `:196` on fetch), so the likely explanation is the bytes: the test hand-assembles `C0 20 10`, and the compact/long distinction matters -- the disassembler prints a `C0`-family instruction as `lea` in one earlier case, which would perform no access and trap nothing.
 
 The test was **removed** rather than left failing; `ctest` is 8 of 8. Next: disassemble `8E`, `8F`, `C0` and `C1` forms to learn which one is a real load before writing the test again -- the same round-trip habit that found the SP defects.
+### 2026-11-24T00:45:00-08:00 — M5: in user mode, neither a load nor a store at 0x10 traps
+
+Host: CROSBY (Windows). Established the encodings first this time:
+
+```
+c0 20 10   ld r2, [r0+16]     (the assembler emits this, and the disassembler reads it back)
+c1 30 10   st [r0+16], r3
+```
+
+In **kernel** mode `st [r0+16], r3` traps vector 4 (null page), so the instruction really does access memory. In **user** mode, entered by IRET with K clear, **both** the store and the load **retire** -- neither vector 8 nor vector 4. The protection check exists in the `load`/`store` lambdas (`src/machine.cpp:288`, `:337`), so either the C0/C1 family does not go through them, or K is not actually clear at that moment despite the earlier assertion passing.
+
+The next test must assert `kernel_mode()` **and** the trap in the same case, in that order, so the two possibilities separate in one run instead of two rounds. The test was removed; `ctest` is 8 of 8.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
