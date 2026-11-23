@@ -943,6 +943,14 @@ Found: the case block's `name` shadowed the function's `name` and MSVC treats C4
 Not ticked: the ALU/branches/returns task still lacks comparisons (`ICmp`) and the branch opcodes (`Br`, `CondBr`).
 Next: comparisons and branches, then calls with arguments.
 
+### 2026-11-22T23:15:00-08:00 — M3: comparisons and branches decide
+
+Host: CROSBY (Windows `windows-msvc-debug` compiler, `windows-msvc` emulator)
+Added: `ICmp` compares first and then zeroes its destination (the first version zeroed first, and because the destination register could be the left operand's, the compare read zero and every branch went one way); `Br` emits `bra`; `CondBr` compares against zero and emits `bne`/`bra`; blocks carry `.LbbN` labels. The assembler now accepts a label beginning with `.`, without which every generated target was rejected as a one-operand form. Two tests cover one `if`: **20 > 21 returns 42**, **20 > 19 returns 1**; thirteen kr232 CTests pass.
+Found: the real defect was not the missing branch encoding but the order of two instructions -- a comparison whose destination aliases an operand is only correct if the compare happens first. Single-path testing would have called this green.
+Not ticked: the task also names calls with arguments; `crt0` calls `main` with none, and the loads/stores task's by-value `char`/`short` parameters need them.
+Next: calls and arguments, then the two tasks tick.
+
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
