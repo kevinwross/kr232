@@ -2459,6 +2459,23 @@ krc_kr232_run_exit300   a CTest row that fails if any layer truncates
 Suites after the change: `kr232` ctest **8 of 8** and **83 unit cases**, `krcompiler` **29 of 29** kr232 rows and **3704 assertions**, `krdbg` **17 of 17**.
 
 Goal item 2 of 5 done. Next: `SYS` 1-4.
+### 2026-11-24T09:45:00-08:00 — The host-service contract is whole
+
+Host: CROSBY (Windows). `SYS` 1-4 were declared in ISA §13 and trapped as "unknown number"; they are implemented now:
+
+| Call | Behaviour | Refusal |
+|---|---|---|
+| 1 `write` | copies guest bytes to the console stream (descriptor 1) and answers the count | other descriptor, unmapped range: -1 |
+| 2 `read` | fills guest memory from the console input queue; 0 at end of input | other descriptor: -1 |
+| 3 `time` | 64-bit seconds since the epoch split across R2:R3 | never |
+| 4 `debug_write` | sends guest bytes to the host debug stream | unmapped range: -1 |
+| 5+ | reserved: vector 3, as before | -- |
+
+Evidence: a guest program writes `hello` through `SYS 1` and it appears on the transcript; four unit cases cover success, refusal, end of input and the reserved number. `kr232_isa.md` §13 now names descriptors 0 and 1 and the -1 rule.
+
+Suites: `kr232` **8 of 8** and **86 cases**, `krcompiler` **29 of 29** kr232 rows, `krdbg` **17 of 17**.
+
+Goal item 1 of 5 done (item 2 was the 32-bit status). Next: the encoding round-trip test.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
