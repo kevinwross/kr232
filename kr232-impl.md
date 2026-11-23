@@ -265,8 +265,8 @@ Round-trip for all 81 vectors; a hand-written `.s` linked and run; the `.kdbg` d
 - [ ] `[krcompiler]` `targets/kr232/runtime/libc.c`: console output, the `SYS` write/read/exit stubs, blitter-backed `memcpy`/`memset`. Check: output appears on the terminal transcript.
 - [x] `[krcompiler]` `sysroot/kr232/include/bits/` generated from the profile: `bits/types.h`, `bits/stdint.h`. Check: `stdint.h` widths round-trip in a unit test.
 - [x] `[krcompiler]` The four guest packages: `<kr232/fb.h>`, `<kr232/gfx.h>`, `<kr232/cons.h>`, `<kr232/input.h>`, with kernel-mode implementations. Check: the drawing program fills, draws and flips through `gfx`.
-- [ ] `[krcompiler]` Per-target link/run loops at `-O0`, a determinism test, a KDBG-invariants test at `-O0`, and the clean gate. Check: the executed rows exist because `KRC_KR232_VM` resolved.
-- [ ] `[krcompiler]` The `-O1` measurement ADR 0049 requires, recorded whether it lands or not. Check: the measurement is in the log; the `_o1` twins appear only if it does.
+- [x] `[krcompiler]` Per-target link/run loops at `-O0`, a determinism test, a KDBG-invariants test at `-O0`, and the clean gate. Check: the executed rows exist because `KRC_KR232_VM` resolved.
+- [x] `[krcompiler]` The `-O1` measurement ADR 0049 requires, recorded whether it lands or not. Check: the measurement is in the log; the `_o1` twins appear only if it does.
 - [ ] `[krcompiler]` The compiled program loads in krdbg at source level and stops on a line breakpoint. Check: the session stops at the expected line with locals visible.
 - [ ] `[kr232]` Log the gate and cut the freezes. Check: `## Gate verification` block; tags `isa-1.0` and `devices-1.0` on `kr232`, with the ISA and devices status lines moved to 1.0 and §18/§14 retitled "Deferred to 2.0".
 
@@ -1044,6 +1044,23 @@ Host: CROSBY (Windows `windows-msvc-debug`)
 Fixed: every C input was assembled under the same name, so the per-source label prefix was identical for every object and both sources' lines resolved to one address. The prefix now hashes the **assembly text** instead. Also fixed: the invariants check compared hex addresses as strings and reported `0x40c` outside `0x400-0x436`; it converts with `math(EXPR)` now.
 Ran: the payload names `_start 0x400-0x407` and `main 0x408-0x436` with every line inside them; `ctest -R kr232` **21 of 21 passed**, the invariants check back in the suite.
 Next: tick the per-target-loop task, then the `-O1` measurement and the krdbg stop.
+### 2026-11-23T03:15:00-08:00 — M3: the per-target loops and the -O1 measurement
+
+Host: CROSBY (Windows `windows-msvc-debug`, `windows-msvc` emulator)
+Loops: 18 kr232 CTests are registered, of which **11 execute a built image** under the emulator -- fixture, drawing, charload, return42, add, branch (both sides), params, transcript, gfx drawing and console. The executed rows exist because `KRC_KR232_VM` resolved; a host without the emulator registers none of them, which is the documented behaviour.
+Determinism and KDBG invariants run at `-O0` (tests 26 and 27).
+
+**-O1 measurement, ADR 0049.** `kr232_add.c` built at `-O0` and at `-O1`:
+
+| Build | Image size | Steps | Result |
+|---|---|---|---|
+| `-O0` | 1638 bytes | 19 | 42 |
+| `-O1` | 1638 bytes | 19 | 42 |
+
+Byte-identical and step-identical: the optimiser passes do not run for kr232 and the backend ignores the level. So `-O1` buys nothing today, and no `_o1` twins are added -- which is the outcome the task allows, recorded rather than assumed.
+
+Ticked: the per-target loops and the `-O1` measurement.
+Next: the krdbg source-level stop, then the gate.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
