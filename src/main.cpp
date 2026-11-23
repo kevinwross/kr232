@@ -10,6 +10,7 @@
 #include <utility>
 #include <cstdlib>
 #include <cstring>
+#include <vector>
 #include <fstream>
 #include <string>
 #include <vector>
@@ -75,6 +76,10 @@ int main(int argc, char** argv) {
     std::uint32_t break_address = 0;
     unsigned break_limit = 1;
     unsigned break_hits = 0;
+    bool want_fp = false;
+    bool want_page = false;
+    std::uint32_t page_base = 0;
+    std::vector<std::uint32_t> page_before;
     std::deque<std::pair<std::uint32_t, std::string>> trace;
     bool want_transcript = false;
     // Text queued on the console before the run, so a program that reads input
@@ -92,6 +97,11 @@ int main(int argc, char** argv) {
         } else if (std::strcmp(argv[i], "--watch") == 0 && i + 1 < argc) {
             watch_address = static_cast<std::uint32_t>(std::strtoul(argv[++i], nullptr, 0));
             want_watch = true;
+        } else if (std::strcmp(argv[i], "--watch-fp") == 0) {
+            want_fp = true;
+        } else if (std::strcmp(argv[i], "--watch-page") == 0 && i + 1 < argc) {
+            page_base = static_cast<std::uint32_t>(std::strtoul(argv[++i], nullptr, 0)) & ~0xFFFu;
+            want_page = true;
         } else if (std::strcmp(argv[i], "--break-max") == 0 && i + 1 < argc) {
             break_limit = static_cast<unsigned>(std::strtoul(argv[++i], nullptr, 0));
         } else if (std::strcmp(argv[i], "--transcript") == 0) {
@@ -183,18 +193,37 @@ int main(int argc, char** argv) {
             // The state at a named instruction: the argument registers, the frame and
             // stack pointers, and the words just below the stack pointer, which is
             // where a callee's incoming slots live.
-            std::printf("break at 0x%08x: r2=0x%08x r3=0x%08x r4=0x%08x r5=0x%08x r6=0x%08x fp=0x%08x sp=0x%08x\n",
+            std::printf("break at 0x%08x: r2=0x%08x r3=0x%08x r4=0x%08x r5=0x%08x r6=0x%08x r7=0x%08x r8=0x%08x fp=0x%08x sp=0x%08x\n",
                         step_pc, machine.reg(2), machine.reg(3), machine.reg(4), machine.reg(5),
-                        machine.reg(6), machine.reg(13), machine.reg(15));
-            for (int word = 0; word < 8; ++word) {
+                        machine.reg(6), machine.reg(7), machine.reg(8), machine.reg(13),
+                        machine.reg(15));
+            for (int word = -2; word <= 4; ++word) {
                 std::uint32_t value = 0;
-                (void)machine.memory().read32(machine.reg(15) + static_cast<std::uint32_t>(4 * word), value);
-                std::printf("  [sp+%2d] = 0x%08x\n", 4 * word, value);
+                const std::int64_t at = static_cast<std::int64_t>(machine.reg(8)) +
+                                        static_cast<std::int64_t>(4 * word);
+                if (at >= 0) {
+                    (void)machine.memory().read32(static_cast<std::uint32_t>(at), value);
+                }
+                std::printf("  [r8%+3d] = 0x%08x\n", 4 * word, value);
+            }
+            for (int word = 1; word <= 4; ++word) {
+                std::uint32_t value = 0;
+                (void)machine.memory().read32(machine.reg(13) - static_cast<std::uint32_t>(4 * word), value);
+                std::printf("  [fp-%2d] = 0x%08x\n", 4 * word, value);
             }
             if (++break_hits >= break_limit) {
                 return 0;
             }
         }
+        if (want_page) {
+            if (page_before.empty()) {
+                page_before.assign(1024, 0);
+                for (std::uint32_t word = 0; word < 1024; ++word) {
+                    (void)machine.memory().read32(page_base + 4 * word, page_before[word]);
+                }
+            }
+        }
+        const std::uint32_t fp_before = machine.reg(13);
         std::uint32_t watched_before = 0;
         if (want_watch) {
             (void)machine.memory().read32(watch_address, watched_before);
@@ -207,6 +236,20 @@ int main(int argc, char** argv) {
             if (watched_after != watched_before) {
                 std::printf("watch 0x%08x at pc=0x%08x: 0x%08x -> 0x%08x\n", watch_address,
                             step_pc, watched_before, watched_after);
+            }
+        }
+        if (want_fp && machine.reg(13) != fp_before) {
+            std::printf("fp 0x%08x -> 0x%08x at pc=0x%08x\n", fp_before, machine.reg(13), step_pc);
+        }
+        if (want_page) {
+            for (std::uint32_t word = 0; word < 1024; ++word) {
+                std::uint32_t value = 0;
+                (void)machine.memory().read32(page_base + 4 * word, value);
+                if (value != page_before[word]) {
+                    std::printf("page 0x%08x at pc=0x%08x: 0x%08x -> 0x%08x\n",
+                                page_base + 4 * word, step_pc, page_before[word], value);
+                    page_before[word] = value;
+                }
             }
         }
         if (result.stop == kr232::Stop::Halted) {

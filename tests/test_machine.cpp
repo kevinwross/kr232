@@ -504,3 +504,24 @@ TEST_CASE(the_default_test_machine_cannot_address_user_ram) {
     Machine full{256u * 1024u * 1024u};
     CHECK(full.memory().write8(0x08000000u, 0x50) == kr232::Access::Ok);
 }
+TEST_CASE(a_shift_by_an_immediate_selects_its_own_direction) {
+    // `ld r7, #1` then one immediate shift of each kind. The emulator sent every
+    // immediate shift to the arithmetic-right default, so `shl r7, #2` shifted
+    // right instead and produced 0: every scaled index in every compiled program
+    // came out zero, and the resulting misaligned pointers cost twenty-five rounds
+    // of investigation in the compiler.
+    const struct {
+        std::uint8_t opcode;
+        std::uint32_t expected;
+    } cases[] = {
+        {0xD4, 4u},   // SHL by 2: 1 << 2
+        {0xD5, 0u},   // SHR by 2: 1 >> 2
+        {0xD6, 0u},   // SAR by 2: 1 >> 2
+    };
+    for (const auto& shift : cases) {
+        Program program{0xC6, 0x70, 0x01, shift.opcode, 0x70, 0x02};
+        CHECK(program.machine.step().stop == Stop::Retired);
+        CHECK(program.machine.step().stop == Stop::Retired);
+        CHECK(program.machine.reg(7) == shift.expected);
+    }
+}

@@ -798,8 +798,12 @@ StepResult Machine::execute(const Decoded& d) {
                 case 20:
                 case 21:
                 case 22: {  // shifts by immediate
+                    // The shift kind is the case, not the opcode: passing `op` sent
+                    // every immediate shift to the default (arithmetic right), so
+                    // `shl r7, #2` shifted right instead and every scaled index came
+                    // out zero.
                     const std::uint32_t count = static_cast<std::uint32_t>(d.immediate) & 0xFFu;
-                    set_reg(a, shift(op, regs_[a], count));
+                    set_reg(a, shift(11u + (op - 20u), regs_[a], count));
                     return retired;
                 }
                 case 23:  // PUSH #mask
