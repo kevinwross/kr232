@@ -2193,6 +2193,23 @@ Host: **BitWhiz** (Raspberry Pi, aarch64, Debian 1:6.18.39). Synced `krdbg` to 7
 Every adapter case passes on ARM64, **including `kr232_adapter_loaded_state_matches_the_golden`**. The plan's rule that "goldens are x64-only" is about the **render** hashes, which depend on host rasterisation; this golden is a **machine-state** hash -- registers, flags, PC and the first page of memory -- so it is host-independent by construction, and passing on both hosts is the stronger result rather than a violation.
 
 Ticked: **fixtures and golden**. M4 at 13 of 14; the one left is host wiring, whose check wants the demo observed loading a file by extension and by `--kr232`, which a windowed application here cannot demonstrate.
+### 2026-11-24T05:05:00-08:00 — M3: a C program prints through the kernel, with the wrong bytes
+
+Host: CROSBY (Windows). The runtime now has a user-mode half: `libc_user.c` writes through `SYSCALL` by calling `__kr232_syscall`, a twelve-byte stub that moves the C ABI's R2-R5 into the registers the kernel reads and leaves the result in R2. `libc.c` keeps the kernel-mode path unchanged.
+
+A C program built against it runs and exits as it asks:
+
+```
+halted status 9 after 1992 steps
+console:
+eceb`mode`c`eakingJ          <- meant "user mode speaking"
+```
+
+**The path works and the payload does not.** The corruption is systematic -- many letters arrive about `0x10` low, and the space comes through -- which points at the byte moving between `ldbu` in the kernel and the console register rather than at the pointer or the length.
+
+That is the next measurement: write a single byte (`'A'`, `0x41`) and see what the console receives, which separates a load bug from a device width bug in one run.
+
+The M3 libc task stays open and the reason is now specific.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
