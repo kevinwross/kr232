@@ -194,7 +194,7 @@ The gate block under `## Gate verification`, quoting the failing test's output, 
 ### Tasks
 
 - [x] `[kr232]` Build skeleton: `CMakeLists.txt`, `CMakePresets.json` (`windows-msvc`, `linux-wsl`, `linux-arm64`, each with its own `binaryDir` and the prefix-map flags of §1), `include/kr232/`, `src/`, `targets/kr232/`, `tests/`, `scripts/wsl-mirror.sh`, and `scripts/gate-windows.ps1` / `gate-linux.sh` cloned from krdbg. Check: configure and build clean on Windows `-j10` and WSL `-j10`; the layout check fails when a `targets/` file is added to a host target; the path-hygiene test fails on a deliberately absolute `__FILE__` string and passes on the real binary.
-- [ ] `[kr232]` `memory`: the 4 GiB space with the seven regions of ISA §2.3, load/store of 1/2/4 bytes, and the unbacked-gap behaviour. Check: unit tests per region boundary.
+- [x] `[kr232]` `memory`: the 4 GiB space with the eight rows of ISA §2.3, load/store of 1/2/4 bytes, and the unbacked-gap behaviour. Check: unit tests per region boundary.
 - [ ] `[kr232]` `decoder`: every class of ISA §3.1, including `F0`/`F4` lengths resolved from the bytes after the prefix. Check: `kr232-dis`-quality decode of all 81 Appendix A vectors, bytes in, text out.
 - [ ] `[kr232]` `executor`: ALU, shifts, branches, loads/stores, `ENTER`/`LEAVE`, `CALL`/`RET`, `PUSH`/`POP`, halfword and byte forms, `SYS`, `IRET`, `BRK`, `RDCYCLE`. Check: one test per vector from bytes to architectural state.
 - [ ] `[kr232]` Protection and traps: the 16-byte frame, vector 4 for the gaps and null page, vector 8 for the two user ranges and kernel-only instructions, vector 9 for `SYSCALL`, `IRET`'s restore of K, I and SP, and the K/I write rules. Check: the M1 gate's protection list, case by case.
@@ -357,7 +357,7 @@ The kernel's entry and return, the syscall table's validation, protection from u
 | Milestone | State | Gate recorded |
 |---|---|---|
 | M0 | complete — gate recorded 2026-11-22T20:07:37-08:00 | M0 |
-| M1 | in progress — 1 of 11 tasks | — |
+| M1 | in progress — 2 of 11 tasks | — |
 | M2 | not started | — |
 | M3 | not started | — |
 | M4 | not started | — |
@@ -453,6 +453,16 @@ Ran: Windows configure+build+`ctest` → 3 of 3 (version, hygiene, hygiene selft
 Found, and it is why the check exists: the first WSL build **failed** the hygiene test — `kr232-emu` carried `/home/kevinro/mirrors/kr232/src/main.cpp`. The prefix-map flags live on the `kr232_warnings` interface target and only `kr232_core` linked it, so `main.cpp`, `tests/main.cpp` and `test_version.cpp` were compiled unmapped. Windows had passed because an MSVC Debug executable carries its PDB path rather than DWARF; GCC links the DWARF section into the binary, which is why the same defect was invisible on one host and fatal on the other. Fixed by linking `kr232_warnings` into every target with sources, and both hosts now pass.
 Found also: `cl` warns **D9007** — `/pathmap` is ignored without `/experimental:deterministic` — so the MSVC mapping had been a no-op. Both flags are now set, and a clean rebuild prints no warning.
 Next: M1's `memory` region tests, then the decoder and the 81 vectors.
+
+### 2026-11-22T20:16:51-08:00 — M1: the memory map, with its boundaries tested
+
+Host: CROSBY (Windows `windows-msvc`) and CROSBY WSL (`linux-wsl` from `~/mirrors/kr232`)
+Added: `include/kr232/memory.h` and `src/memory.cpp` — `region_of()` over the eight ISA §2.3 rows, and a `Memory` that serves 1/2/4-byte little-endian accesses to backed RAM and reports everything else `Unmapped`; `tests/test_memory.cpp` with seven cases.
+Ran: Windows → 3 of 3, unit case 0.52 s; WSL → 3 of 3, unit case 0.17 s.
+Found: the checklist said "seven regions"; ISA §2.3 has **eight** rows, and the doc is corrected. Also the constructor validated *after* allocating, so a rejected 256 MiB request would have allocated the buffer first — validation now runs before the allocation, and the test that a too-large request throws costs nothing.
+Kept honest: the trap rows — null page, both gaps, aperture, devices, reserved — are `Unmapped` even though the first two fall inside the RAM buffer's address range, because ISA §2.3 makes an access to them a fault; an access crossing the end of RAM is refused whole, and a test reads the neighbouring byte to prove the refused store wrote nothing.
+Cost noticed and removed: two default-constructed `Memory` instances zeroed 512 MiB, making the unit case 5.2 s. Classification is by address, so the aperture test now uses a 64 KiB machine and the case runs in 0.5 s; only the test that genuinely needs the last RAM byte allocates 256 MiB.
+Next: the decoder, then the 81-vector suite.
 
 ### 2026-11-22T20:06:19-08:00 — the BitWhiz alias now matches both spellings
 

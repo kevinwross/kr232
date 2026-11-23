@@ -36,6 +36,7 @@ endif()
 # Host code only. Guest code lives under targets/kr232/ and is compiled by krc;
 # kr232_guard_host_sources() fails the configure if a host target ever names it.
 add_library(kr232_core STATIC
+    src/memory.cpp
     src/version.cpp
 )
 target_include_directories(kr232_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
@@ -79,6 +80,7 @@ if(KR232_BUILD_TESTS)
 
     add_executable(kr232_tests
         tests/main.cpp
+        tests/test_memory.cpp
         tests/test_version.cpp
     )
     target_include_directories(kr232_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tests")
