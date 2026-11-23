@@ -993,6 +993,13 @@ Ran: the drawing program halts with status 0 after **4132 steps** and flips; `fr
 Found, and it blocks the package task: that hash is **identical** to the `kernel-gate` fixture's, and the empty-frame basis is `cbf29ce484222325`. So both programs flip a zero frame: the drawing program's aperture stores are not reaching the pixels the device reads, and only the flip is visible. Ticking the package task on this evidence would claim a drawing that is not drawn.
 Next: find where the aperture stores land (the `APERTURE + BACK_OFFSET` constant, the `put` call, or the stride) before any package task is ticked.
 
+### 2026-11-23T01:20:00-08:00 — M3: label branches reach anywhere
+
+Host: CROSBY (Windows `windows-msvc-debug`)`A label branch now uses the three-byte rel16 form and a relocation: `bra`/`jmp`/`call` directly, a conditional branch through a skip over the `bra` because its own form is nine bits. Seventeen kr232 CTests pass.
+Found last round: a spill-everything backend -- every alloca, parameter and value in its own frame slot, registers only at the point of use -- is the model that removes the aliasing class that has produced four defects. Its first build failed with `'.Lbb1' is out of the nine-bit branch range`: spilled functions are far longer than the compact branch reaches, and the conditional branch had no long form. That is the gap this round closes, so the model can be re-applied.
+Why the current backend is wrong rather than slow: materialising an address is `ld`, which overwrites its register, and the two-register pool (R6/R7) is shared with values; `gfx_set_colour` therefore stored the address into `current_colour` instead of the colour, every pixel was zero, and the drawing program's frame equalled a flip-only frame.
+Next: re-apply the spill model on top of the rel16 branch.
+
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
