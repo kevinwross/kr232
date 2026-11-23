@@ -1078,6 +1078,14 @@ Diagnosis, from `--dump-ir` on kr16 and kr232 together: the IR emits `getelement
 Two defects, and the second is the general one: `type_bytes` must lay a record out the way the profile says (packed, no 4-byte field padding), and a struct-member GEP must offset by the **sum of the preceding fields**, not by index times the whole record.
 
 Next: fix both, then the size-exact copy check runs.
+### 2026-11-23T04:00:00-08:00 — M3: record layout fixed; the record program still traps
+
+Host: CROSBY (Windows `windows-msvc-debug`)
+Fixed: `type_bytes` aligns a record's fields naturally and pads nothing in a packed record, so a three-char record is **3 bytes**; a struct-member `getelementptr` now adds the preceding fields' sizes. The emitted offsets are **0, 1, 2** where they were 0, 12, 24 -- verified in `-S` output, not inferred.
+
+Still failing: `kr232_struct.c` traps with vector 4 at PC 0 after **22 steps**. The copies' addresses are right in the assembly, so the next step is to find which instruction faults rather than to guess: a step trace or a disassembly of the address the trap names.
+
+Next: the faulting instruction, then struct return through R6, then C++.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
