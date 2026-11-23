@@ -537,6 +537,16 @@ Split, and this is the correction to three thin rounds: protection lands in four
 Not ticked: the protection task itself, which is the fourth piece plus its vector cases.
 Next: protection on fetch and data access.
 
+### 2026-11-22T20:37:23-08:00 — M1: protection on fetch and on data access
+
+Host: CROSBY (Windows `windows-msvc`) and CROSBY WSL (`linux-wsl`)
+Added: every access now runs the protection check before the address check, in the one place both the load and store paths share — user mode may touch only `0x08000000`–`0xFBFFFFFF`, so a kernel-RAM or aperture access raises vector 8 while an unbacked-gap access raises vector 4. `PUSH`/`POP`, `ENTER` and `LEAVE` now go through the same checked path instead of writing memory directly, and `step` refuses a user-mode fetch outside user RAM. A failed access carries its vector with it, so a caller no longer guesses 4.
+Ran: Windows 33 cases and 0 failed checks; WSL build and `ctest` 3 of 3.
+Tests: user load from kernel RAM → 8; user load from the gap → 4, which pins the priority order of §11.2; kernel-mode null-page load → 4; user-mode fetch in kernel RAM → 8.
+Found, because the machine was right and the test was wrong: the earlier user-mode BRK test placed user code at `0x2000`, inside kernel RAM. Once fetch is protected that is vector 8, not the BRK's vector 1 — so the fixture moved to `0x08000100`, where user code actually lives. A test that only passes because the machine does not yet check something is the kind of green this project keeps having to distrust.
+Piece 2 of 4 in the protection split. Still to come: kernel-only instructions, then the vector-table tests.
+Next: kernel-only instructions.
+
 ### 2026-11-22T20:06:19-08:00 — the BitWhiz alias now matches both spellings
 
 Host: CROSBY and BitWhiz

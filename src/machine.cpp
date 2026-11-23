@@ -178,14 +178,23 @@ StepResult Machine::enter_trap(unsigned vector) {
     return result;
 }
 
+StepResult Machine::access_trap() {
+    const unsigned vector = access_vector_ != 0 ? access_vector_ : 4;
+    access_vector_ = 0;
+    return enter_trap(vector);
+}
+
 StepResult Machine::step() {
     if (halted_) {
         return StepResult{Stop::Halted, 0, exit_status_, false};
     }
     std::uint8_t bytes[8] = {};
+    if (!kernel_mode() && (regs_[kPc] < 0x08000000u || regs_[kPc] >= 0xFC000000u)) {
+        return enter_trap(8);  // a user-mode fetch outside user RAM
+    }
     const unsigned available = fetch(bytes, regs_[kPc]);
     if (available == 0) {
-        return enter_trap(4);
+        return access_trap();
     }
     const Decoded decoded = decode(std::span<const std::uint8_t>(bytes, available));
     if (!decoded.ok) {
@@ -256,6 +265,12 @@ StepResult Machine::execute(const Decoded& d) {
     };
 
     const auto load = [this](unsigned size, std::uint32_t address, std::uint32_t& out) {
+        access_vector_ = 4;  // an allowed access that fails is an address error
+        if (!kernel_mode() &&
+            (address < 0x08000000u || address >= 0xFC000000u || address + size > 0xFC000000u)) {
+            access_vector_ = 8;  // protection is checked before the address (§11.2)
+            return false;
+        }
         switch (size) {
             case 1: {
                 std::uint8_t v = 0;
@@ -284,6 +299,12 @@ StepResult Machine::execute(const Decoded& d) {
         }
     };
     const auto store = [this](unsigned size, std::uint32_t address, std::uint32_t value) {
+        access_vector_ = 4;
+        if (!kernel_mode() &&
+            (address < 0x08000000u || address >= 0xFC000000u || address + size > 0xFC000000u)) {
+            access_vector_ = 8;
+            return false;
+        }
         switch (size) {
             case 1:
                 return memory_.write8(address, static_cast<std::uint8_t>(value)) == Access::Ok;
@@ -293,12 +314,12 @@ StepResult Machine::execute(const Decoded& d) {
                 return memory_.write32(address, value) == Access::Ok;
         }
     };
-    const auto push = [this](std::uint32_t value) {
+    const auto push = [this, &store](std::uint32_t value) {
         regs_[kSp] -= 4;
-        return memory_.write32(regs_[kSp], value) == Access::Ok;
+        return store(4, regs_[kSp], value);
     };
-    const auto pop = [this](std::uint32_t& value) {
-        if (memory_.read32(regs_[kSp], value) != Access::Ok) {
+    const auto pop = [this, &load](std::uint32_t& value) {
+        if (!load(4, regs_[kSp], value)) {
             return false;
         }
         regs_[kSp] += 4;
@@ -310,14 +331,14 @@ StepResult Machine::execute(const Decoded& d) {
             const unsigned index = d.opcode & 0xFu;
             if (d.opcode <= 0x0F) {
                 if (!push(regs_[index])) {
-                    return enter_trap(4);
+                    return access_trap();
                 }
                 return retired;
             }
             if (d.opcode <= 0x1F) {
                 std::uint32_t value = 0;
                 if (!pop(value)) {
-                    return enter_trap(4);
+                    return access_trap();
                 }
                 set_reg(index, value);
                 return retired;
@@ -336,7 +357,7 @@ StepResult Machine::execute(const Decoded& d) {
             }
             if (d.opcode <= 0x4F) {
                 if (!push(regs_[kPc] + 1)) {
-                    return enter_trap(4);
+                    return access_trap();
                 }
                 set_pc(regs_[index]);
                 return StepResult{Stop::Retired, 0, 0, true};
@@ -345,7 +366,7 @@ StepResult Machine::execute(const Decoded& d) {
                 case 0x70: {  // RET
                     std::uint32_t target = 0;
                     if (!pop(target)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     set_pc(target);
                     return StepResult{Stop::Retired, 0, 0, true};
@@ -381,7 +402,7 @@ StepResult Machine::execute(const Decoded& d) {
                         memory_.read32(efp + 4, frame_pc) != Access::Ok ||
                         memory_.read32(efp + 8, frame_flags) != Access::Ok ||
                         memory_.read32(efp + 12, frame_sp) != Access::Ok) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     regs_[kEfp] = new_efp;
                     regs_[kPc] = frame_pc;
@@ -408,13 +429,13 @@ StepResult Machine::execute(const Decoded& d) {
             if (top == 0x60) {
                 std::uint32_t value = 0;
                 if (!load(4, d.address, value)) {
-                    return enter_trap(4);
+                    return access_trap();
                 }
                 set_reg(d.a, value);
                 return retired;
             }
             if (!store(4, d.address, regs_[d.a])) {
-                return enter_trap(4);
+                return access_trap();
             }
             return retired;
         }
@@ -487,7 +508,7 @@ StepResult Machine::execute(const Decoded& d) {
                 std::uint32_t value = 0;
                 if (spec.load) {
                     if (!load(spec.size, address, value)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     if (spec.sign) {
                         if (spec.size == 1) {
@@ -498,7 +519,7 @@ StepResult Machine::execute(const Decoded& d) {
                     set_reg(a, value);
                 } else {
                     if (!store(spec.size, address, regs_[a])) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                 }
                 if (spec.step != 0) {
@@ -536,7 +557,7 @@ StepResult Machine::execute(const Decoded& d) {
             }
             if (d.op == 14) {
                 if (!push(regs_[kPc] + 2)) {
-                    return enter_trap(4);
+                    return access_trap();
                 }
             }
             set_pc(target);
@@ -553,20 +574,20 @@ StepResult Machine::execute(const Decoded& d) {
                 case 0: {  // LD Rd,[Rb+d8]
                     std::uint32_t value = 0;
                     if (!load(4, address, value)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     set_reg(a, value);
                     return retired;
                 }
                 case 1:  // ST
                     if (!store(4, address, regs_[a])) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     return retired;
                 case 2: {  // LDBU
                     std::uint32_t value = 0;
                     if (!load(1, address, value)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     set_reg(a, value);
                     return retired;
@@ -574,7 +595,7 @@ StepResult Machine::execute(const Decoded& d) {
                 case 3: {  // LDBS
                     std::uint32_t value = 0;
                     if (!load(1, address, value)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     set_reg(a, static_cast<std::uint32_t>(
                                     static_cast<std::int32_t>(static_cast<std::int8_t>(value & 0xFFu))));
@@ -582,7 +603,7 @@ StepResult Machine::execute(const Decoded& d) {
                 }
                 case 4:  // STB
                     if (!store(1, address, regs_[a])) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     return retired;
                 case 5:  // LD Rd,#s8
@@ -620,14 +641,14 @@ StepResult Machine::execute(const Decoded& d) {
                     return StepResult{Stop::Retired, 0, 0, true};
                 case 16:  // CALL rel16
                     if (!push(regs_[kPc] + 3)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     set_pc(target);
                     return StepResult{Stop::Retired, 0, 0, true};
                 case 17: {  // LDBU Rd,[PC+d8]
                     std::uint32_t value = 0;
                     if (!load(1, regs_[kPc] + static_cast<std::uint32_t>(d8), value)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     set_reg(a, value);
                     return retired;
@@ -635,7 +656,7 @@ StepResult Machine::execute(const Decoded& d) {
                 case 18: {  // LDBS Rd,[PC+d8]
                     std::uint32_t value = 0;
                     if (!load(1, regs_[kPc] + static_cast<std::uint32_t>(d8), value)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     set_reg(a, static_cast<std::uint32_t>(
                                     static_cast<std::int32_t>(static_cast<std::int8_t>(value & 0xFFu))));
@@ -657,7 +678,7 @@ StepResult Machine::execute(const Decoded& d) {
                     for (unsigned bit = 0; bit < 16; ++bit) {
                         if ((static_cast<std::uint32_t>(d.immediate) >> bit) & 1u) {
                             if (!push(regs_[bit])) {
-                                return enter_trap(4);
+                                return access_trap();
                             }
                         }
                     }
@@ -667,7 +688,7 @@ StepResult Machine::execute(const Decoded& d) {
                         if ((static_cast<std::uint32_t>(d.immediate) >> bit) & 1u) {
                             std::uint32_t value = 0;
                             if (!pop(value)) {
-                                return enter_trap(4);
+                                return access_trap();
                             }
                             set_reg(bit, value);
                         }
@@ -712,14 +733,14 @@ StepResult Machine::execute(const Decoded& d) {
                         if ((mask >> bit) & 1u) {
                             std::uint32_t value = 0;
                             if (!pop(value)) {
-                                return enter_trap(4);
+                                return access_trap();
                             }
                             set_reg(bit, value);
                         }
                     }
                     std::uint32_t frame = 0;
-                    if (memory_.read32(regs_[kSp], frame) != Access::Ok) {
-                        return enter_trap(4);
+                    if (!load(4, regs_[kSp], frame)) {
+                        return access_trap();
                     }
                     set_reg(13, frame);
                     regs_[kSp] += 4;
@@ -728,20 +749,20 @@ StepResult Machine::execute(const Decoded& d) {
                 case 29: {  // LDHU
                     std::uint32_t value = 0;
                     if (!load(2, address, value)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     set_reg(a, value);
                     return retired;
                 }
                 case 30:  // STH
                     if (!store(2, address, regs_[a])) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     return retired;
                 default: {  // 31 LDHS
                     std::uint32_t value = 0;
                     if (!load(2, address, value)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     set_reg(a, static_cast<std::uint32_t>(
                                     static_cast<std::int32_t>(static_cast<std::int16_t>(value & 0xFFFFu))));
@@ -826,7 +847,7 @@ StepResult Machine::execute(const Decoded& d) {
                     std::uint32_t value = 0;
                     const std::uint32_t addr = resolve(two, 4);
                     if (!load(4, addr, value)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     set_reg(one.reg, value);
                     post(two, 4);
@@ -835,7 +856,7 @@ StepResult Machine::execute(const Decoded& d) {
                 case 0x0F: {  // ST
                     const std::uint32_t addr = resolve(two, 4);
                     if (!store(4, addr, regs_[one.reg])) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     post(two, 4);
                     return retired;
@@ -844,7 +865,7 @@ StepResult Machine::execute(const Decoded& d) {
                     std::uint32_t value = 0;
                     const std::uint32_t addr = resolve(two, 1);
                     if (!load(1, addr, value)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     set_reg(one.reg, value);
                     post(two, 1);
@@ -854,7 +875,7 @@ StepResult Machine::execute(const Decoded& d) {
                     std::uint32_t value = 0;
                     const std::uint32_t addr = resolve(two, 1);
                     if (!load(1, addr, value)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     set_reg(one.reg, static_cast<std::uint32_t>(
                                          static_cast<std::int32_t>(static_cast<std::int8_t>(value & 0xFFu))));
@@ -864,7 +885,7 @@ StepResult Machine::execute(const Decoded& d) {
                 case 0x12: {  // STB
                     const std::uint32_t addr = resolve(two, 1);
                     if (!store(1, addr, regs_[one.reg])) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     post(two, 1);
                     return retired;
@@ -914,7 +935,7 @@ StepResult Machine::execute(const Decoded& d) {
                     return StepResult{Stop::Retired, 0, 0, true};
                 case 0x1A:
                     if (!push(regs_[kPc] + d.length)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     set_pc(value_of(one));
                     return StepResult{Stop::Retired, 0, 0, true};
@@ -929,7 +950,7 @@ StepResult Machine::execute(const Decoded& d) {
                     std::uint32_t value = 0;
                     const std::uint32_t addr = resolve(two, 2);
                     if (!load(2, addr, value)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     set_reg(one.reg, value);
                     post(two, 2);
@@ -939,7 +960,7 @@ StepResult Machine::execute(const Decoded& d) {
                     std::uint32_t value = 0;
                     const std::uint32_t addr = resolve(two, 2);
                     if (!load(2, addr, value)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     set_reg(one.reg, static_cast<std::uint32_t>(
                                          static_cast<std::int32_t>(static_cast<std::int16_t>(value & 0xFFFFu))));
@@ -949,7 +970,7 @@ StepResult Machine::execute(const Decoded& d) {
                 default: {  // 0x1E STH
                     const std::uint32_t addr = resolve(two, 2);
                     if (!store(2, addr, regs_[one.reg])) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     post(two, 2);
                     return retired;
@@ -962,7 +983,7 @@ StepResult Machine::execute(const Decoded& d) {
                 case 0: {
                     std::uint32_t value = 0;
                     if (!load(1, address, value)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     set_reg(d.a, value);
                     return retired;
@@ -970,7 +991,7 @@ StepResult Machine::execute(const Decoded& d) {
                 case 1: {
                     std::uint32_t value = 0;
                     if (!load(1, address, value)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     set_reg(d.a, static_cast<std::uint32_t>(
                                      static_cast<std::int32_t>(static_cast<std::int8_t>(value & 0xFFu))));
@@ -978,7 +999,7 @@ StepResult Machine::execute(const Decoded& d) {
                 }
                 case 2:
                     if (!store(1, address, regs_[d.a])) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     return retired;
                 case 3:
@@ -990,20 +1011,20 @@ StepResult Machine::execute(const Decoded& d) {
                 case 5: {
                     std::uint32_t value = 0;
                     if (!load(2, address, value)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     set_reg(d.a, value);
                     return retired;
                 }
                 case 6:
                     if (!store(2, address, regs_[d.a])) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     return retired;
                 default: {
                     std::uint32_t value = 0;
                     if (!load(2, address, value)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     set_reg(d.a, static_cast<std::uint32_t>(
                                      static_cast<std::int32_t>(static_cast<std::int16_t>(value & 0xFFFFu))));
@@ -1075,13 +1096,13 @@ StepResult Machine::execute(const Decoded& d) {
             if (d.op == 0 || d.op == 2) {  // FLD, FLDS
                 if (size == 8) {
                     if (!load(4, address, low) || !load(4, address + 4, high)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     set_freg(d.a, bits_double(static_cast<std::uint64_t>(low) |
                                               (static_cast<std::uint64_t>(high) << 32)));
                 } else {
                     if (!load(4, address, low)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     float narrowed = 0.0F;
                     std::memcpy(&narrowed, &low, sizeof narrowed);
@@ -1092,14 +1113,14 @@ StepResult Machine::execute(const Decoded& d) {
                     const std::uint64_t bits = double_bits(f_[d.a]);
                     if (!store(4, address, static_cast<std::uint32_t>(bits)) ||
                         !store(4, address + 4, static_cast<std::uint32_t>(bits >> 32))) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                 } else {
                     const float narrowed = static_cast<float>(f_[d.a]);
                     std::uint32_t bits = 0;
                     std::memcpy(&bits, &narrowed, sizeof bits);
                     if (!store(4, address, bits)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                 }
             }
@@ -1142,14 +1163,14 @@ StepResult Machine::execute(const Decoded& d) {
                 const std::uint64_t bits = double_bits(f_[d.a]);
                 if (!store(4, regs_[kSp], static_cast<std::uint32_t>(bits)) ||
                     !store(4, regs_[kSp] + 4, static_cast<std::uint32_t>(bits >> 32))) {
-                    return enter_trap(4);
+                    return access_trap();
                 }
                 return retired;
             }
             std::uint32_t low = 0;
             std::uint32_t high = 0;
             if (!load(4, regs_[kSp], low) || !load(4, regs_[kSp] + 4, high)) {
-                return enter_trap(4);
+                return access_trap();
             }
             set_freg(d.a, bits_double(static_cast<std::uint64_t>(low) |
                                       (static_cast<std::uint64_t>(high) << 32)));
@@ -1160,14 +1181,14 @@ StepResult Machine::execute(const Decoded& d) {
             const std::uint32_t frame = static_cast<std::uint32_t>(d.immediate);
             const std::uint32_t mask = d.address;
             regs_[kSp] -= 4;
-            if (memory_.write32(regs_[kSp], regs_[13]) != Access::Ok) {
-                return enter_trap(4);
+            if (!store(4, regs_[kSp], regs_[13])) {
+                return access_trap();
             }
             set_reg(13, regs_[kSp]);
             for (unsigned bit = 0; bit < 16; ++bit) {
                 if ((mask >> bit) & 1u) {
                     if (!push(regs_[bit])) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                 }
             }
@@ -1183,7 +1204,7 @@ StepResult Machine::execute(const Decoded& d) {
                     return StepResult{Stop::Retired, 0, 0, true};
                 case 1:
                     if (!push(regs_[kPc] + 6)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     set_pc(target);
                     return StepResult{Stop::Retired, 0, 0, true};
@@ -1191,10 +1212,10 @@ StepResult Machine::execute(const Decoded& d) {
                 case 3: {
                     std::uint32_t loaded = 0;
                     if (!load(4, target, loaded)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     if (d.op == 3 && !push(regs_[kPc] + 6)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     set_pc(loaded);
                     return StepResult{Stop::Retired, 0, 0, true};
@@ -1208,7 +1229,7 @@ StepResult Machine::execute(const Decoded& d) {
                 case 6: {
                     std::uint32_t value = 0;
                     if (!load(4, regs_[kPc] + signed_value, value)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     set_reg(d.a, value);
                     return retired;
@@ -1216,7 +1237,7 @@ StepResult Machine::execute(const Decoded& d) {
                 case 7: {
                     std::uint32_t value = 0;
                     if (!load(1, regs_[kPc] + signed_value, value)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     set_reg(d.a, value);
                     return retired;
@@ -1224,7 +1245,7 @@ StepResult Machine::execute(const Decoded& d) {
                 case 8: {
                     std::uint32_t value = 0;
                     if (!load(1, regs_[kPc] + signed_value, value)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     set_reg(d.a, static_cast<std::uint32_t>(
                                      static_cast<std::int32_t>(static_cast<std::int8_t>(value & 0xFFu))));
@@ -1233,7 +1254,7 @@ StepResult Machine::execute(const Decoded& d) {
                 case 9: {
                     std::uint32_t value = 0;
                     if (!load(2, regs_[kPc] + signed_value, value)) {
-                        return enter_trap(4);
+                        return access_trap();
                     }
                     set_reg(d.a, value);
                     return retired;

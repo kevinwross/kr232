@@ -138,18 +138,18 @@ TEST_CASE(a_trap_from_user_mode_lands_on_the_kernel_stack) {
     // 128 MiB of RAM, because a trap taken with K = 0 moves SP to 0x08000000.
     kr232::Machine machine(0x08000200);
     (void)machine.memory().write32(0x6000, 0x00000000);  // saved EFP
-    (void)machine.memory().write32(0x6004, 0x00002000);  // user PC
+    (void)machine.memory().write32(0x6004, 0x08000100);  // user PC, inside user RAM
     (void)machine.memory().write32(0x6008, 0x00000000);  // K = 0
     (void)machine.memory().write32(0x600C, 0x00000100);  // user SP
     (void)machine.memory().write8(0x1000, 0x77);         // IRET into user mode
-    (void)machine.memory().write8(0x2000, 0x72);         // BRK in user mode
+    (void)machine.memory().write8(0x08000100, 0x72);     // BRK in user mode
 
     machine.set_reg(12, 0x6000);
     machine.set_pc(0x1000);
     CHECK(machine.step().stop == Stop::Retired);
     CHECK(!machine.kernel_mode());
 
-    machine.set_pc(0x2000);
+    machine.set_pc(0x08000100);
     const auto result = machine.step();
     CHECK(result.stop == Stop::Trapped);
     CHECK(result.vector == 1);
@@ -162,9 +162,67 @@ TEST_CASE(a_trap_from_user_mode_lands_on_the_kernel_stack) {
     CHECK(machine.memory().read32(efp + 4, frame_pc) == kr232::Access::Ok);
     CHECK(machine.memory().read32(efp + 8, frame_flags) == kr232::Access::Ok);
     CHECK(machine.memory().read32(efp + 12, frame_sp) == kr232::Access::Ok);
-    CHECK(frame_pc == 0x2000);
+    CHECK(frame_pc == 0x08000100);
     CHECK((frame_flags & 0x40u) == 0);  // K as it was: user
     CHECK(frame_sp == 0x00000100);
+}
+
+namespace {
+
+// IRETs into user mode at `user_pc`, leaving the machine in user mode.
+void enter_user_mode(kr232::Machine& machine, std::uint32_t user_pc) {
+    (void)machine.memory().write32(0x6000, 0x00000000);
+    (void)machine.memory().write32(0x6004, user_pc);
+    (void)machine.memory().write32(0x6008, 0x00000000);
+    (void)machine.memory().write32(0x600C, 0x00000100);
+    (void)machine.memory().write8(0x1000, 0x77);
+    machine.set_reg(12, 0x6000);
+    machine.set_pc(0x1000);
+    (void)machine.step();
+}
+
+}  // namespace
+
+TEST_CASE(a_user_mode_load_from_kernel_ram_traps_8) {
+    kr232::Machine machine(0x08000200);
+    enter_user_mode(machine, 0x08000100);
+    (void)machine.memory().write8(0x08000100, 0x90);  // ldbu r2,[r3]
+    (void)machine.memory().write8(0x08000101, 0x23);
+    machine.set_reg(3, 0x3000);  // kernel RAM
+    machine.set_pc(0x08000100);
+    const auto result = machine.step();
+    CHECK(result.stop == Stop::Trapped);
+    CHECK(result.vector == 8);
+    CHECK(machine.kernel_mode());
+}
+
+TEST_CASE(a_user_mode_load_from_the_gap_is_an_address_error_not_protection) {
+    kr232::Machine machine(0x08000200);
+    enter_user_mode(machine, 0x08000100);
+    (void)machine.memory().write8(0x08000100, 0x90);
+    (void)machine.memory().write8(0x08000101, 0x23);
+    machine.set_reg(3, 0x10000000);  // unbacked gap
+    machine.set_pc(0x08000100);
+    const auto result = machine.step();
+    CHECK(result.stop == Stop::Trapped);
+    CHECK(result.vector == 4);
+}
+
+TEST_CASE(a_kernel_mode_load_from_the_null_page_traps_4) {
+    Program program{0x90, 0x23};  // ldbu r2,[r3]
+    program.machine.set_reg(3, 0x10);
+    const auto result = program.machine.step();
+    CHECK(result.stop == Stop::Trapped);
+    CHECK(result.vector == 4);
+}
+
+TEST_CASE(a_user_mode_fetch_outside_user_ram_traps_8) {
+    kr232::Machine machine(0x08000200);
+    enter_user_mode(machine, 0x08000100);
+    machine.set_pc(0x3000);  // kernel RAM: protection, not a gap
+    const auto result = machine.step();
+    CHECK(result.stop == Stop::Trapped);
+    CHECK(result.vector == 8);
 }
 
 TEST_CASE(sys_exit_halts_with_the_status_in_r2) {

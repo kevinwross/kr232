@@ -78,6 +78,8 @@ private:
     // Builds the 16-byte frame of ISA §11.3 and vectors to the handler. A frame
     // that cannot be pushed halts the machine: there is no double-fault path.
     StepResult enter_trap(unsigned vector);
+    // The trap a failed access takes: 8 when protection refused it, else 4.
+    StepResult access_trap();
     [[nodiscard]] unsigned fetch(std::uint8_t* out, std::uint32_t address) const;
     void set_nz(std::uint32_t value) noexcept;
 
@@ -87,6 +89,7 @@ private:
     std::uint64_t cycles_ = 0;
     bool halted_ = false;
     std::uint8_t exit_status_ = 0;
+    unsigned access_vector_ = 0;
 };
 
 }  // namespace kr232
