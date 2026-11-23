@@ -1118,6 +1118,12 @@ Ran, each with a test:
 Ticked: the aggregate-paths task -- its check is the three-`char` record and a nested call in an argument, and both run.
 
 Next: C++ surfaces, which are the gate's third program.
+### 2026-11-23T05:05:00-08:00 — M3: C++, as far as the vtable
+
+Host: CROSBY (Windows `windows-msvc-debug`, `windows-msvc` emulator)
+Added: an **indirect call** -- a virtual dispatch reaches a function pointer loaded from the vtable; the ISA has no call-through-register, so the return address is pushed and `jmp rD` reaches the callee, whose `ret` pops what was pushed. Fixed on the way: the assembler read `r8` as a label because it starts with a letter, so `jmp r8` became an undefined symbol; a register operand is now excluded from the label path.
+
+State: a class, a base pointer and an override compile and link, and the program runs **75 steps** before trapping at `jmp r8` with **r8 = 0**. The trace names the cause: the vtable slot holds nothing because a `ConstantAddressArray` initialiser -- a table of addresses -- is emitted as `.word 0`. The fix is small and is next: emit one relocated word per element, which the assembler's `.word` path can already express for a symbol.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
