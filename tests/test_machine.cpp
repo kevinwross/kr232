@@ -322,3 +322,27 @@ TEST_CASE(the_generic_form_moves_between_registers) {
     program.run(1);
     CHECK(program.machine.reg(2) == 0xDEADBEEFu);
 }
+
+TEST_CASE(user_mode_cannot_load_or_call_into_kernel_memory) {
+    // The Program helper's machine is 64 KiB, which cannot hold user RAM at
+    // 0x08000000; this case builds the full 256 MiB machine the ISA describes.
+    constexpr std::uint32_t kUserPc = 0x08000000u;
+    Machine machine{256u * 1024u * 1024u};
+    (void)machine.memory().write8(0x1000, 0x77);              // iret
+    (void)machine.memory().write8(kUserPc, 0xC0);             // ld r2, [r0+16]
+    (void)machine.memory().write8(kUserPc + 1, 0x20);
+    (void)machine.memory().write8(kUserPc + 2, 0x10);
+    (void)machine.memory().write32(0x2000, 0);
+    (void)machine.memory().write32(0x2004, kUserPc);
+    (void)machine.memory().write32(0x2008, 0);                // K clear
+    (void)machine.memory().write32(0x200C, 0x0FFFFFF0u);
+    machine.set_pc(0x1000);
+    machine.set_sp(0x8000);
+    machine.set_reg(12, 0x2000);
+    (void)machine.step();                                     // iret
+    CHECK(!machine.kernel_mode());
+    CHECK(machine.pc() == kUserPc);
+    const kr232::StepResult result = machine.step();
+    CHECK(result.stop == Stop::Trapped);
+    CHECK(result.vector == 8);
+}
