@@ -1577,6 +1577,21 @@ and then the decisive absence: **`build.ninja` contains no reference to `test_ho
 So the file is *not compiled*, which is why the cases pass trivially and no image is built. The earlier "14 tests" and "15 tests" came from the other two files; the two `host_*` cases that report PASS are registered from a stale object or from `krdbg_tests`' copy, not from this target's new source.
 
 Nothing about the host-build task is claimed. Next: `cmake --build build/kr232-adapter --verbose` on that target and read which sources it actually compiles -- that names the discrepancy in one line, rather than another round of inference.
+### 2026-11-23T17:25:00-08:00 — M4: the host case is compiled, and still skips
+
+Host: CROSBY (Windows). Corrected an earlier claim: `build.ninja` **does** reference `test_host_build.cpp` (54 mentions of the target, 9 of the file) -- my earlier `findstr` was killed by quoting, and the object file `CMakeFiles/krdbg_kr232_tests.dir/tests/test_host_build.cpp.obj` **contains the string `host_build.c`**, so the kr232 block is compiled in.
+
+And yet: with `KRDBG_KRC_PREFIX` set, the two cases PASS, no `build/krdbg-host` directory exists anywhere under either repository, and a probe added inside the case **did not write its file** -- so the edit did not reach the binary, or the case is not the code being run.
+
+That is the fourth episode this milestone of an edit whose effect was not observable, and each time the report said "tests green" while nothing was proven. The pattern is now the finding:
+
+- the binary advertises 15 tests and reports PASS;
+- the source in the tree contains the probe;
+- the probe's output file does not exist.
+
+Until that discrepancy is explained, no statement about the host-build task is trustworthy -- including statements that it fails.
+
+Next: stop editing logic. Add a unique marker string to the test, rebuild, and **`findstr` the binary for it** before interpreting any run. If the marker is absent, the build is not rebuilding that file and everything after it is noise.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
