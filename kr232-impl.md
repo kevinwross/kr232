@@ -1288,6 +1288,14 @@ Started the host-wiring task and stopped deliberately. The wiring is four coordi
 I landed the include, the option and the field, then **reverted them**: an option that parses and does nothing is a worse state than no option, and the load block is the part that makes the flag meaningful. Two of the three scripted replacements had already failed on their anchors before that, which is the same lesson as before -- the editor tool is the only reliable way to change this file.
 
 Next: the four pieces as one edit with a build between each, then `krdbg --kr232 tests/fixtures/kr232/session.k232` as the check.
+### 2026-11-23T10:15:00-08:00 — M4: the demo opens a kr232 image
+
+Host: CROSBY (Windows, `build/kr232-adapter` with `KRDBG_KR232_ADAPTER=ON`)
+Landed in `krdbg` (**bf30c39**): `--kr232 <image.k232>` loads a container through the adapter, builds the program entry from the first line of `main` when the payload names it, and creates the session with **no reload callback** -- the adapter reloads from its own image, so a fresh target carries the same memory and entry. The demo links `krdbg_kr232` and defines `KRDBG_HAVE_KR232` only when the option is on. `krdbg_tests` **112 tests, 0 failures**, and the demo target builds with the adapter linked.
+
+Not yet done, so the task is not ticked: `load_any`'s dispatch on the `.k232` extension and the `--target kr232` mapping. The check also needs `krdbg --kr232` to be observed loading a file, which this environment cannot show for a windowed app; that verification belongs with the adapter's remaining cases rather than being claimed from a build.
+
+Four pieces were landed this time instead of three: the previous round reverted an option that parsed and did nothing, which is what made this round's edit a single coherent unit.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
