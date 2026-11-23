@@ -2949,6 +2949,19 @@ The frame moved to **`659d051c4dc232e5`** because the line and the upload now dr
 Suites: `krcompiler` **35 of 35** kr232 rows, `kr232` **15 of 15** kernel rows.
 
 Item 15 of 25 closed.
+### 2026-11-25T06:45:00-08:00 — Items 16 and 17 closed: the packages read input and the mode
+
+Host: CROSBY (Windows). `cons_getc` and `input_next` were compiled into the packages and **never called** -- the state that hid `cons_puts`'s failure for a whole milestone. The package program now:
+
+- **reads the queued byte** with `cons_getc` and fails with **11** if it is not the `z` the row queues (`--input z`); with `--input q` it exits 11, which is how the check was proved;
+- expects **`KR232_NO_EVENT`** from `input_next`, because the host pushes no keyboard events and that is the documented answer;
+- checks that **`fb_stride()` is exactly one row of pixels** (`fb_width() * 4`), which was the item 17 question: a probe showed they agree, so the earlier failure was a stale object, not the device.
+
+Getting the row to pass needed a **reconfigure**: CMake had generated the row before `-DINPUT=z` was added, and `ctest -V` showed the stale command. The third time this session a generated test list has lied about the source.
+
+Suites: `kr232` **15 of 15** kernel rows, `krcompiler` **35 of 35** kr232 rows.
+
+Items 16 and 17 of 25 closed.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
