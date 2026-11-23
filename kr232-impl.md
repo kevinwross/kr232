@@ -927,6 +927,14 @@ Found: the red frame test was a stale expectation left by a scripted replacement
 Not ticked: the task, because its content names ALU, comparisons and branches and only the return path exists; its check passing early is evidence, not completion.
 Next: loads and stores, then ALU and branches, each with a program that returns a value computed by the instruction under test.
 
+### 2026-11-22T22:50:00-08:00 — M3: loads, stores and two compiled programs
+
+Host: CROSBY (Windows `windows-msvc-debug` compiler, `windows-msvc` emulator)
+Added: instruction selection for `Alloca`, `Store`, `Load`, `Trunc`/`ZExt`/`SExt` and `Ret`. Frame slot *k* lives at `[r13-4-4k]`; a store uses the operand's own size (`stb`/`sth`/`st`), a load picks `ldbs`/`ldbu`/`ldhs`/`ldhu`/`ld` by the type's signedness, and a cast aliases its operand's register after materialising a constant -- the missing materialisation is what produced `mov r6, r6` in the first attempt. Two tests build a program through `krc`, `krld` and the emulator: `char c = 65; return c;` exits **65** and `return 42;` exits **42**; ten kr232 CTests pass.
+Found: `crt0` called `sys` with whatever R7 held, and R7 is both the SYS number and a scratch register the program had used -- the emulator trapped with vector 3. Clearing R7 before the call is the fix, and it is a real runtime obligation, not a test detail.
+Not ticked: the loads/stores task's check is by-value `char`/`short` *parameters*, which need calls with arguments; the ALU/branches task names instruction selection this backend does not yet have. Both stay open, and the programs above are their evidence in progress.
+Next: arguments and calls, then ALU and branches.
+
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
