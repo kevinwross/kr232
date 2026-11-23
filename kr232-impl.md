@@ -1949,6 +1949,18 @@ In `src/asm/kr232_parser.cpp` the load path does test `address.pc || address.sp`
 That is where the next round starts: `parse_address` on `[sp]`, `[sp+8]` and `[sp-8]`, printing which flag it sets. One look at the flags ends it.
 
 The kernel's frame is blocked on this single instruction.
+### 2026-11-23T23:55:00-08:00 — M5: sp-relative loads carry R15 now; the kernel frame still starts at zero
+
+Host: CROSBY (Windows). The one measurement that ended the encoding hunt: a debug print at the load's parse site showed `sp=1 pc=0 base=0 disp=8` **after** a successful parse -- so the load branch handled `[pc]` and absolute forms and simply had **no `[sp]` case**, falling to the plain base+displacement form with base zero.
+
+Fixed in `parse_address`: the `sp` spelling also records **base 15**, which is what the encoding carries. Evidence:
+
+```
+ld r2, [sp+8] after st [r15+8], r3  ->  halted status 5   (it was a trap 4 before)
+krc_tests 3704 of 3704; ctest -R kr232 28 of 28
+```
+
+With the kernel rebuilt and the user program reloaded it still ends at `trap 8 at 0x00000000 after 13 steps`, so the IRET frame's PC is zero: the value stored from R2 is not reaching `[frame+4]`, or R2 is zero by then. The kernel's frame stores themselves are now known-good encodings, which halves the search again.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
