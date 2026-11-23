@@ -1804,6 +1804,22 @@ Host: CROSBY (Windows). Recorded 2026-11-23T20:50:00-08:00. **The gate is not de
 | The adapter build is reported separately | `krdbg_kr232_tests` is its own binary precisely so the repository gate keeps building adapter-OFF |
 
 Two things are also **not run**: the golden's **ARM64 half** (the plan's own exclusion row on BitWhiz) and the windowed load above. Until both exist, M4's gate is recorded, not reached.
+### 2026-11-23T21:05:00-08:00 — M5: the kernel builds with krc, not with the host compiler
+
+Host: CROSBY (Windows). `KR232_BUILD_KERNEL` is **OFF by default**, so M1-M3 need no compiler. With it ON the target requires `KR232_KRC` and `KR232_KRLD` to name an installed krc and krld, refuses to configure when they do not, and builds `targets/kr232/kernel/kernel.s`:
+
+```
+[1/1] Building the kr232 kernel with krc from the prefix
+krld: linked 1 object(s) to kernel.k232 (entry 604)
+kernel.k232   747 bytes
+kr232-emu: halted status 0 after 2 steps
+```
+
+Two parts of the kernel task's check are therefore satisfied: the **kernel target's command line names `krc`** (guest code is never compiled by the host compiler, and the layout guard still passes at configure), and the image links and runs.
+
+**Not ticked:** the check also needs *a trap to reach the handler and return*, and there is no vector table or handler yet. That is the next task's work, and claiming it now would be the same mistake as the earlier "green" suites.
+
+Also recorded this round: **M4's gate is logged** with a table that marks the windowed load **NOT OBSERVED** and the ARM64 golden half **not run**, so the gate is recorded rather than declared met.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
