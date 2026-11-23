@@ -2282,6 +2282,17 @@ The second is exact. The first differs at every value with **bit 4 set**: `0x50`
 So `STB` drops bit 4, and `Memory::write8` itself is faithful -- it stores what it is given (`src/memory.cpp:132`). The mask is applied before the write, and there is no `0xEF` literal anywhere in `machine.cpp` or `machine.h`, which means it is composed rather than written: the likely path is the byte store's operand preparation, where a 4-bit field is being reused.
 
 That is where the next round starts, with the map as the regression test: store every byte `0x00`-`0xFF`, read each back, and require equality. A bug that clears one bit survives any test that only writes text.
+### 2026-11-24T06:40:00-08:00 — M3: the machine's byte store is correct, and the guest's is not
+
+Host: CROSBY (Windows). `a_byte_store_keeps_every_bit_of_its_value` runs `stb [r10], r6` followed by a byte read for **every value 0x00-0xFF** and requires equality:
+
+```
+kr232_tests: 81 case(s), 0 failed check(s)
+```
+
+So the machine's `STB` path is **correct**, and the `value & 0xEF` seen in the guest program comes from **the program's own encoding** -- the bytes the assembler emitted -- or from the **word load** that follows the store in that program. The machine is cleared; the next step is to dump the exact bytes of the store loop and decode them, which is one command with `kr232-dis`.
+
+The test stays in the suite as the regression guard for this class: a bug that clears one bit survives every test that writes only text, which is why four text-based probes agreed with the wrong answer before a byte map disagreed with all of them.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
