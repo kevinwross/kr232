@@ -2062,6 +2062,21 @@ kr232_tests: 80 case(s), 0 failed check(s)
 **Why four earlier versions failed while the machine was correct:** the test helper's `Program` builds a **64 KiB** machine, and `0x08000000` does not exist in it. Writing there failed silently, so the code under test was never where the test thought it was -- and the machine, which had been right all along, was blamed for it. The passing test builds the **full 256 MiB** machine the ISA describes.
 
 Ticked: **protection from user mode**. M5 at 4 of 7. Remaining: a user program that prints and draws through the table, krdbg's kernel support, and the two deferred questions.
+### 2026-11-24T02:10:00-08:00 — M5: user mode prints through the kernel
+
+Host: CROSBY (Windows). The kernel's `write` call is implemented and witnessed:
+
+```
+kr232-emu: halted status 3 after 84 steps
+console:
+hello
+```
+
+The user program is `krc`-built guest code linked at `0x08000000`; its `syscall` with `R7 = 1` reaches the handler, which validates the pointer, then copies the bytes to the console `OUT` register.
+
+**One device fact found by the machine's own refusal:** a **byte** store to `OUT` is a *mis-shaped* device access and raises vector 4. The register is a word, and the kernel now stores word-wise. That is the sixth defect this milestone has turned from a silent trap into an explicit rule.
+
+Not ticked yet: the task also wants the program to **draw** and its frame to match a golden. Printing is done; drawing through the table is next.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
