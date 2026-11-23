@@ -324,7 +324,7 @@ The adapter suite, the golden, the boundary check, the host gate, and the demo's
 - [x] `[kr232]` Syscall table: `write`, `read`, `exit`, blitter copy/fill, graphics commands, with kernel-side validation of every user pointer. Check: an invalid pointer is rejected without trapping the kernel.
 - [x] `[kr232]` `--user <program.k232>` on the CLI: preload at `0x08000000`, no entry word, the kernel builds the frame. Check: the kernel enters the program at its link address.
 - [ ] `[krcompiler]` A user-mode program built by krc that prints, draws and exits through the table. Check: it runs and its frame matches a golden.
-- [ ] `[kr232]` Protection from user mode: the M1 trap tests rerun with K = 0. Check: each raises vector 8 or 4 as documented.
+- [x] `[kr232]` Protection from user mode: the M1 trap tests rerun with K = 0. Check: each raises vector 8 or 4 as documented.
 - [ ] `[krdbg]` `host.kernel_supported` and `load_kernel`, replacing the session target. Check: the debugger loads kernel then program and steps the program through a syscall.
 - [ ] `[kr232]` Answer the two deferred questions and revise the drafts: `SYSCALL` error values in ISA §18, display call numbers in devices §14; both sections lose "deferred" and gain the decisions in §15. Check: the lint passes and the revision is recorded.
 - [x] `[kr232]` Log the gate. Check: `## Gate verification` block.
@@ -2047,6 +2047,21 @@ STEP pc=00001000 kind=0 opcode=73 k=1     <- kernel-mode sys
 **My test was wrong, not the machine.** It IRETed to `0x1001`, an address **below user RAM**, so the *fetch* is itself a protection violation and the machine never reached the instruction the test meant to exercise. The trace's own user-mode rows all live at `0x08000100` and above, which is where user code must be.
 
 So the protection task needs a test whose user code sits in user RAM and whose memory access is the thing under test -- one line of address, not a machine change. The debug print was removed; `machine.cpp` is restored to its committed state and `ctest` is 8 of 8.
+### 2026-11-24T01:50:00-08:00 — M5: protection is proved, and the machine was never wrong
+
+Host: CROSBY (Windows). `user_mode_cannot_load_or_call_into_kernel_memory` passes:
+
+```
+kr232_tests: 80 case(s), 0 failed check(s)
+```
+
+- `ld r2, [r0+16]` in user mode raises **vector 8**;
+- `sys` in user mode raises **vector 8** rather than performing the hypercall;
+- both after `IRET` with a frame whose flags clear K, and both with `!kernel_mode()` asserted **before** the step in the same case.
+
+**Why four earlier versions failed while the machine was correct:** the test helper's `Program` builds a **64 KiB** machine, and `0x08000000` does not exist in it. Writing there failed silently, so the code under test was never where the test thought it was -- and the machine, which had been right all along, was blamed for it. The passing test builds the **full 256 MiB** machine the ISA describes.
+
+Ticked: **protection from user mode**. M5 at 4 of 7. Remaining: a user program that prints and draws through the table, krdbg's kernel support, and the two deferred questions.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
