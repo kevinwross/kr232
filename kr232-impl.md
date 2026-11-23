@@ -960,6 +960,15 @@ Ticked: the loads/stores task -- its check is by-value `char`/`short` parameters
 Not ticked: the ALU/branches/returns task, whose named program (return 42) passes but whose content spans instruction selection the backend still lacks; ticking it would claim a backend that cannot yet do what its label says.
 Next: the runtime (`libc.c`), the sysroot headers and the four guest packages.
 
+### 2026-11-22T23:50:00-08:00 — M3: a compiled program writes to the console
+
+Host: CROSBY (Windows `windows-msvc-debug` compiler, `windows-msvc` emulator)
+Added: `targets/kr232/runtime/libc.c` (`putchar_`, `puts_`) writing the terminal page's transmit register; `kr232-emu --transcript` prints the grid after a run, which is how the output is read; `BuildAndRunKr232.cmake` gained an optional `LIBC` and `EXPECT_TRANSCRIPT`. A program calling `putchar_` three times halts with status 0 and the transcript shows **Hi!**; fifteen kr232 CTests pass.
+Found, and it is the third instance of one class: the store's address lived in `[r7]` while the address was materialised into `r6`, so `st [r7], r7` wrote the value over itself and the console received nothing. A register map that allocates on demand invites this; the fix is to name the register in the output string that the emitter actually filled.
+Also fixed on the way: function declarations were emitted as bodies (a duplicate `puts_`), pointer casts had no case, and `getelementptr` needed constant-index folding.
+Not ticked: the runtime task. Its check (the transcript) passes, but the task also names the `SYS` write/read/exit stubs and blitter-backed `memcpy`/`memset`; `putchar_` writes the device directly because there is no kernel yet, and the `SYS` form arrives with M4.
+Next: the sysroot `bits/` headers, the four guest packages, or the remaining runtime surface -- whichever the plan orders next.
+
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
