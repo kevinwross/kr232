@@ -3200,3 +3200,43 @@ Evidence by exit criterion:
 Known gaps, named rather than hidden: the 10×20 glyph atlas does not exist, so the terminal maintains and mirrors its grid but renders no pixels and `DRAW_TEXT` sets `ERROR`; the gate image's terminal write therefore exercises the page and the mirror, not pixels. Windows and WSL ran the full suite; BitWhiz was cloned fresh for this gate and is not kept as a working tree.
 
 Gate: plan §6 items 1–5 — **met**.
+### 2026-11-23T15:40:00-08:00 — The instruments that found the shift, general to the family
+
+The hunt for the binary-tree trap ended on an immediate shift that selected the
+wrong direction: `shl r7, #2` shifted right and produced zero, so every scaled index
+in every compiled program came out zero. Twenty-five rounds went into the compiler,
+which was correct throughout. Four command-line options, written during that hunt,
+are what finally saw it, and this entry records their description and their port.
+
+**`debug-instruments.md`** states, per instrument, the question it answers, a
+worked invocation with real output, how it is implemented, and the defect class it
+catches: `--watch` (which instruction writes a word), `--break` with `--break-max`
+(the registers and frame at an address), `--watch-page` (every store to a 4 KiB
+page, with PCs) and `--watch-fp` (whether the frame register moves at all). The same
+file lives in `kr32`, `kr16` and `kr216`, whose porting notes record what each
+machine had to change — the word it watches, the registers a break dumps, and
+whether it has a frame register.
+
+**Ports.** kr232 (`2bac089`, `f55bea7`, `784d5ca`), kr32 (`97390b4`), kr16
+(`177e3ac`, `b15c1d4`) and kr216 (`966ac0d`). kr216's emulator gains a step loop in
+place of its single `run()` call, because each instrument must sample before and
+after one instruction.
+
+**Runs that exercised them.**
+
+| Machine | Break | Watch | Page | Frame |
+|---|---|---|---|---|
+| kr232 | yes | yes | yes | yes |
+| kr32 | `bios.k32` at the entry | not on that image | three stores at the first instruction | no change on that image |
+| kr16 | `exec_min.kex` at `0x0100` | `0x2000`: `0x1234` to `0x5678` | the same stores, byte by byte | no frame register |
+| kr216 | `probe.k216` at `0x0200` | `0xFEC2`: `0x035E` at pc `0x0237` | the stack stores | `0x0000` to `0xFEEE` |
+
+kr216's demonstration program is three lines compiled with the bundled toolchain,
+because no image checked into that repository writes memory.
+
+**Suites after the ports.** kr232: spec lint ok (81/81 vectors), 15 of 15 kernel
+rows. kr32: 40 of 40 (the first run failed two rows because the fixture images were
+not built; building the default target produced them and both passed). kr16: 59 of
+60, the failure being `embedded runtime sources match checked-in resources`, which
+compares the embedded libc against the checked-in resource and is unaffected by the
+CLI and runner changes — pre-existing, reported rather than fixed. kr216: 58 of 58.
