@@ -879,8 +879,10 @@ Evidence by exit criterion:
 4. Round trip: the 71 canonical Appendix A rows assemble to their exact bytes, and all 81 vectors decode in full with the Appendix mnemonic and byte count.
 5. Two builds of one image are byte-identical: both the object and the container hash `56863835937BEFA4C31EF9AFE3FA326C94F5F9FDE064AD2F4477543ACA5F8DDA`.
 
-Not run: the krcompiler suite on WSL, and ARM64. Both are named here rather than assumed; the Windows row is the one that ran.
-Gate: plan §7 items 1-5 — **met on Windows**, with WSL and ARM64 outstanding.
+WSL: krcompiler builds with GCC under `linux-gcc-debug`; `ctest -R kr232` **2 of 2 passed** (the run tests are not registered there because no kr232 emulator is installed on that host) and `krc_tests` **passed** in 1.08 s.
+Found on WSL and not on Windows: GCC's `-Wswitch` rejected `krld`'s target switch for the missing `Kr232` case. MSVC does not raise it, so the Windows build hid a case the other host caught; it is fixed and both hosts build.
+Not run: ARM64. The M2 plan asks for Windows and WSL, and both ran; the ARM64 row remains M1's.
+Gate: plan §7 items 1-5 — **met on Windows and WSL**.
 
 ## 14. Gate verification
 
