@@ -159,8 +159,10 @@ statement about the machine, not a failure of the instrument.
 - kr16: a break at the image entry, and both a watch hit (`0x2000` going from
   `0x1234` to `0x5678`) and a page log on a five-instruction program written to
   exercise them.
-- kr216: a break at `0x0200` printing the registers and `SP=0xFEF0`. No image in
-  that repository writes memory, so a watch hit has not been demonstrated there.
+- kr216: all four, on a three-line program compiled with the bundled toolchain:
+  a break at `0x0200` printing the registers and `SP=0xFEF0`, a watch hit at
+  `0xFEC2` (`0x035E` stored by pc `0x0237`), a page log of the stack stores, and a
+  frame-register change (`0x0000` to `0xFEEE` at the function entry).
 
 One cosmetic difference is worth knowing: kr216's emulator prints its budget or
 halt message after a breakpoint stops the run, because the stop is taken inside the
