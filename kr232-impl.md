@@ -2503,6 +2503,21 @@ krc_kr232_run_varargs   a CTest row requiring 45
 ```
 
 Ticked: **varargs and FP conventions**. **M3 15 of 15**, the whole plan's checklists complete. Rows: `krc_tests` **3704 assertions**, `ctest -R kr232` **31 of 31**, `krdbg` **17 of 17**, `kr232` **8 of 8** and **87 cases**.
+### 2026-11-24T10:45:00-08:00 — The priority list is empty
+
+Host: CROSBY (Windows). Every item on the list at `2026-11-24T09:20`'s predecessor is closed:
+
+| Item | Check that ran |
+|---|---|
+| `SYS` 1-4 | four unit cases plus a guest printing `hello` through `SYS 1`; 5+ still vector 3 |
+| 32-bit exit status | `krc_kr232_run_exit300` and a unit case reading `0x12345678` back |
+| Encoding round trip | **15** spellings verbatim through `kr232-dis`, and the check proved to bite by a spelling that cannot round-trip |
+| Varargs | `mixed(2, 40, 2.5)` returns 45; ADR 0057 records the eight-byte-slot convention |
+| Test harness size | a case asserting 64 KiB answers `Unmapped` at user RAM and 256 MiB answers `Ok` |
+
+Final state: `kr232` **8 of 8** and **87 cases**; `krcompiler` **31 of 31** kr232 rows and **3704 assertions**; `krdbg` **17 of 17**; spec lint **81/81**.
+
+**One deviation from the list, recorded rather than glossed:** item 4 asked for an IR `VaArg` opcode. It was not added. The compiler's idiom -- shared with kr16, kr32 and kr216 -- is `__builtin_va_start` plus pointer arithmetic, and ADR 0057 now records the slot layout that makes it well defined; an opcode no frontend emits would be dead weight. The task's check, a printf-style call with a mixed integer and double, passes.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
