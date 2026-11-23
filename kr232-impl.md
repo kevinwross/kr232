@@ -2874,6 +2874,28 @@ GATE LINUX ARM64: PASS
   Its first version passed the compiler paths inside a scriptblock and CMake saw neither; they go as an argument array now, and one debug echo was removed before the commit.
 
 Items 7 and 8 of 25 closed.
+### 2026-11-25T04:05:00-08:00 — Item 9 closed: the separator audit, and three scripts that named nothing
+
+Host: CROSBY (Windows). Every CMake script that splits a record on a separator and then indexes it, audited:
+
+| Script | State |
+|---|---|
+| `kr232/cmake/CheckKr232FixtureDrift.cmake` | uses `none` for "no arguments"; the empty field is what broke on the older policy |
+| `krdbg/tests/fixtures/kr232/CheckFixtureDrift.cmake` | already bounds-checks before indexing |
+| `krcompiler/cmake/CheckDebugInvariants.cmake` | **two unguarded splits** -- now each names the malformed record |
+| `krcompiler/cmake/LinkKr16Host.cmake` | **no separator check**: a pair without `|` sliced the whole string twice and handed krc a nonsense object name |
+
+An empty field disappears from a CMake list under the current policy, so all four failed as `list index out of range` rather than naming the record -- which is exactly how the fixture list cost a round. The three unguarded sites now say:
+
+```
+a line range record is malformed: '...'
+a variable record is malformed: '...'
+an input pair is malformed: '...'
+```
+
+Suites after the change: `krcompiler` **228** rows in the affected groups, and the kr232 rows unchanged.
+
+Item 9 of 25 closed.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
