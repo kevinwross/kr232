@@ -2225,6 +2225,21 @@ Host: CROSBY (Windows). Four single-character experiments through the same C pat
 So short ASCII strings are exact, and the failures are **specific characters**: every byte in `0x70`-`0x7F` arrives `0x10` low, a space arrives as `0x60`, and letters in `0x60`-`0x6F` are untouched. Preserving `R8`-`R10` in the stub (which the ABI requires and the trap does not do for it) changed nothing, so the call path is not the culprit.
 
 The next place to look is the **constant in the user image**: dump its `.data` and the code `puts_` emits, and compare the bytes the program holds with the bytes the console receives. One dump separates a compiler bug from a device translation.
+### 2026-11-24T05:40:00-08:00 — M3: an assembly program reproduces the corruption, so it is not the compiler
+
+Host: CROSBY (Windows). The same eighteen bytes, written by an **assembly** program through the same call:
+
+```
+halted status 0 after 188 steps
+console:
+eceb`mode`c`eaking
+```
+
+Identical to the C program's output. So the compiler, the literal and the C runtime are all cleared: a loop of `ldbu` + `st` through the kernel's `write` produces the same wrong characters.
+
+That leaves the kernel's byte path or the console device, and one unit-level experiment separates them: write `0x75` to the console `OUT` register from a test and read it back through `console_output()`. If the queue holds `0x75`, the kernel's read or store is wrong; if it holds `0x65`, the device is.
+
+Not done this round: the budget went to ruling out the compiler, which was the larger half of the search space.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
