@@ -2447,6 +2447,18 @@ Host: CROSBY (Windows). Recorded 2026-11-22T22:05:00-08:00, with its detail in �
 | `kr232-dis` disassembles the assembled fixture | the `kr232-dis tests/fixtures/...` CTest rows |
 
 13 of 13 tasks ticked.
+### 2026-11-24T09:20:00-08:00 — The exit status is a full 32-bit word
+
+Host: CROSBY (Windows). The machine latched `R2 & 0xFF`, so a test exiting 300 read back 44. Widened end to end — `Machine::exit_status_`, `StepResult::status`, and the emulator's process status — and the ISA now says so (`kr232-isa.md` §13: the status is the whole 32-bit word and the machine does not truncate it; only the host OS may narrow it when it reports a process status).
+
+```
+main returning 300   halted status 300      host exit 300
+krc_kr232_run_exit300   a CTest row that fails if any layer truncates
+```
+
+Suites after the change: `kr232` ctest **8 of 8** and **83 unit cases**, `krcompiler` **29 of 29** kr232 rows and **3704 assertions**, `krdbg` **17 of 17**.
+
+Goal item 2 of 5 done. Next: `SYS` 1-4.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
