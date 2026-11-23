@@ -2033,6 +2033,20 @@ So it fires only for instructions the decoder classifies as **`OpClass::Short`**
 That is testable in one line: print `d.kind` and `d.opcode` for the step, which is what the next round does before touching the machine. The alternative -- that `kernel_mode()` is true inside the step but false just before it -- would contradict the single-source flag, and I would rather see the decode than argue about it.
 
 No test is committed for protection: two were written and withdrawn this round and last, `ctest` is 8 of 8, and the task stays open until the decode is known.
+### 2026-11-24T01:30:00-08:00 — M5: the decode trace, and why my protection test was wrong
+
+Host: CROSBY (Windows). A step trace behind `KR232_DEBUG_STEP` (added, used, removed) settled the decode question:
+
+```
+STEP pc=08000100 kind=0 opcode=73 k=0     <- user-mode sys, class Short
+STEP pc=00001000 kind=0 opcode=73 k=1     <- kernel-mode sys
+```
+
+`kind=0` is `OpClass::Short` and the guard is reached with **k=0**, so the machine's classification and the flag agree; the guard is fine.
+
+**My test was wrong, not the machine.** It IRETed to `0x1001`, an address **below user RAM**, so the *fetch* is itself a protection violation and the machine never reached the instruction the test meant to exercise. The trace's own user-mode rows all live at `0x08000100` and above, which is where user code must be.
+
+So the protection task needs a test whose user code sits in user RAM and whose memory access is the thing under test -- one line of address, not a machine change. The debug print was removed; `machine.cpp` is restored to its committed state and `ctest` is 8 of 8.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
