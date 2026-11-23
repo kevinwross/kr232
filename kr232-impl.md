@@ -1933,6 +1933,22 @@ Earlier the kernel's frame stores showed the same signature as `st [r0], r10`.
 An attempted fix in the store path changed the emitted instruction without changing the behaviour and was **reverted**; `ctest -R kr232` is back to green. These two belong together in one round with a round-trip test: assemble `ld`/`st` through `[sp]`, `[sp+0]`, `[sp+4]`, `[sp-4]`, disassemble, and compare against the source spellings.
 
 The kernel task stays open on this: its frame cannot be built until the base register of an SP-relative access is encoded at all.
+### 2026-11-23T23:35:00-08:00 — M5: the disassembler was right; the load's SP branch is not reached
+
+Host: CROSBY (Windows). Round-tripped every spelling through the disassembler, then ran one to see which side lies:
+
+```
+st [r15+8], r3   ->  c1 3f 08   disassembles as  st [sp+8], r3      correct
+ld r2, [sp+8]    ->  c0 20 08   disassembles as  ld r2, [r0+8]      wrong
+```
+
+So the **disassembler is correct** and the **load** is the defect: `ld` through an SP-relative address encodes **base register 0**, reads address 8, and traps with an address error. Store through `[sp+8]` written as `[r15+8]` is right, so the store encoding is sound.
+
+In `src/asm/kr232_parser.cpp` the load path does test `address.pc || address.sp` (line 471) and would emit the SP form; the emitted bytes show the **normal** form at line 478 instead, so `parse_address` either fails or returns with `sp` false for `[sp+8]` -- most likely the displacement "+8" is rejected after "sp" is stripped, and a later branch then reparses the operand as a plain base+displacement.
+
+That is where the next round starts: `parse_address` on `[sp]`, `[sp+8]` and `[sp-8]`, printing which flag it sets. One look at the flags ends it.
+
+The kernel's frame is blocked on this single instruction.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
