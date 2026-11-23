@@ -115,7 +115,7 @@ int main(int argc, char** argv) {
             }
             const kr232::Decoded decoded = kr232::decode(std::span<const std::uint8_t>(bytes));
             trace.emplace_back(step_pc, decoded.ok ? decoded.text : std::string("(data)"));
-            if (trace.size() > 12) {
+            if (trace.size() > 40) {
                 trace.pop_front();
             }
         }
@@ -136,6 +136,11 @@ int main(int argc, char** argv) {
                 for (const auto& entry : trace) {
                     std::fprintf(stderr, "  0x%08x %s\n", entry.first, entry.second.c_str());
                 }
+                // The registers a memory fault depends on, so a bad address can be
+                // traced to the register that held it.
+                std::fprintf(stderr, "fp=0x%08x sp=0x%08x r6=0x%08x r7=0x%08x r8=0x%08x\n",
+                             machine.reg(13), machine.reg(15), machine.reg(6), machine.reg(7),
+                             machine.reg(8));
             }
             return 1;
         }
