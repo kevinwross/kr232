@@ -2674,6 +2674,19 @@ Two defects fell out of writing it:
 Suites: `krcompiler` **33 of 33**, `krc_tests` **3704**, `kr232` **10 of 10** and **4 of 4** kernel rows, `krdbg` **17 of 17**.
 
 Item 2 of 8 closed. Next: the golden that must not be the blank frame.
+### 2026-11-24T18:20:00-08:00 — Item 3 closed: a drawing golden cannot be the void
+
+Host: CROSBY (Windows). `tests/fixtures/blank-flip.k232` commits the surface without drawing and leaves **`2bf050200a5e1325`** -- the exact hash two goldens were recorded with while the graphics clip clipped every pixel away. Both frame checks (`CheckFrameHash.cmake`, `CheckKr232Kernel.cmake`) and the compiler's `BuildAndRunKr232.cmake` now measure that blank frame and **fail when a golden equals it**:
+
+```
+the golden 2bf050200a5e1325 is the blank committed frame: this program draws nothing
+```
+
+That message was produced by running the check against `blank-flip.k232` with a golden set to the blank hash -- the guard was proved, not assumed. Rows wired: `kr232_cli_kernel_golden`, `kr232_kernel_calls`, `kr232_kernel_packages`, and `krc_kr232_run_gfx_draw` through `KRC_KR232_BLANK_IMAGE`.
+
+Suites: `kr232` **12 of 12** with the kernel and **10 of 10** without, `krcompiler` **33 of 33**, `krc_tests` **3704**, `krdbg` **17 of 17**.
+
+Item 3 of 8 closed. Next: the kernel's read call with real input.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
