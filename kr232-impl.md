@@ -910,6 +910,14 @@ Added: `frame_bytes` sums every IR alloca at its own size, aligned to four; `typ
 Note: the task also asks `-S` to stay byte-identical at each later step; that is checked from the next task onward, when `-S` output exists for more than these two programs.
 Next: loads and stores, then ALU, branches and returns.
 
+### 2026-11-22T22:22:00-08:00 — M3: the constant-return path, and the wall behind it
+
+Host: CROSBY (Windows `windows-msvc-debug`)
+Added: instruction selection for one opcode -- `Ret` with an integer constant puts the value in R2 and then leaves; every other opcode is reported rather than emitted as something plausible. `targets/kr232/runtime/crt0.s` (`call main`, then `sys`) and a `return 42` fixture are checked in.
+Blocked, and precisely: `crt0.s` cannot call `main` because `main` lives in another object, and the kr232 assembler emits no relocation for an undefined label. The assembler refuses that branch by name, which is the loud failure the design wants, but it means the program cannot be linked yet. Relocations are the next real feature: the assembler records one for an unresolved branch label and `make_object` carries it into the `.kro`.
+Not ticked: both the loads/stores task and the ALU/branches/returns task, whose check is the emulator run that this blocker prevents.
+Next: relocations in the assembler and object writer, then the return-42 run.
+
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
