@@ -320,9 +320,9 @@ The adapter suite, the golden, the boundary check, the host gate, and the demo's
 
 ### Tasks
 
-- [ ] `[kr232]` Kernel in `targets/kr232/kernel/`, built by a custom target that invokes `krc` from the prefix and links with `krld`, guarded by `KR232_BUILD_KERNEL` (default OFF so M1–M3 need no compiler): vector table at `0x0100`, a trap handler that resumes `SYSCALL`, and `IRET` into user mode with a constructed frame. Check: a trap reaches the handler and returns; the layout check confirms the host build never compiles it, and the kernel target's command line names `krc`.
+- [x] `[kr232]` Kernel in `targets/kr232/kernel/`, built by a custom target that invokes `krc` from the prefix and links with `krld`, guarded by `KR232_BUILD_KERNEL` (default OFF so M1–M3 need no compiler): vector table at `0x0100`, a trap handler that resumes `SYSCALL`, and `IRET` into user mode with a constructed frame. Check: a trap reaches the handler and returns; the layout check confirms the host build never compiles it, and the kernel target's command line names `krc`.
 - [ ] `[kr232]` Syscall table: `write`, `read`, `exit`, blitter copy/fill, graphics commands, with kernel-side validation of every user pointer. Check: an invalid pointer is rejected without trapping the kernel.
-- [ ] `[kr232]` `--user <program.k232>` on the CLI: preload at `0x08000000`, no entry word, the kernel builds the frame. Check: the kernel enters the program at its link address.
+- [x] `[kr232]` `--user <program.k232>` on the CLI: preload at `0x08000000`, no entry word, the kernel builds the frame. Check: the kernel enters the program at its link address.
 - [ ] `[krcompiler]` A user-mode program built by krc that prints, draws and exits through the table. Check: it runs and its frame matches a golden.
 - [ ] `[kr232]` Protection from user mode: the M1 trap tests rerun with K = 0. Check: each raises vector 8 or 4 as documented.
 - [ ] `[krdbg]` `host.kernel_supported` and `load_kernel`, replacing the session target. Check: the debugger loads kernel then program and steps the program through a syscall.
@@ -1854,6 +1854,22 @@ ctest:        8 of 8
 The kernel takes its breakpoint, the handler adds one to the saved PC, `IRET` returns past the `BRK`, and `SYS 0` exits with status 0. That is the kernel task's *"a trap reaches the handler and returns"* check, witnessed end to end.
 
 One test's expectation changed with the decision and is marked as such in the source: `syscall_vectors_to_the_handler_and_the_frame_saves_the_next_pc` now expects `Retired` with `vector == 9`, because a syscall handler exists in that test.
+### 2026-11-23T21:55:00-08:00 — M5: a user program runs under the kernel and exits with its status
+
+Host: CROSBY (Windows). Two tasks land together because one proves the other:
+
+```
+kernel.k232   entry 872, built by krc from targets/kr232/kernel/kernel.s
+user.k232     entry 752, crt0 + int main(void){return 42;}
+kr232-emu vm kernel.k232 --user user.k232
+              halted status 42 after 7 steps
+```
+
+The kernel installs vector 9, builds the four words `IRET` restores with **K clear**, and enters the user program at the address `--user` passed to it in R2. The program's `sys` traps to the kernel, whose handler returns the status. Nothing about the user image is hard-coded in the kernel: the entry arrives in a register.
+
+Ticked: **the kernel task** (a trap reaches the handler and returns; the vector table is installed at 0x0100; the kernel target's command line names `krc`; the host build never compiles it) and **`--user`** (preloaded at 0x08000000, no entry word, the kernel builds the frame, and the program runs from its link address).
+
+Five M5 tasks remain: the syscall table with pointer validation, a user program built by krc that prints and draws, protection with K=0, krdbg's kernel support, and the two deferred questions.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
