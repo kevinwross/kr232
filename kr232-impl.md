@@ -2656,6 +2656,24 @@ Evidence, in order: the reproduction returned **-1** before and **131** after; `
 **The workaround is gone**: `cons_getc` is back in `cons_user.c`, `cons_input_user.c` is deleted, and `kr232_kernel_packages` passes with one console object.
 
 Item 1 of 8 closed. Next: the frame-size test.
+### 2026-11-24T17:45:00-08:00 — Item 2 closed: every frame object now provably ends below FP
+
+Host: CROSBY (Windows). `krc_kr232_frame_layout` compiles a function holding a **three-word array, a double and a struct**, reads the compiler's own `.debug_var` records, and requires **offset + size <= 0** for every object -- the exact property the twelve-byte array at `FP-8` broke (`-8 + 12 = +4`). It printed:
+
+```
+5 frame object(s) end at or below FP; widest 12 bytes
+```
+
+and then runs the program, which returns 2.
+
+Two defects fell out of writing it:
+
+- **`.debug_var` named the wrong address.** It reported an alloca's *first* slot while the code used its *last*, so a debugger would have shown a multi-word local four or twelve bytes off. It now uses the same helper the code does.
+- **A frame deeper than 127 bytes could not spill its own parameters.** `st [r13-148], r2` was emitted with no R8 path -- only *loads* had one -- so this fixture did not compile at all before the fix. Stores take the deep path now, and `fst` has its own helper because it names its register first (`fst [r13-52], f0` was the first attempt and the assembler rejected it).
+
+Suites: `krcompiler` **33 of 33**, `krc_tests` **3704**, `kr232` **10 of 10** and **4 of 4** kernel rows, `krdbg` **17 of 17**.
+
+Item 2 of 8 closed. Next: the golden that must not be the blank frame.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
