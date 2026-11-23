@@ -2518,6 +2518,16 @@ Host: CROSBY (Windows). Every item on the list at `2026-11-24T09:20`'s predecess
 Final state: `kr232` **8 of 8** and **87 cases**; `krcompiler` **31 of 31** kr232 rows and **3704 assertions**; `krdbg` **17 of 17**; spec lint **81/81**.
 
 **One deviation from the list, recorded rather than glossed:** item 4 asked for an IR `VaArg` opcode. It was not added. The compiler's idiom -- shared with kr16, kr32 and kr216 -- is `__builtin_va_start` plus pointer arithmetic, and ADR 0057 now records the slot layout that makes it well defined; an opcode no frontend emits would be dead weight. The task's check, a printf-style call with a mixed integer and double, passes.
+### 2026-11-24T11:05:00-08:00 — Gap 2 closed: the kernel is in the suite
+
+Host: CROSBY (Windows). The kernel was guest code that only `krc` can build, and nothing in `ctest` touched it -- every kernel result so far came from manual commands. Two rows now do:
+
+- **`kr232_kernel_user`** runs the checked-in `tests/fixtures/kernel.k232` with the checked-in `user-exit42.k232` and requires the host status to be **42**, which is the user program's `syscall` exit coming back through the kernel. It needs no compiler, so it runs in the default configuration: **9 of 9** rows.
+- **`kr232_kernel_matches_source`** (only when `KR232_BUILD_KERNEL=ON`) rebuilds the kernel from `targets/kr232/kernel/kernel.s` and compares it **byte for byte** with the checked-in image, so the two cannot drift silently. `KR232_BUILD_KERNEL=ON`: **10 of 10** rows.
+
+The drift row was **proved to bite** by inserting a `nop` after `_start`: it failed with *"the kernel in the tree does not match the source: rebuild tests/fixtures/kernel.k232 with krc and commit it"*, and reverting restored it.
+
+Next: gap 1, the kernel's missing calls.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
