@@ -22,15 +22,22 @@ syscall_handler:
   ld r8, #1
   cmp r7, r8
   beq write_call
-  ld r8, #2
+  ld r8, #16
   cmp r7, r8
   beq fill_call
-  ld r8, #3
+  ld r8, #17
   cmp r7, r8
   beq flip_call
   jmp bad_call
 
 bad_call:
+  ; ISA §18: an unimplemented number is -2, and the caller resumes.
+  ld r2, #0
+  sub r2, #2
+  iret
+
+bad_argument:
+  ; ISA §18: a refused argument is -1.
   ld r2, #0
   sub r2, #1
   iret
@@ -45,7 +52,7 @@ write_call:
   ld r8, #user_low
   ld r8, [r8]
   cmp r2, r8
-  bcc bad_call
+  bcc bad_argument
   ld r8, #console
   ld r8, [r8]            ; console transmit register
   ld r9, #0
