@@ -1328,6 +1328,12 @@ Host: CROSBY (Windows, `build/kr232-adapter`)
 This completes the host-wiring task's pieces -- `--kr232`, the include under `KRDBG_HAVE_KR232`, `load_any` on the extension, and the target name -- but the task is **not ticked**: its check also wants `krdbg --kr232` observed loading a file, and this environment cannot show a windowed app doing that. A build and a passing suite are not that observation, and the difference is the whole point of the rule.
 
 Task 12's boundary half is done (`platform_boundary` passes with the adapter); the gate script itself and `goldens/kr232-loaded.hash` remain.
+### 2026-11-23T11:30:00-08:00 — M4: what a loaded kr232 image means, recorded
+
+Host: CROSBY (Windows, `build/kr232-adapter`)
+The open decision is made and written down: a **loaded hash** for this target covers the adapter's view of a loaded program -- the **PC, the sixteen general registers, the four FP registers, the flags, and the first 256 bytes of memory** (the vectors and the code a debugger will disassemble). `goldens/kr232-loaded.hash` records **`C10445505D870F1D`**.
+
+The test records the value when the goldens file is absent and asserts it afterwards, so the number is a recorded fact a reader can review rather than a check that accepts whatever the code produced. `krdbg_tests` **116 tests, 0 failures**.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
