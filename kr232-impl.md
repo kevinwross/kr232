@@ -3051,6 +3051,24 @@ Host: CROSBY (Windows).
 - The demo's `--kr232 <image>` was parsed and mentioned in **no usage line**; the line names it now, and a headless load prints `frame hash 70F42ABC0377DD5A`. **`--target kr232` -- a source build inside the debugger -- is not implemented**: the target selector covers kr32, kr16 and kr216 only, so that path is recorded as unreachable rather than claimed.
 
 Items 3, 4 and 5 of 7 closed; items 1 and 2 closed earlier.
+### 2026-11-23T08:05:00-08:00 — The packages ship with the sysroot, and the source shows
+
+Host: CROSBY (Windows). Two defects kept a source-built program from being usable in the debugger, and both were in the toolchain rather than the debugger.
+
+**The translation unit had no name.** The kr232 assembler recorded every input as `"assembly"`, so the debug payload named no file and the SOURCE panel had nothing to open:
+
+```
+before  source 0 assembly
+after   source 0 C:\Users\kevin\repos\kr232\examples\squares.c
+```
+
+`Options::source_name` carries the name now, krc sets it per input, and the panel shows the file with the current line marked (krcompiler `5923c77`).
+
+**The packages were not installed.** The prefix carried `<kr232/cons.h>` and the startup, so a program calling `cons_puts` linked against a declaration with no definition. The staged sysroot builds `cons_user`, `gfx_user`, `fb_user`, `input_user` and `syscall6` into `kr232/lib`, the kr232 headers are staged like the other targets, and the debugger's build chain links every `.kro` it finds there, so a package added later needs no change (krcompiler `352cdbb`).
+
+Verified: `krc_kr232_packages` builds a program that prints through the package, links the staged objects and runs it in the VM; `examples/counter.c` -- the case that failed with `undefined symbol 'cons_puts'` -- loads in the demo.
+
+Suites: krcompiler **37 of 37** kr232 rows, `krc_tests` **3704** assertions.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
