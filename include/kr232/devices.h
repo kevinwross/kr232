@@ -30,6 +30,11 @@ public:
     static constexpr std::uint32_t kPageSize = 0x1000u;
     static constexpr std::uint32_t kIdOffset = 0x3Cu;
 
+    // The graphics clip starts as the whole target (kr232-devices.md §8.1). A
+    // zero clip draws nothing without failing, which is how commanded drawing
+    // looked broken while it was only unclipped.
+    Devices() noexcept;
+
     [[nodiscard]] static bool contains(std::uint32_t address) noexcept {
         return address >= kBase && address < kBase + kWindow;
     }
@@ -180,6 +185,8 @@ private:
     std::uint32_t g_args_[8] = {};
     bool g_error_ = false;
     bool graphics_pending_ = false;
+    void reset_clip() noexcept;
+
     bool explicit_surface_ = false;
     Surface target_;
     std::uint32_t clip_x_ = 0;

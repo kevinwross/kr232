@@ -9,7 +9,9 @@ file(READ "${GOLDEN}" expected)
 string(STRIP "${expected}" expected)
 
 execute_process(
-    COMMAND "${EXE}" vm "${IMAGE}" --max-steps 200 --frame-hash
+    # Enough steps for a drawing program to finish: a golden recorded mid-run
+    # pins a frame the program never intended to commit.
+    COMMAND "${EXE}" vm "${IMAGE}" --max-steps 100000 --frame-hash
     OUTPUT_VARIABLE output
     ERROR_VARIABLE errors
     RESULT_VARIABLE code)

@@ -45,7 +45,12 @@ if(DEFINED KRC AND DEFINED KRLD)
     set(image "${WORK}/kernel.k232")
 endif()
 
-execute_process(COMMAND "${VM}" vm "${image}" --user "${PROGRAM}" --max-steps 200000
+set(optional_args)
+if(DEFINED FRAME_HASH AND NOT FRAME_HASH STREQUAL "")
+    list(APPEND optional_args --frame-hash)
+endif()
+
+execute_process(COMMAND "${VM}" vm "${image}" --user "${PROGRAM}" --max-steps 200000 ${optional_args}
                 OUTPUT_VARIABLE output ERROR_VARIABLE error
                 RESULT_VARIABLE result)
 if(NOT result EQUAL EXPECT_EXIT)

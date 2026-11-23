@@ -125,6 +125,17 @@ if(KR232_BUILD_TESTS)
                     -DWORK=${CMAKE_BINARY_DIR}/kernel-rebuild
                     -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232Kernel.cmake)
     endif()
+    # One program that calls every entry in the kernel's table, including the
+    # block-pointer drawing calls; the frame it commits is the golden.
+    add_test(NAME kr232_kernel_calls
+        COMMAND ${CMAKE_COMMAND}
+                -DVM=$<TARGET_FILE:kr232-emu>
+                -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.k232
+                -DPROGRAM=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-calls.k232
+                -DEXPECT_EXIT=0
+                -DFRAME_HASH=f6b786175f12b425
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232Kernel.cmake)
+
     add_test(NAME kr232_dis_flat
         COMMAND kr232-dis "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel-gate.bin")
     set_tests_properties(kr232_dis_flat PROPERTIES

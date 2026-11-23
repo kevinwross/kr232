@@ -62,6 +62,16 @@ DeviceResult Devices::decode(std::uint32_t address, std::uint32_t width, unsigne
     return DeviceResult::Ok;
 }
 
+Devices::Devices() noexcept { reset_clip(); }
+
+void Devices::reset_clip() noexcept {
+    const Surface surface = target_surface();
+    clip_x_ = 0;
+    clip_y_ = 0;
+    clip_w_ = surface.width;
+    clip_h_ = surface.height;
+}
+
 Devices::Surface Devices::target_surface() const noexcept {
     if (explicit_surface_) {
         return target_;
@@ -722,6 +732,7 @@ DeviceResult Devices::write(std::uint32_t address, std::uint32_t width, std::uin
             case 0x08:
                 if (value >= 1 && value <= 1080) {
                     fb_height_ = value;
+                    reset_clip();
                 }
                 return DeviceResult::Ok;
             case 0x0C:
