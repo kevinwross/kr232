@@ -676,7 +676,16 @@ Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2`
 Added: `src/asm/kr232_parser.{h,cpp}` with `parse_instruction` — case-insensitive mnemonic lookup, operands split on commas and trimmed, the ten zero-operand Short forms, `push`/`pop`/`inc`/`dec`/`call` with a register, the unary `neg`/`not`/`sxtb`/`sxth`, and the two-register compact operations. Every other shape — immediate, bracketed address, branch displacement, FP — is refused with an error rather than guessed at.
 Ran: krcompiler's suite 2875 assertions, all passing; two parser cases.
 Found: the first version of the file carried helpers for immediates and conditions that nothing called yet, which `/W4` treats as dead code; they were removed rather than suppressed and will come back with the shapes that use them. A brace-initialised operand also narrowed `unsigned` to `uint8_t`, which the same warning level caught.
-Next: `.kdbg` emission, then the `.k232` image writer.
+Next: `link_impl` selecting the writer for target 5, then `.kdbg` and the loader.
+
+### 2026-11-22T21:32:04-08:00 — M2: the `.k232` container writer
+
+Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2` at `675efb7`
+Added: `src/linker/kr232_image.{h,cpp}` implementing ADR 0058 — a 64-byte little-endian header (magic `K232`, kind 2, target id 5, ABI 1, image base, section-table and string-table offsets, file size, CRC32 over the whole file with its own field zeroed), 32-byte section records (name offset into a string table, type, flags, absolute address, payload offset, size, alignment), and payloads laid between the header and the table. Refused with a named error: an entry outside every executable section, a section leaving the image's half of the map, two allocated sections overlapping, and a non-power-of-two alignment.
+Ran: krcompiler's suite 3630 assertions, all passing.
+Found: two failures in my own test, both the same mistake — section name offsets are relative to the string table, not to the file, so resolving them from the table base read the wrong bytes. The writer was right; the test was reading it wrong, which is exactly the pair of interpretations a byte-level format invites.
+Next: `toolchain::link_impl` selecting this writer for target 5 with the 4-byte heap alignment and kr232 stack bounds, then `.kdbg` emission.
+
 
 ### 2026-11-22T21:30:21-08:00 — M2: the kr232 object writer
 
