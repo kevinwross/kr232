@@ -1212,6 +1212,16 @@ The fault is unchanged and is parked deliberately: after the callee's `leave`/`r
 Why parking is the right call: **the milestone's gate does not require a floating-point program** -- §8's three programs are C, C++, drawing, and all three run. The FP task stays unticked, so M3 cannot be declared complete, but its gate can be evaluated and the remaining work is in M4, whose adapter the plan names as M3's own precondition for the krdbg row.
 
 Next: M4, beginning with the adapter that lets krdbg attach to a kr232 image at assembly level.
+### 2026-11-23T07:40:00-08:00 — M4 begins: the krdbg adapter skeleton
+
+Host: CROSBY (Windows)
+Read the contract before writing: `krdbg`'s `IDebugTarget` is about twenty virtual methods (layout, contexts, execution, state, memory and code, two optional devices), and the existing kr216 adapter is 490 lines -- so M4's first task is a multi-round piece, not one file.
+
+Landed in `krdbg` (**a89cef9**): `adapters/kr232/kr232_adapter.h` with the loader contract the other adapters share (`Options`, `LoadedProgram`, `DebugPath`, `load_image`), and `adapters/kr232/CMakeLists.txt`, which links the kr232 core sources directly the way the kr216 adapter links kr216's.
+
+Deliberately not added yet: the `KRDBG_KR232_ADAPTER` option. It goes in when the target can build, so the tree stays configurable without it -- the opposite of adding an option that fails at configure.
+
+Next: read `TargetLayout`, `ScalarValue` and `InstructionView` in `krdbg/include/krdbg/target.h`, then write `kr232_adapter.cpp` -- layout with Z..K (K and I non-writable), the 32-bit address rule, `step_instruction`/`run` over `kr232::Machine`, and `disassemble` through `kr232::decode`.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
