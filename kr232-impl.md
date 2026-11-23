@@ -3069,6 +3069,21 @@ after   source 0 C:\Users\kevin\repos\kr232\examples\squares.c
 Verified: `krc_kr232_packages` builds a program that prints through the package, links the staged objects and runs it in the VM; `examples/counter.c` -- the case that failed with `undefined symbol 'cons_puts'` -- loads in the demo.
 
 Suites: krcompiler **37 of 37** kr232 rows, `krc_tests` **3704** assertions.
+### 2026-11-23T09:10:00-08:00 — The frame the program is in, and the view menu that named it
+
+Host: CROSBY (Windows). The call-stack chain stores a **return address** in every frame, and the kr232 adapter published those unchanged, so the innermost frame named the caller:
+
+```
+before   #0 main 00006882      LOCALS (1)  i = 7        <- main's variable
+after    #0 spin 0000660E      LOCALS (2)  seed = 7
+                               counter = 176795
+```
+
+Frame zero now reports the running address (`adapters/kr232/kr232_adapter.cpp`), so the stack starts at the function being executed and the locals shown are that function's. The unwind test asserts the innermost frame's name and that every frame names a function (krdbg `380c57f`).
+
+**The view menu's repeated entry** was the same defect from the other side: two sources both called `assembly`. With the translation unit's real name recorded (krcompiler `5923c77`) the menu lists `squares.c` and `assembly` -- two entries because there are two files, the second being the start-up.
+
+Suites: krdbg `krdbg_tests` **110 of 110**, `krdbg_kr232_tests` **17 of 17**.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
