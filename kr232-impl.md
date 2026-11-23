@@ -2615,6 +2615,15 @@ The generated code for `cons_puts` is **byte-identical** to the working `local_p
 That points at the linker's relocation pairing in an object with several relocations, and the next step is a minimal reproduction in `krc_tests` (three functions, two of them calling one extern, the third calling a sibling) before touching the linker.
 
 Gap 3 stays open on this one defect; the rest of the packages work -- `gfx_fill_rect` draws with the corrected mode, `fb_*` and `input_pending` answer through calls 22-24.
+### 2026-11-24T15:20:00-08:00 — Gap 3 closed: a program that names no call numbers
+
+Host: CROSBY (Windows). `kr232_kernel_packages` builds `crt0_user.s`, the variadic stub and the four package implementations with `krc`, links them at user RAM against a program that only includes `<kr232/*.h>`, and requires three things: the console text `packages`, **exit 0**, and frame **`dddcd2efdafe5925`** -- the 8x8 rectangle `gfx_fill_rect` drew. A different colour and size commits `70c1b11e8cd0b325`, which is how the drawing was shown to be real rather than a coincidental hash.
+
+**One defect was worked around, not fixed.** A single object holding `cons_putc`, `cons_puts` and `cons_getc` loses `cons_puts`'s call to its sibling; split so `cons_getc` lives in `cons_input_user.c`, it works. The reproductions recorded at 14:25 hold: the generated code is byte-identical to a working function, the call resolves to the right address, and the failure needs one object with two stub calls plus a sibling call. `cons_getc` is that third function; a trivial third function does not trigger it, and neither does the same shape with a C stub. **The toolchain defect is open** and this is a workaround with the evidence attached.
+
+`kr232-devices.md` §14 now records calls **22 `fb_info`**, **23 `input_next`** and **24 `input_pending`**, which the packages sit on.
+
+Rows: `kr232` **10 of 10** by default and **11 of 11** with `KR232_BUILD_KERNEL=ON` (including the package row), `krcompiler` **31 of 31**, `krdbg` **17 of 17**.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
