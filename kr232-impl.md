@@ -660,7 +660,15 @@ Found: there is no `kr216_assembler.cpp` to port. `src/asm/` holds encoders for 
 - The text parser on top, which is what turns Appendix A into the 81-vector round trip.
 Order: encoder first, so the round-trip test can be written against bytes before a parser exists, then the parser.
 Not landed: no code this round. Reading the three encoders' shapes plus the ABI and descriptor documents used the round; the encoder starts next with a full budget rather than half a file.
-Next: `kr232_encoder` with the Short, Register and Compact branch forms, and their part of the 81-vector round trip.
+Next: the rest of the encoder and the text parser.
+
+### 2026-11-22T21:09:09-08:00 — M2: the encoder's first three forms
+
+Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2`
+Added: `src/asm/kr232_encoder.{h,cpp}` covering the Short group (all fifteen operations), the Register form (`LD` immediate, `LD` absolute, `ST` absolute) and the Compact branch, plus `tests/unit/test_kr232_encoder.cpp` checking every encoding against the Appendix A bytes.
+Ran: krcompiler's suite `223 test cases` and `2508 assertions`, all passing; the four new cases assert 195 of them.
+Found, from the ISA rather than from memory: the compact branch byte is `0xA0 | (cond << 1) | (disp9 >> 8)`, so the condition sits in bits 1-4 and bit 0 is the displacement's ninth bit. A first version placed the condition in the low nibble, which encodes `beq -9` as `0xA1 0xF7` — the byte that reads back as `bne`. The decoder in `kr232` already did this correctly; the encoder now matches it, and the test pins `beq -9` = `0xA1 0xF7` and `bra +6` = `0xBE 0x06` so the mistake cannot return.
+Next: the Compact register form, the Normal form's 32 ops, the generic specifier pair and the escape forms, then the text parser on top.
 
 ### 2026-11-22T20:06:19-08:00 — the BitWhiz alias now matches both spellings
 
