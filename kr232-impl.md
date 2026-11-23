@@ -3137,6 +3137,19 @@ Host: CROSBY (Windows).
 **Two limits worth naming.** The heap moved from kr32's `0x00100000` -- reachable only in kernel mode -- to `0x09000000`, inside the user window and clear of a 150 KB image and of the stack. And an image this size executes ~9,000 instructions for one `printf` of five fields, which is why the emulator's default step budget and the debugger's `--run` default matter for anything built on it.
 
 Suites: krcompiler **38 of 38** kr232 rows, `krc_tests` **3704** assertions, kr232 **15 of 15**, krdbg **110 of 110** and **17 of 17**.
+### 2026-11-23T11:15:00-08:00 — One floating-point format: float is 64 bits
+
+Host: CROSBY (Windows).
+
+The profile advertised `float_bits = 32` while the ISA has a single 64-bit format and no `FCVT`, so a `float` program was 64-bit arithmetic wearing a 32-bit name. Two ways out, and the cheap one is also the conforming one: C requires `float` to exist but not to be narrower than `double`.
+
+**Changed.** `kKr232`'s `float_bits` is 64. `float` and `double` are the same type on this target, `strtof` returns without a narrowing cast, and `FPTrunc`/`FPExt` lower to a copy because both sides are 64 bits.
+
+`<float.h>`'s `FLT_*` described x86 rather than the target, so they moved into a generated `bits/float.h`: kr232 gets the double limits (53 mantissa bits), kr32 keeps 24, and a profile without floating point gets none. `DBL_*` stay in the shared header, the same everywhere this compiler targets.
+
+The runtime row now proves it: `krc_kr232_runtime` requires `total=55 float=8`, a program that declares a `float`, multiplies it by a `double` and prints `sizeof(float)`.
+
+Suites: krcompiler **38 of 38** kr232 rows, `krc_tests` **3704** assertions, kr232 **15 of 15**, krdbg **17 of 17**. `krdbg_tests` passed three consecutive runs after reporting 13 failures in earlier runs; the intermittent failure is **not explained** and is recorded as an open defect, not a fixed one.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
