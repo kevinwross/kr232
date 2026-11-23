@@ -1610,6 +1610,21 @@ The probe was worth it: `prefix=[C:\Users\kevin\repos\krcompiler\dist]` proved t
 **Reverted a botched repair.** Lifting the block out with an index script inserted it after the first `#endif` in the file -- the include guard at line 17 -- which scattered it into the includes section. `git checkout -- tests/test_host_build.cpp` restored the committed file, which builds and passes 15 tests. The move needs the editor with exact text, not index arithmetic.
 
 Next: move lines 126-156 to after line 186 with the editor, rebuild, and only then run with the prefix.
+### 2026-11-23T18:05:00-08:00 — M4: the host case runs, and the linker overflows
+
+Host: CROSBY (Windows). With the kr232 block moved out of the KR16 guard and `kr232_adapter.h` included, the case finally executes and reports a real result:
+
+```
+ok=0
+error=[krld failed]
+log=[krld: link relocation overflows its width]
+```
+
+That is the first evidence of any kind about a kr232 host build, and it names the next defect: **the link overflows a relocation**. The chain links the object with the prefix's `crt0.s` under `--entry=_start` and no `--base`; the overflow is the thing to read, not the harness.
+
+The block was then reverted so the suite stays green; the finding is recorded instead of a red test.
+
+This took four rounds because I kept inferring instead of measuring: the block was nested in a guard (source, visible all along), the probes each time answered a smaller question, and one repair attempt with index arithmetic scattered the file and had to be reverted. The rule that finally worked is the one now written into the log twice: **add a marker, rebuild, and `findstr` the binary before interpreting any run.**
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
