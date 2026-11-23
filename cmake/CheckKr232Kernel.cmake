@@ -46,6 +46,18 @@ if(DEFINED KRC AND DEFINED KRLD)
 endif()
 
 set(optional_args)
+    # A golden that equals the blank committed frame is not a drawing.
+    if(DEFINED BLANK_IMAGE AND NOT BLANK_IMAGE STREQUAL "")
+        execute_process(COMMAND "${VM}" vm "${BLANK_IMAGE}" --frame-hash
+                        OUTPUT_VARIABLE blank_output RESULT_VARIABLE blank_code)
+        if(NOT blank_code EQUAL 0 OR NOT blank_output MATCHES "frame ([0-9a-f]+)")
+            message(FATAL_ERROR "cannot measure the blank frame: ${blank_output}")
+        endif()
+        if(CMAKE_MATCH_1 STREQUAL FRAME_HASH)
+            message(FATAL_ERROR
+                "the golden ${FRAME_HASH} is the blank committed frame: nothing was drawn")
+        endif()
+    endif()
 if(DEFINED FRAME_HASH AND NOT FRAME_HASH STREQUAL "")
     list(APPEND optional_args --frame-hash)
 endif()

@@ -144,6 +144,7 @@ if(KR232_BUILD_TESTS)
                 -DPROGRAM=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-calls.k232
                 -DEXPECT_EXIT=0
                 -DFRAME_HASH=f6b786175f12b425
+                -DBLANK_IMAGE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/blank-flip.k232
                 -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232Kernel.cmake)
 
     # The package program names no call numbers: it prints, draws, flips and
@@ -161,6 +162,7 @@ if(KR232_BUILD_TESTS)
                     -DFIXTURE=${KR232_PACKAGE_FIXTURE}
                     -DWORK=${CMAKE_BINARY_DIR}/packages
                     -DFRAME_HASH=dddcd2efdafe5925
+                    -DBLANK_IMAGE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/blank-flip.k232
                     -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232UserPackages.cmake)
     endif()
 
@@ -205,6 +207,7 @@ if(KR232_BUILD_TESTS)
             "-DEXE=$<TARGET_FILE:kr232-emu>"
             "-DIMAGE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel-gate.bin"
             "-DGOLDEN=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel-gate.hash"
+            "-DBLANK_IMAGE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/blank-flip.k232"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckFrameHash.cmake")
     set_tests_properties(kr232_cli_kernel_golden PROPERTIES LABELS "unit")
 
