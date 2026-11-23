@@ -123,6 +123,15 @@ if(KR232_BUILD_TESTS)
         LABELS "unit"
         PASS_REGULAR_EXPRESSION "frame 1628b6c37bf7a2ad")
 
+    # Plan §6 item 4: the hash of the gate image must match the checked-in golden.
+    add_test(NAME kr232_cli_kernel_golden
+        COMMAND ${CMAKE_COMMAND}
+            "-DEXE=$<TARGET_FILE:kr232-emu>"
+            "-DIMAGE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel-gate.bin"
+            "-DGOLDEN=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel-gate.hash"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckFrameHash.cmake")
+    set_tests_properties(kr232_cli_kernel_golden PROPERTIES LABELS "unit")
+
     add_test(NAME kr232_path_hygiene
         COMMAND ${CMAKE_COMMAND}
             "-DBINARY=$<TARGET_FILE:kr232-emu>"
