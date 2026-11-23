@@ -1670,6 +1670,24 @@ kr232-emu: halted status 7 after 11 steps
 `host_build.c` returns 7, and the emulator reports exactly that. `krc_tests` **3704 of 3704**, `ctest -R kr232` **27 of 27**.
 
 This was a real krcompiler defect, not a kr232 one: every target that emits a backwards PC-relative relocation was affected, and only a link that placed a target behind a branch could reveal it.
+### 2026-11-23T19:00:00-08:00 — M4: a kr232 host build runs inside the suite
+
+Host: CROSBY (Windows). `host_build_chain_builds_c_cpp_and_s` now builds kr232 for real. With `KRDBG_KRC_PREFIX` pointing at a prefix laid out as `bin/{krc,krld}.exe` and `share/krc/sysroot/kr232/{include,lib}`:
+
+```
+build/krdbg-host/host_build.k232   1346 bytes
+15 tests, 0 failures
+```
+
+The chain compiles `host_build.c` and the prefix's `crt0.s`, links the container, loads it through the adapter and runs to line 3.
+
+Two things had to be true first, and both were found by measurement this round:
+- the case had been **inside the KR16 guard** since the round it was written, so it never ran;
+- the prefix's `krld.exe` was **copied before the negative-relocation fix**, so the chain kept producing the overflow that the fixed linker no longer produces. Refreshing the two binaries in `dist/bin` is what turned the failure into a pass.
+
+The task stays **open**: its check also wants the demo to load the fixture by extension and by `--kr232`, which a windowed application cannot demonstrate here.
+
+M4 at 11 of 14. The host-build halves are done and witnessed; what is left is an observation this environment cannot make, the golden's ARM64 half, and the gate record.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
