@@ -1144,6 +1144,18 @@ Ran, both with tests:
 `ctest -R kr232` **26 of 26 passed**. Ticked: the C++ surfaces task.
 
 Remaining in M3: the FP/varargs task, the `libc` SYS stubs (needs the kernel), the krdbg stop (needs M4's adapter), and the gate with its freezes.
+### 2026-11-23T05:55:00-08:00 — M3: floating point, begun
+
+Host: CROSBY (Windows `windows-msvc-debug`)
+Added: selection for `FAdd`/`FSub`/`FMul`/`FDiv`, `FPToSI`/`FPToUI`, `SIToFP`/`UIToFP`, and a materialiser that loads an FP constant from its own data entry or a value from its frame slot. The assembler already knows `fadd`-family, `fld`/`fst`, `f2i`/`f2u` and `i2f`/`u2f`.
+
+**Incomplete, and unexercised on purpose.** Four gaps, in the order they must close:
+1. an `f64` value needs **two** frame slots and eight-byte alignment; the allocator gives it one;
+2. the **constant pool** is not emitted, so a float constant's label is undefined;
+3. **arguments and returns** still use R2-R5/R2 rather than the ABI's F0-F3;
+4. `Load` and `Store` of an FP type are not routed to `fld`/`fst`.
+
+The tree builds, 26 kr232 CTests pass, and `kr232_fp.c` does not run yet. Ticking nothing: the task's check is a `printf`-style call with mixed integer and `double` arguments, and none of that exists.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
