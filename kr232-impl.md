@@ -255,7 +255,7 @@ Round-trip for all 81 vectors; a hand-written `.s` linked and run; the `.kdbg` d
 ### Tasks
 
 - [x] `[krcompiler]` Backend skeleton in the guide's shape: `Kr232Backend(module, profile, level)`, `emit`, `debug_info`, `frame_bytes`, registered at both dispatch sites in `src/toolchain/toolchain.cpp` and the six branches in `src/tools/krc/main.cpp`. Check: `krc --target=kr232 -c` reaches the backend and emits a prologue.
-- [ ] `[krcompiler]` Prologue/epilogue with `ENTER`/`LEAVE`, and the frame layout the ABI fixes. Check: a frame-size unit test; `-S` byte-identical against the previous step at each subsequent task.
+- [x] `[krcompiler]` Prologue/epilogue with `ENTER`/`LEAVE`, and the frame layout the ABI fixes. Check: a frame-size unit test; `-S` byte-identical against the previous step at each subsequent task.
 - [ ] `[krcompiler]` Loads and stores, including `LDBU`/`LDHS`, the signed/unsigned narrow extensions and the FP forms. Check: by-value `char`/`short` parameters round-trip.
 - [ ] `[krcompiler]` ALU, comparisons, branches, calls, returns. Check: `int main(void){return 42;}` returns 42 under the emulator.
 - [ ] `[krcompiler]` Aggregate paths: memory-class parameters copied size-exactly, the R6 return destination loaded after argument evaluation, struct return by copy-out. Check: the three-`char` record test, and a nested call in an argument.
@@ -902,6 +902,13 @@ Next: prologue/epilogue and the ABI frame layout, then loads and stores.
 WSL: `linux-gcc-debug` builds the backend with GCC and no warnings; `ctest -R kr232` **3 of 3 passed** (the two run tests need the emulator, which that host does not install).
 Not landed: the frame layout. `type_size` is a file-static helper inside `kr16_backend.cpp`, not a shared utility, so `Kr232Backend::frame_bytes` cannot reuse it; kr232 needs its own type-size accessor, and `ir::Type`'s size member is the next thing to read rather than guess.`frame_bytes` still returns 0, which is why this task is not ticked.
 Next: the type-size accessor, then `frame_bytes` and a frame-size test, then loads and stores.
+
+### 2026-11-22T22:18:00-08:00 — M3: the frame is laid out and its size proven
+
+Host: CROSBY (Windows `windows-msvc-debug`)
+Added: `frame_bytes` sums every IR alloca at its own size, aligned to four; `type_bytes` is this backend's own because `type_size` is file-static inside the KR16 backend. A one-local C program emits `enter #4, #0` and a program with no locals keeps `enter #0, #0`; eight kr232 CTests pass.
+Note: the task also asks `-S` to stay byte-identical at each later step; that is checked from the next task onward, when `-S` output exists for more than these two programs.
+Next: loads and stores, then ALU, branches and returns.
 
 ## 14. Gate verification
 
