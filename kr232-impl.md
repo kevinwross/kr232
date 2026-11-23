@@ -555,6 +555,16 @@ Ran: Windows 37 cases and 0 failed checks; WSL build and `ctest` 3 of 3.
 Closed: the protection task, in four commits across three rounds — the frame, access protection, kernel-only instructions, and the vector matrix. The split that made it land is the same one the earlier attempts lacked.
 Next: the device model — eight pages, `ID` at `0x3C`, the trap rules for undefined offsets and reserved pages.
 
+### 2026-11-22T20:41:43-08:00 — M1: the device bus, the timer and the system page
+
+Host: CROSBY (Windows `windows-msvc`) and CROSBY WSL (`linux-wsl`)
+Added: `include/kr232/devices.h`, `src/devices.cpp`, `tests/test_devices.cpp`. The window is 240 pages of 4 KiB at `0xFFF00000`, every populated page answers its `ID` at `0x3C`, and a device access is a 32-bit word at a 4-byte offset — a byte or halfword access, or an unaligned one, is mis-shaped and traps like an undefined offset. **Page 0 (timer)** implements `CONTROL`/`RELOAD`/`COUNT`/`STATUS`/`IRQ` with the documented countdown, one-shot and periodic behaviour; **page 10 (system)** implements `HALT`, `RESET` and the cycle counter, driven from the machine's own cycle count so `CYCLE_LO` and `RDCYCLE` cannot disagree. The machine routes the window through the bus and ticks it once per retired instruction.
+Ran: Windows 43 cases and 0 failed checks; WSL build and `ctest` 3 of 3.
+Tests: the eight IDs; a reserved page and an undefined offset are address errors; a mis-shaped access is one too; the timer counts down, sets `PENDING`, clears it on a 1 write and reloads when periodic; the system page's `CYCLE_LO` equals the machine's cycle count and a `HALT` write stops it.
+Found: the cycle-counter test needed a stack inside the short machine — the second `NOP` fell through into zero bytes, which decode as `PUSH R0`, and with the reset SP at the top of 256 MiB the frame push halted the machine at cycle one. The same fixture trap as the trap-frame round, in a new place.
+Intermediate state, recorded: the other six populated pages answer their `ID` and trap every other offset until their own commit. That is deliberate and is why the device task stays unticked.
+Next: console and keyboard, then framebuffer and graphics, then terminal and blitter.
+
 ### 2026-11-22T20:06:19-08:00 — the BitWhiz alias now matches both spellings
 
 Host: CROSBY and BitWhiz

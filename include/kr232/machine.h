@@ -1,6 +1,7 @@
 #pragma once
 
 #include <kr232/decoder.h>
+#include <kr232/devices.h>
 #include <kr232/memory.h>
 
 #include <cstdint>
@@ -48,6 +49,8 @@ public:
 
     [[nodiscard]] Memory& memory() noexcept { return memory_; }
     [[nodiscard]] const Memory& memory() const noexcept { return memory_; }
+    [[nodiscard]] Devices& devices() noexcept { return devices_; }
+    [[nodiscard]] const Devices& devices() const noexcept { return devices_; }
 
     [[nodiscard]] std::uint32_t reg(unsigned index) const noexcept { return regs_[index & 0xFu]; }
     void set_reg(unsigned index, std::uint32_t value) noexcept;
@@ -84,6 +87,7 @@ private:
     void set_nz(std::uint32_t value) noexcept;
 
     Memory memory_;
+    Devices devices_;
     std::uint32_t regs_[16] = {};
     double f_[4] = {};
     std::uint64_t cycles_ = 0;

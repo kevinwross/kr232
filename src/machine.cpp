@@ -206,6 +206,15 @@ StepResult Machine::step() {
             regs_[kPc] += decoded.length;
         }
         ++cycles_;
+        devices_.tick(cycles_);
+        if (devices_.reset_requested()) {
+            devices_.clear_requests();
+            reset();
+        } else if (devices_.halt_requested()) {
+            devices_.clear_requests();
+            halted_ = true;
+            exit_status_ = 0;
+        }
     }
     return result;
 }
@@ -271,6 +280,14 @@ StepResult Machine::execute(const Decoded& d) {
             access_vector_ = 8;  // protection is checked before the address (§11.2)
             return false;
         }
+        if (Devices::contains(address)) {
+            std::uint32_t word = 0;
+            if (devices_.read(address, size, word) != DeviceResult::Ok) {
+                return false;  // an undefined offset or a bad shape is an address error
+            }
+            out = word;
+            return true;
+        }
         switch (size) {
             case 1: {
                 std::uint8_t v = 0;
@@ -279,8 +296,7 @@ StepResult Machine::execute(const Decoded& d) {
                 }
                 out = v;
                 return true;
-            }
-            case 2: {
+            }            case 2: {
                 std::uint16_t v = 0;
                 if (memory_.read16(address, v) != Access::Ok) {
                     return false;
@@ -304,6 +320,9 @@ StepResult Machine::execute(const Decoded& d) {
             (address < 0x08000000u || address >= 0xFC000000u || address + size > 0xFC000000u)) {
             access_vector_ = 8;
             return false;
+        }
+        if (Devices::contains(address)) {
+            return devices_.write(address, size, value) == DeviceResult::Ok;
         }
         switch (size) {
             case 1:
