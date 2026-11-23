@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | **Approved 0.18** — thirteen scope decisions accepted (eight in §2, five in §12), every section reviewed, and the cross-document check applied. Approved on 2026-11-22 as the implementation basis for M0–M3; M0 is in progress |
+| Status | **Approved 0.18** — thirteen scope decisions accepted (eight in §2, five in §12), every section reviewed, and the cross-document check applied. Approved on 2026-11-22 as the implementation basis for M0–M3, with M4 and M5 approved from the same plan; all six milestones are complete, recorded in `kr232-impl.md` §12–§14 |
 | Date | 2026-11-22T19:50:32-08:00 |
 | Approved against | `kr232-isa.md` 0.4 and `kr232-devices.md` 0.4, 2026-11-22 |
 | Basis | `kr232-isa.md` 0.4, `kr232-devices.md` 0.4, `..\krcompiler\new-target-guide.md` (243 lines, revision `73611af`), `..\krdbg\krdbg-newtarget.md` (622 lines) |

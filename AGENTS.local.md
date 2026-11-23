@@ -10,7 +10,7 @@ Add entries here rather than editing the managed blocks in `AGENTS.md`; an edit 
 
 ## Plan
 
-**Status.** Approved 0.17: thirteen scope decisions are accepted (eight in §2, five in §12), every section has been reviewed, and the owner approved the set on 2026-11-22 as the basis for M0–M3. M0 is the first work.
+**Status.** Approved 0.18: thirteen scope decisions are accepted (eight in §2, five in §12), every section has been reviewed, and the owner approved the set on 2026-11-22 as the implementation basis for the 1.x milestones. Milestone progress lives in `kr232-impl.md` §12–§14, which owns it; this file carries the authority, not the state.
 
 **Authoritative for.** `kr232-plan.md` — milestone scope, order and exit criteria for 1.x; `kr232-impl.md` — task order, checklists, build and test commands, hosts, the log and every gate record. Read the plan's §1–§4 and the milestone at hand, then that milestone's section in the implementation file; §12 of the plan maps every open ISA and device question to the milestone that settles it.
 
