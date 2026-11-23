@@ -27,7 +27,7 @@ The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 | CROSBY (WSL, Ubuntu 26.04) | x64 | GCC and Clang rows; the Linux-side behaviour a Windows host hides | `-j10` |
 | BitWhiz (aarch64, GCC 14.2.0) | ARM64 | the ARM64 row, reached by `ssh bitwhiz` | `-j4` |
 
-**Verified 2026-11-22.** CROSBY Windows: MSVC 14.52.37025 and CMake 4.3.1-msvc1 are reachable **only inside the Visual Studio developer environment** — `vcvarsall.bat x64` first, or `cmake` and `ctest` are not on `PATH`. WSL Ubuntu 26.04: CMake 4.2.3, Ninja 1.13.2, GCC 15.2.0; the GCC-15 internal-compiler-error trap krcompiler records applies, so build the Linux rows with `ulimit -s unlimited` and low parallelism. BitWhiz: `ssh bitwhiz` is **denied for user `kevin`** (`Permission denied (publickey,password)`), so the ARM64 row is "not run" until key access exists; the alias resolves, the credentials do not.
+**Verified 2026-11-22.** CROSBY Windows: MSVC 14.52.37025 and CMake 4.3.1-msvc1 are reachable **only inside the Visual Studio developer environment** — `vcvarsall.bat x64` first, or `cmake` and `ctest` are not on `PATH`. WSL Ubuntu 26.04: CMake 4.2.3, Ninja 1.13.2, GCC 15.2.0; the GCC-15 internal-compiler-error trap krcompiler records applies, so build the Linux rows with `ulimit -s unlimited` and low parallelism. BitWhiz: reach it as **`ssh BitWhiz`** — the configured alias is capitalised, and the lowercase spelling resolves to user `kevin` and is refused. It is a Raspberry Pi 5 on Debian 13 (kernel 6.18, aarch64) with 4 cores, GCC 14.2.0, CMake 3.31.6, Ninja 1.12.1, git 2.47.3 and 15 GB free, so `-j4` is the whole machine. It holds clones of `krcompiler` and `krdbg` but **not of `kr232`**, so the first ARM64 run clones it there.
 
 **Per-repository commands.** These are the shapes the repositories already use; the first task of each milestone confirms them and the log records the exact line run.
 
@@ -417,6 +417,14 @@ Ran: `pwsh -File .agents/doctor.msvc.ps1` in krcompiler → `msvc 14.52.37025`, 
 Found: the ARM64 row has no access. The alias resolves, the credentials do not, and the fix is the owner's — a key or an ssh config entry for this session. Until then every ARM64 row is recorded "not run", never "passed".
 Changed: §1's hosts table now carries these verified facts, so a later session does not re-derive them or, worse, assume them.
 Next: the M0 gate's merge clause, and BitWhiz access.
+
+### 2026-11-22T20:02:02-08:00 — BitWhiz is reachable; the alias was the problem
+
+Host: CROSBY (checks only)
+Ran: `ssh bitwhiz` → `kevin@bitwhiz: Permission denied (publickey,password)`. `C:\Users\kevin\.ssh\config` defines `Host BitWhiz` with `User kevinro`. `ssh BitWhiz "hostname; whoami"` → `BitWhiz`, `kevinro`. `ssh BitWhiz` with the toolchain query → kernel 6.18.39 aarch64, 4 cores, GCC 14.2.0, CMake 3.31.6, Ninja 1.12.1, git 2.47.3, 15 GB free, and `~/repos` holds `krcompiler` and `krdbg` but no `kr232`.
+Found: the alias is capitalised on this client; the lowercase spelling resolves to a default user and is refused. No key work was needed, and nothing was read from the key files — only the client configuration, to find the right user.
+Changed: §1 now states the working invocation, the machine's shape, and that the first ARM64 run must clone `kr232` there.
+Next: the M0 gate's merge clause, which is the owner's action.
 
 ## 14. Gate verification
 
