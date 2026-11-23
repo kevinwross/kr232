@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Status | **Approved 0.17** — thirteen scope decisions accepted (eight in §2, five in §12), every section reviewed, and the cross-document check applied. Approved on 2026-11-22 as the implementation basis for M0–M3; M0 starts now |
-| Date | 2026-11-22T19:10:04-08:00 |
+| Status | **Approved 0.18** — thirteen scope decisions accepted (eight in §2, five in §12), every section reviewed, and the cross-document check applied. Approved on 2026-11-22 as the implementation basis for M0–M3; M0 is in progress |
+| Date | 2026-11-22T19:50:32-08:00 |
 | Approved against | `kr232-isa.md` 0.4 and `kr232-devices.md` 0.4, 2026-11-22 |
 | Basis | `kr232-isa.md` 0.4, `kr232-devices.md` 0.4, `..\krcompiler\new-target-guide.md` (243 lines, revision `73611af`), `..\krdbg\krdbg-newtarget.md` (622 lines) |
 | Authoritative for | milestone scope, order, and exit criteria for kr232 1.x |
@@ -31,6 +31,7 @@ The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 | 0.15 | 2026-11-22 | §14 reviewed: the freeze now retitles each draft's open-questions section as deferred to 2.0, a drawing program joins M3's gate so §14's frame promise has a producer, the compiled program is checked in krdbg at M3, and the gate reference points at §4. |
 | 0.16 | 2026-11-22 | Cross-document check: the four guest packages §11 commits to join M3, M5's user image is loaded by the emulator and entered at `0x08000000` with no entry word, and §3's device-map row names the ISA sections it means. |
 | 0.17 | 2026-11-22 | Approved as the implementation basis for M0–M3, against `kr232-isa.md` 0.4 and `kr232-devices.md` 0.4; the Basis and Open rows follow. |
+| 0.18 | 2026-11-22 | M0's identifier split corrected: ADR 0057 and `docs/symbols.md` record id 5, and the `kROTargetId` case moves to M2 with the profile row, because the constant cannot precede the enumerator. |
 
 ## 1. What 1.x is
 
@@ -93,7 +94,7 @@ The compiler guide is explicit: the first commit for a new target is documentati
 - A second ADR for the `.k232` container, as ADR 0054 fixed `K216`: header fields, section records, the reset word at `0x0100`, the `.kdbg` payload's `image_base = 0` and build id, and every condition the loader rejects.
 - `plan.md` Appendix A entry if any `D-xxx` decision is affected.
 - `docs/abi-kr232.md`: the data model (`Ilp32` — 32-bit pointers, `size_t` and `ptrdiff_t` 32, `intmax_t` 32, no 64-bit integer type, `long double` 64, `char` signed), argument registers R2–R5, result in R2, `this` in R10, frame pointer R13, stack pointer R15, callee-saved R8–R9, the frame layout (saved caller FP at `[FP]`, the EFP chain in R12 that `unwind()` follows), 4-byte stack alignment with 8 recommended (`kr232-isa.md` §15.38, §15.51), narrow-type extension for `char`/`short` arguments, varargs, aggregate parameters and the struct return under `MemoryOnly` with the destination in **R6**, the floating-point convention — how F0–F3 carry arguments and how a binary64 result returns — function pointers and virtual calls, the vtable and typeinfo layout (the typeinfo word reserved at `[vptr - 4]`, `_ZTI` emitted, `dynamic_cast` and `__krc_dynamic_cast` absent), and FP register preservation.
-- A `kROTargetId` case returning **5**, and the `docs/symbols.md` line that lists the KDBG `target_id` extended to `5` kr232.
+- The `docs/symbols.md` line that lists the KDBG `target_id` extended to `5` kr232. The `kROTargetId` case returns **5** with the profile row in M2, because the function switches on `TargetId` and the constant cannot precede the enumerator (ADR 0057).
 - A failing test that names `kr232`: it expects `krc --target=kr232 -c` to stop with "has no code generator yet", fails at M0 with `unknown target`, turns green when M2's profile row lands, and is replaced by a compile test at M3.
 
 **krdbg**
@@ -104,7 +105,7 @@ The compiler guide is explicit: the first commit for a new target is documentati
 
 - This plan approved, and `AGENTS.local.md` updated to point at it.
 
-**Exit gate.** Both ADRs are reviewed and merged; the ABI document is merged; the id `5` is recorded in `kROTargetId` and in `docs/symbols.md`; the failing test exists and fails for the documented reason.
+**Exit gate.** Both ADRs are reviewed and merged; the ABI document is merged; the id `5` is recorded in ADR 0057 and in `docs/symbols.md`, with the `kROTargetId` case following at M2; the failing test exists and fails for the documented reason.
 
 ## 6. M1 — `kr232-emu`: core and device model
 
@@ -135,7 +136,7 @@ This is the guide's steps 2–4: the target becomes assemblable and linkable, bu
 
 **krcompiler**
 
-- `TargetId::Kr232`, a `TargetProfile` row (`Ilp32`, little-endian, `char_bits` 8, `char_unsigned` false, `short_bits` 16, `int_bits` 32, `long_bits` 32, `long_long_bits` 0, `long_double_bits` 64, `has_fpu` true, `has_matrix`/`has_atomics`/`has_threads`/`has_tls`/`has_eh`/`has_rtti` false, `has_cpp` true, `aggregate_rules` `MemoryOnly`, `backend_available` false), `to_string`, `parse_target`.
+- `TargetId::Kr232`, a `TargetProfile` row (`Ilp32`, little-endian, `char_bits` 8, `char_unsigned` false, `short_bits` 16, `int_bits` 32, `long_bits` 32, `long_long_bits` 0, `long_double_bits` 64, `has_fpu` true, `has_matrix`/`has_atomics`/`has_threads`/`has_tls`/`has_eh`/`has_rtti` false, `has_cpp` true, `aggregate_rules` `MemoryOnly`, `backend_available` false), `to_string`, `parse_target`, and the `kROTargetId` case returning 5.
 - `Kr232Descriptor` with the register roles of M0.
 - `src/asm/kr232_assembler.cpp` and its encoder, plus `make_object`, taking target id 5.
 - Round-trip unit tests: assemble → bytes → disassemble for every Appendix A vector.

@@ -158,27 +158,26 @@ Both forms are ISO-8601 with the host offset to the second, like the plan's vers
 ### Tasks
 
 - [x] `[kr232]` Add `README.md`: what kr232 is, the three documents, and the one command that checks them. Check: the file names the lint command and the approved versions.
-- [ ] `[krcompiler]` Write the ADR (next free number under `docs/decisions/`, 0055 at the time of writing): kr232 fits descriptor schema v2, `sret_register = 6`, `aggregate_rules = MemoryOnly`, data model `Ilp32`, `has_matrix` false, and the target id **5** for both KRO and KDBG. Check: the ADR is committed and names every field it fixes.
-- [ ] `[krcompiler]` Add the `plan.md` Appendix A decision row for kr232, next after D-050. Check: the row exists and the ADR number is cited.
+- [x] `[krcompiler]` Write the ADR — **0057**, the next free number, not the 0055 assumed at drafting: kr232 fits descriptor schema v2, `sret_register = 6`, `this_register = 10`, `aggregate_rules = MemoryOnly`, data model `Ilp32` with `long_long_bits` 0, `has_matrix` false, and the target id **5** for both KRO and KDBG. Check: committed on `kr232-m0` (972294b) and names every field it fixes.
+- [ ] `[krcompiler]` Add the `plan.md` Appendix A decision row for kr232, next after D-050. Check: the row exists and ADR 0057 is cited.
 - [ ] `[krcompiler]` Write `docs/abi-kr232.md`: data model (`Ilp32`; 32-bit pointers, `size_t`/`ptrdiff_t` 32, `intmax_t` 32, no 64-bit integer, `long double` 64, signed `char`), argument registers R2–R5, result R2, `this` R10, FP R13, SP R15, callee-saved R8–R9, frame layout (saved caller FP at `[FP]`, EFP chain in R12), 4-byte alignment with 8 recommended, narrow-type extension, varargs, aggregates and the R6 sret convention, the floating-point convention over F0–F3, vtable and typeinfo layout with the reserved `[vptr - 4]` slot, and FP register preservation. Check: every section `abi-kr216.md` carries has a kr232 counterpart or a stated "not applicable".
-- [ ] `[krcompiler]` `kROTargetId` gains `case TargetId::Kr232: return 5;`. Check: unit test pins 5 and the existing ids 1–4 still hold.
-- [ ] `[krcompiler]` Extend the `target_id` line in `docs/symbols.md` to `5` kr232. Check: the line names all five.
+- [ ] `[krcompiler]` Extend the `target_id` line in `docs/symbols.md` to `5` kr232. Check: the line names all five. The `kROTargetId` case waits for the profile row in M2 — the function switches on `TargetId`, so the constant cannot precede the enumerator.
 - [ ] `[krcompiler]` Add the failing test: `krc --target=kr232 -c` is expected to stop with "has no code generator yet". Check: the test **fails** at M0 with `unknown target` and the log quotes both messages.
 - [ ] `[kr232]` Update `AGENTS.local.md` to point at the approved plan and this file. Check: done when the file exists.
 
 ### Tests
 
 - `node tools/check-isa.mjs` on every host — the only executable check in this repository.
-- The krcompiler unit test for `kROTargetId`, and the new refusal test, which must fail for the documented reason.
-- `ctest --preset windows-msvc-debug` on krcompiler, to prove the id and the test registration did not disturb the existing targets.
+- The new refusal test, which must fail for the documented reason.
+- `ctest --preset windows-msvc-debug` on krcompiler, to prove the test registration did not disturb the existing targets.
 
 ### Gate
 
-> **Plan §5.** The ADRs are reviewed and merged; the ABI document is merged; the id `5` is recorded in `kROTargetId` and in `docs/symbols.md`; the failing test exists and fails for the documented reason.
+> **Plan §5.** Both ADRs are reviewed and merged; the ABI document is merged; the id `5` is recorded in ADR 0057 and in `docs/symbols.md`, with the `kROTargetId` case following at M2; the failing test exists and fails for the documented reason.
 
 ### Exit evidence
 
-The gate block under `## Gate verification`, quoting the failing test's output, the `kROTargetId` test, and the krcompiler suite count before and after.
+The gate block under `## Gate verification`, quoting the failing test's output, the ADR's number and the id lines, and the krcompiler suite count before and after.
 
 ---
 
@@ -353,7 +352,7 @@ The kernel's entry and return, the syscall table's validation, protection from u
 
 | Milestone | State | Gate recorded |
 |---|---|---|
-| M0 | in progress — 1 of 9 tasks | — |
+| M0 | in progress — 2 of 7 tasks | — |
 | M1 | not started | — |
 | M2 | not started | — |
 | M3 | not started | — |
@@ -369,6 +368,15 @@ Changed: `README.md` added; §2's branch rule corrected — krcompiler's default
 Ran: `node tools/check-isa.mjs` → `ok: 81/81 vectors; Appendix B covers 0x00-0xFF; Appendix C tiles 4 GiB; 13 device page rows tile the window; tables well-formed`. `git -C ..\krcompiler remote -v` and `git -C ..\krdbg remote -v` → both have push remotes; both trees clean on `master` and `main` respectively.
 Failed: nothing.
 Next: ADR and `docs/abi-kr232.md` in krcompiler, on branch `kr232-m0`.
+
+### 2026-11-22T19:50:32-08:00 — M0: ADR 0057 written; the id split found and fixed
+
+Host: CROSBY (Windows; documentation only, no build)
+Changed: `..\krcompiler` branch `kr232-m0` created; ADR `0057-kr232-target-profile.md` added and indexed (`972294b`). The plan moved to 0.18 and this file to match: M0 records id 5 in the ADR and `symbols.md`, and the `kROTargetId` case moves to M2.
+Found: the M0 check "`kROTargetId` gains a case" cannot be done before `TargetId::Kr232` exists, and adding the enumerator in M0 would force `to_string`, `to_target` and every switch over the enum to handle a target with no profile — the `-Wswitch` failure KR216 hit (`implementation.md`, 2026-11-22T00:41). The plan's gate text was wrong; corrected rather than worked around.
+Ran: `node tools/check-isa.mjs` → ok, unchanged (no draft edited).
+Failed: nothing.
+Next: the ADR's Appendix A row, `docs/abi-kr232.md`, then the failing test.
 
 ## 14. Gate verification
 
