@@ -21,6 +21,7 @@ void usage(std::FILE* out) {
         "usage: kr232-emu <command> [options]\n"
         "  vm <image> [--base <hex>] [--max-steps <n>] [--frame-hash]\n"
         "               run a flat image; --base 0 reads the entry from 0x0100\n"
+   "               --input <text> queues console input, --user <image> runs a user program\n"
         "  --version    print the version and exit\n"
         "  --help       print this text and exit\n",
         out);
@@ -70,6 +71,9 @@ int main(int argc, char** argv) {
     bool want_trace = false;
     std::deque<std::pair<std::uint32_t, std::string>> trace;
     bool want_transcript = false;
+    // Text queued on the console before the run, so a program that reads input
+    // can be tested without a terminal. It is the same queue the device uses.
+    std::string input_text;
     for (int i = 3; i < argc; ++i) {
         if (std::strcmp(argv[i], "--frame-hash") == 0) {
             want_frame_hash = true;
@@ -81,6 +85,8 @@ int main(int argc, char** argv) {
             base = static_cast<std::uint32_t>(std::strtoul(argv[++i], nullptr, 0));
         } else if (std::strcmp(argv[i], "--user") == 0 && i + 1 < argc) {
             user_path = argv[++i];
+        } else if (std::strcmp(argv[i], "--input") == 0 && i + 1 < argc) {
+            input_text = argv[++i];
         } else if (std::strcmp(argv[i], "--max-steps") == 0 && i + 1 < argc) {
             max_steps = std::strtoull(argv[++i], nullptr, 0);
         } else {
@@ -132,6 +138,10 @@ int main(int argc, char** argv) {
             return 2;
         }
         machine.set_reg(2, user_loaded.entry);
+    }
+
+    for (const char ch : input_text) {
+        (void)machine.devices().console_push_input(static_cast<std::uint8_t>(ch));
     }
 
     std::uint64_t steps = 0;

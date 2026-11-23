@@ -137,6 +137,17 @@ if(KR232_BUILD_TESTS)
     endif()
     # One program that calls every entry in the kernel's table, including the
     # block-pointer drawing calls; the frame it commits is the golden.
+    # The kernel's read call: the program echoes whatever the console holds, so
+    # the text coming back out proves the bytes reached user memory.
+    add_test(NAME kr232_kernel_read
+        COMMAND ${CMAKE_COMMAND}
+                -DVM=$<TARGET_FILE:kr232-emu>
+                -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.k232
+                -DPROGRAM=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-echo.k232
+                -DEXPECT_EXIT=0
+                -DINPUT=hey!
+                -DEXPECT_CONSOLE=hey!
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232Kernel.cmake)
     add_test(NAME kr232_kernel_calls
         COMMAND ${CMAKE_COMMAND}
                 -DVM=$<TARGET_FILE:kr232-emu>
