@@ -60,7 +60,7 @@ int main(void) {
     block[1] = 0;
     block[2] = 4;
     block[3] = 4;
-    block[4] = 8;
+    block[4] = 16;   /* the stride must hold a whole row: 4 pixels of 4 bytes */
     expect(KR232_CALL_UPLOAD, 4, 0);
 
     block[0] = 0;
