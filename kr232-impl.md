@@ -1377,6 +1377,19 @@ What is reproducible: the same failing test and the same thirteen golden mismatc
 This makes krdbg's suite **red on main independently of M4**. For M4's gate that is a **FIX-BEFORE** that is not mine to fix blind: whether the goldens should be regenerated or the surface click behaviour restored is a decision about the owner's UI, and regenerating committed goldens to make a suite green is exactly the move the rules forbid.
 
 Landed this round: the adapter's tests are their own binary (`krdbg_kr232_tests`, **green**), so the UI goldens no longer depend on whether an adapter is linked. That part is a genuine improvement and it stands whatever the goldens decide.
+### 2026-11-23T12:40:00-08:00 — M4: krdbg's suite is red on main, and what that is not
+
+Host: CROSBY (Windows).
+Established by repeated runs, in fresh build directories, with and without adapters:
+
+- `surface_source_gutter_controls_switch_and_pin` fails because the click at the fifth source row does not create a breakpoint (`breakpoints.size()` is 0, not 1). Without the guard this kills the process; with it, the failure reports.
+- Every committed **render golden** mismatches on this machine (`loaded`, `running`, `video`, `video_16:9`, `error`, `context_menu`, `tooltip`, `variable_expansion`, `com_bytes`, `no_com`, `no_video`).
+
+The two symptoms share a cause, and it is one of rendering metrics: a click calibrated to 16-pixel rows landing wrong, and every rendered pixel hash differing, is what a different font metric produces, not what a code change produces. The repository's own gate script (`scripts/gate-windows.ps1`) is the right instrument: it configures Debug and Release, runs CTest and checks these same hashes, so its result on this machine distinguishes "the recorded hashes do not hold here" from "the code regressed".
+
+I did not run it (it is a multi-minute two-configuration gate, and its result should be reported with the gate, not inferred). I did not regenerate any golden.
+
+Landed meanwhile: `krdbg_kr232_tests` is its own binary and is **green**, so the adapter's correctness no longer depends on the UI goldens at all.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
