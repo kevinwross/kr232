@@ -293,7 +293,7 @@ The per-target loops, determinism, KDBG invariants, the clean gate, `-S` byte-id
 - [x] `[krdbg]` Memory regions: kernel RAM, user RAM, aperture, device window, and both unbacked gaps marked neither readable nor writable. Check: a read in each region and in each gap.
 - [x] `[krdbg]` Execution and state: `step_instruction`, `run`, `pc`/`set_pc`, `read_value`/`write_value` by group index, `read_flags`/`write_flags`, `reset`. Check: stepping a fixture retires the documented instructions and reports `Halted`/`Fault` truthfully.
 - [x] `[krdbg]` `disassemble` through `kr232-dis`, advancing by decoded length. Check: a one-byte `RET` is followed by the next instruction, not by a four-byte gap.
-- [ ] `[krdbg]` `unwind()` through the EFP chain, `FunctionInfo::frame` 0, and `Location::FrameOffset` negated. Check: two frames and a local's value at each.
+- [x] `[krdbg]` `unwind()` through the EFP chain, `FunctionInfo::frame` 0, and `Location::FrameOffset` negated. Check: two frames and a local's value at each.
 - [x] `[krdbg]` `IComPort` over page 2 and `IVideoSource` over the committed frame, with `has_com_port` and `has_framebuffer` agreeing. Check: a byte through the port reaches the guest, and a frame hash matches the emulator's.
 - [ ] `[krdbg]` Source level: load `.k232`, locate `.kdbg`, `kdbg::read_payload`, resolve paths, `replace_target(std::move(target), info)` on reload. Check: line breakpoints resolve after a reload.
 - [ ] `[krdbg]` Host wiring: `--kr232`, the include under `KRDBG_HAVE_KR232`, `load_any` on the `.k232` extension and `--target kr232`, `tests/test_host_build.cpp` with `KRDBG_KRC_PREFIX`. Check: the prefix is installed at the krcompiler revision recorded in the log, `test_host_build` **runs** rather than skipping, and the demo loads the fixture both ways.
@@ -1480,6 +1480,21 @@ The parameter store lands at the **sixth** instruction, not the second: ENTER is
 Still not in the file: the value assertion itself. Its first version referenced a copy of the debug info I had not declared, and it was withdrawn rather than left red -- the fourth withdrawal of a test this milestone, each for a different and now-recorded reason.
 
 `krdbg_kr232_tests` **11 tests, 0 failures**. The `unwind` task's last check is one assertion away: read four bytes at `frames[0].frame_base + local_offset` and expect 3.
+### 2026-11-23T15:15:00-08:00 — M4: the local's value, and the last check of the unwind task
+
+Host: CROSBY (Windows). `kr232_adapter_unwinds_two_frames` now reads the local through its payload offset:
+
+```
+local_offset = -4                      (from the decoded variable)
+frames[0].frame_base + (-4) = slot
+slot -> 3                              (inner(3))
+```
+
+Two frames, and the parameter's value from where the payload says it lives. `krdbg_kr232_tests` **11 tests, 0 failures**. Ticked: the `unwind` task -- the EFP/FP chain, the frame layout the ABI builds, `FunctionInfo::frame` 0, and a frame-relative local.
+
+Getting there cost four withdrawn tests and one wrong assertion, each recorded: a guessed member name, a sign convention, a decoder that dropped a sign, and a prologue whose store is six instructions in rather than two. Every one of them was found by measuring, and every one of them was a case where I first guessed.
+
+M4 at 10 of 14. Remaining: the windowed `load_any` observation, and the gate record.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
