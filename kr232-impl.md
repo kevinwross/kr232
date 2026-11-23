@@ -1156,6 +1156,14 @@ Added: selection for `FAdd`/`FSub`/`FMul`/`FDiv`, `FPToSI`/`FPToUI`, `SIToFP`/`U
 4. `Load` and `Store` of an FP type are not routed to `fld`/`fst`.
 
 The tree builds, 26 kr232 CTests pass, and `kr232_fp.c` does not run yet. Ticking nothing: the task's check is a `printf`-style call with mixed integer and `double` arguments, and none of that exists.
+### 2026-11-23T06:15:00-08:00 — M3: floating point assembles and runs; the frame pointer is the next fault
+
+Host: CROSBY (Windows `windows-msvc-debug`, `windows-msvc` emulator)
+Progress: the FP fixture now compiles, links and runs 45+ steps. Closed: a **constant pool** (each double an eight-byte `.data` entry, loaded with `fld` from its address), **`fld`/`fst` frame traffic** through a computed base register (the FP forms take a register, not a frame offset), and the ABI's **F0 return**: the callee leaves its result in F0 and the caller stores it to the value's slot.
+
+Two operand orders learned from the assembler's own tests rather than guessed, and they are opposite: **`f2i rD, fS`** and **`i2f fD, rS`**.
+
+Fault, from the trace and the disassembly: after the callee returns, the caller's store uses `fp = 0`. The disassembly shows the prologue saving and reloading the FP arguments correctly (`fst f0, [fp-44]`, `fld f0, [r8]`), so the values are not the problem -- the **frame pointer's restore across the call** is. 26 kr232 CTests pass; the FP task is not ticked.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
