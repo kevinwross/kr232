@@ -194,6 +194,7 @@ if(KR232_BUILD_TESTS)
                     -DFIXTURE=${KR232_PACKAGE_FIXTURE}
                     -DWORK=${CMAKE_BINARY_DIR}/packages
                     -DFRAME_HASH=659d051c4dc232e5
+                    -DINPUT=z
                     -DBLANK_IMAGE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/blank-flip.k232
                     -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232UserPackages.cmake)
     endif()

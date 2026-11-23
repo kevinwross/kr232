@@ -45,8 +45,14 @@ if(NOT linked EQUAL 0)
     message(FATAL_ERROR "linking the package program failed:\n${link_error}")
 endif()
 
+set(run_args --transcript --frame-hash)
+if(DEFINED INPUT AND NOT INPUT STREQUAL "")
+    # Console input the program reads back through cons_getc.
+    list(APPEND run_args --input "${INPUT}")
+endif()
+
 execute_process(COMMAND "${VM}" vm "${KERNEL}" --user "${image}"
-                        --transcript --frame-hash --max-steps 200000
+                        ${run_args} --max-steps 200000
                 OUTPUT_VARIABLE output ERROR_VARIABLE error
                 RESULT_VARIABLE result)
 if(NOT result EQUAL 0)
@@ -61,5 +67,11 @@ endif()
 string(REGEX REPLACE ".*frame ([0-9a-f]+).*" "\\1" measured "${output}")
 if(NOT measured STREQUAL FRAME_HASH)
     message(FATAL_ERROR "expected frame ${FRAME_HASH}, got ${measured}\n${output}")
+endif()
+if(DEFINED EXPECT_CONSOLE AND NOT EXPECT_CONSOLE STREQUAL "")
+    if(NOT output MATCHES "console:\n${EXPECT_CONSOLE}")
+        message(FATAL_ERROR
+            "expected console text '${EXPECT_CONSOLE}' in:\n${output}")
+    endif()
 endif()
 message(STATUS "the packages printed, drew ${measured} and exited 0")
