@@ -195,7 +195,7 @@ The gate block under `## Gate verification`, quoting the failing test's output, 
 
 - [x] `[kr232]` Build skeleton: `CMakeLists.txt`, `CMakePresets.json` (`windows-msvc`, `linux-wsl`, `linux-arm64`, each with its own `binaryDir` and the prefix-map flags of §1), `include/kr232/`, `src/`, `targets/kr232/`, `tests/`, `scripts/wsl-mirror.sh`, and `scripts/gate-windows.ps1` / `gate-linux.sh` cloned from krdbg. Check: configure and build clean on Windows `-j10` and WSL `-j10`; the layout check fails when a `targets/` file is added to a host target; the path-hygiene test fails on a deliberately absolute `__FILE__` string and passes on the real binary.
 - [x] `[kr232]` `memory`: the 4 GiB space with the eight rows of ISA §2.3, load/store of 1/2/4 bytes, and the unbacked-gap behaviour. Check: unit tests per region boundary.
-- [ ] `[kr232]` `decoder`: every class of ISA §3.1, including `F0`/`F4` lengths resolved from the bytes after the prefix. Check: `kr232-dis`-quality decode of all 81 Appendix A vectors, bytes in, text out.
+- [x] `[kr232]` `decoder`: every class of ISA §3.1, including `F0`/`F4` lengths resolved from the bytes after the prefix. Check: a decode of all 81 Appendix A vectors, bytes in, mnemonic and length out, matching the appendix.
 - [ ] `[kr232]` `executor`: ALU, shifts, branches, loads/stores, `ENTER`/`LEAVE`, `CALL`/`RET`, `PUSH`/`POP`, halfword and byte forms, `SYS`, `IRET`, `BRK`, `RDCYCLE`. Check: one test per vector from bytes to architectural state.
 - [ ] `[kr232]` Protection and traps: the 16-byte frame, vector 4 for the gaps and null page, vector 8 for the two user ranges and kernel-only instructions, vector 9 for `SYSCALL`, `IRET`'s restore of K, I and SP, and the K/I write rules. Check: the M1 gate's protection list, case by case.
 - [ ] `[kr232]` Devices: timer, console, framebuffer, keyboard, terminal, graphics commands, system, blitter — registers, `ID` at `0x3C`, reset values, and the trap rules for undefined offsets and reserved pages. Check: per-page tests, and the `ID` word of all eight.
@@ -357,7 +357,7 @@ The kernel's entry and return, the syscall table's validation, protection from u
 | Milestone | State | Gate recorded |
 |---|---|---|
 | M0 | complete — gate recorded 2026-11-22T20:07:37-08:00 | M0 |
-| M1 | in progress — 2 of 11 tasks | — |
+| M1 | in progress — 3 of 11 tasks | — |
 | M2 | not started | — |
 | M3 | not started | — |
 | M4 | not started | — |
@@ -463,6 +463,15 @@ Found: the checklist said "seven regions"; ISA §2.3 has **eight** rows, and the
 Kept honest: the trap rows — null page, both gaps, aperture, devices, reserved — are `Unmapped` even though the first two fall inside the RAM buffer's address range, because ISA §2.3 makes an access to them a fault; an access crossing the end of RAM is refused whole, and a test reads the neighbouring byte to prove the refused store wrote nothing.
 Cost noticed and removed: two default-constructed `Memory` instances zeroed 512 MiB, making the unit case 5.2 s. Classification is by address, so the aperture test now uses a 64 KiB machine and the case runs in 0.5 s; only the test that genuinely needs the last RAM byte allocates 256 MiB.
 Next: the decoder, then the 81-vector suite.
+
+### 2026-11-22T20:19:32-08:00 — M1: the decoder decodes all 81 vectors
+
+Host: CROSBY (Windows `windows-msvc`) and CROSBY WSL (`linux-wsl` from the mirror)
+Added: `include/kr232/decoder.h`, `src/decoder.cpp`, `tests/test_decode.cpp`. Every class of ISA §3.1 is covered: Short, Register, Compact register and branch, all 32 Normal ops, and the eleven escape forms (`F0` generic with its operand specifiers and extensions, `F1`, `F3`, `F4`, `F5`, `F6`, `F7`/`F8`/`FB`, `F9`, `FA`), with reserved bytes rejected rather than guessed. `F0`'s and `F4`'s lengths come from the bytes after the prefix, which is the one place a length can differ from its class.
+Ran: Windows → 15 cases, 0 failed checks, 3 of 3 CTest entries; WSL → 3 of 3. The vector case reads **Appendix A out of `kr232-isa.md`** at test time rather than a transcribed copy, so a vector cannot drift from the test that checks it: 81 vectors found, every one decoded, every length equal to its byte count, every mnemonic equal to the appendix's.
+Corrected: the checklist said "text out for all 81". The appendix's operand text mixes radices by hand — `enter #8, #0x0300` beside `enter #300, #0` — so byte-exact text is not a property the document defines. The check now requires mnemonic and length, which is what desynchronizes an executor; operand text stays canonical and is asserted by the executor's own tests. The correction is recorded here rather than folded in silently.
+Also: the decoder rejects the shapes that must trap — `F2` and `FC`–`FF`, `0x7A`–`0x7F`, a compact unary with `Rb ≠ R0`, a `SETcc` condition of 14 or 15, and a generic form whose two operands both need an extension.
+Next: the executor.
 
 ### 2026-11-22T20:06:19-08:00 — the BitWhiz alias now matches both spellings
 

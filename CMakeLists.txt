@@ -36,6 +36,7 @@ endif()
 # Host code only. Guest code lives under targets/kr232/ and is compiled by krc;
 # kr232_guard_host_sources() fails the configure if a host target ever names it.
 add_library(kr232_core STATIC
+    src/decoder.cpp
     src/memory.cpp
     src/version.cpp
 )
@@ -80,9 +81,14 @@ if(KR232_BUILD_TESTS)
 
     add_executable(kr232_tests
         tests/main.cpp
+        tests/test_decode.cpp
         tests/test_memory.cpp
         tests/test_version.cpp
     )
+    # The decoding test reads Appendix A from the document rather than a copy of
+    # it, so a vector cannot drift from the test that checks it.
+    target_compile_definitions(kr232_tests PRIVATE
+        "KR232_ISA_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/kr232-isa.md\"")
     target_include_directories(kr232_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tests")
     target_link_libraries(kr232_tests PRIVATE kr232_core kr232_warnings)
 
