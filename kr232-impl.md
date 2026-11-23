@@ -3002,6 +3002,34 @@ krdbg kr232 adapter         17 of 17      spec lint        81/81 vectors
 ```
 
 **All 25 items on the priority list are closed.**
+### 2026-11-25T09:30:00-08:00 — Items 1 and 2 closed: the compiler's work is on its default branch, and ARM64 runs all of it
+
+Host: CROSBY (Windows) and BitWhiz (aarch64).
+
+**Item 1.** `kr232-m3` was a **fast-forward** of `master` (`0 76` behind/ahead), pushed as `fdb44aa..7597c22`. A **fresh clone** of `master` then built and passed:
+
+```
+ctest -R kr232   36 of 36      krc_tests   3704 assertions
+```
+
+**Item 2.** `scripts/check-arm64.ps1` now pulls `master`, runs the compiler's **whole** ctest suite and calls `gate-linux.sh --arch arm64`:
+
+```
+== kr232 (kernel rows)      15 of 15
+== krcompiler (whole suite) 955 of 955
+== krc_tests                3704 assertions
+== krdbg gate               GATE LINUX ARM64: PASS
+== krdbg fixture drift      1 of 1
+ARM64 CHECKS: PASS
+```
+
+Before this, ARM64 had run **36** of those 955 rows.
+
+**Two stale fixtures fell out of it.** `session.k232` carried the data layout from before a global stopped being four bytes wide, and `kernel.k232` predated the write-range check. Both were rebuilt from source, the adapter tests still pass **17 of 17**, and the drift row holds on the second host.
+
+**Errata.** The commit `faa849d`'s subject says "ARN64"; it is pushed and history is append-only, so it stays as written.
+
+Items 1 and 2 of 7 closed.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
