@@ -485,6 +485,16 @@ Stopped: writing `execute()` is a single coherent table — every class, every N
 Failed: nothing; no check was run.
 Next: `Machine` and its tests in one piece, then the per-vector state table.
 
+### 2026-11-22T20:22:33-08:00 — M1: the decoder now carries the operands an executor needs
+
+Host: CROSBY (Windows, `windows-msvc`)
+Changed: `Decoded` gains an `Operand` pair, and the decoder fills it where the text alone does not identify the operands — the `F0` generic form's two specifiers (mode, register, extension), and `F4`/`F5`/`FA`'s addressing mode, `Fd` and `Rb`. Without it an executor would have to re-parse the bytes the decoder has already parsed.
+Also: `decode()` lost its `address` parameter. It existed for an absolute rendering of a branch target, and this text form is relative by design — `jmp +6`, not `jmp 0x0206`. Keeping an unused parameter behind a `(void)` cast would have been a warning silenced rather than a decision made.
+Ran: Windows build clean under `/W4 /WX`, `ctest` 3 of 3, 15 cases and 0 failed checks. The vector case still finds and matches all 81.
+Found: one test run reported the unit case at 7.7 s and the next at 0.06 s on the same binary — a scanner or the build itself competing, not the code; recorded so a later session does not chase it as a regression.
+Stopped: `execute()` again, and deliberately. It is one table — every class, every Normal op, the generic modes, the frame instructions — and the header without its implementation was removed rather than left untracked, so the tree is clean at this commit.
+Next: `Machine` and `execute()` in one piece.
+
 ### 2026-11-22T20:06:19-08:00 — the BitWhiz alias now matches both spellings
 
 Host: CROSBY and BitWhiz

@@ -155,12 +155,6 @@ constexpr GenericOp kGeneric[0x1F] = {
     {"sth", true},
 };
 
-struct Operand {
-    unsigned mode = 0;
-    unsigned reg = 0;
-    std::int64_t value = 0;  // extension, when the mode has one
-};
-
 // Reads one specifier byte and its extension from `bytes` starting at `offset`.
 Operand read_operand(std::span<const std::uint8_t> bytes, unsigned offset) {
     Operand operand;
@@ -262,7 +256,7 @@ Decoded make(OpClass kind, unsigned length, std::uint8_t opcode, std::string tex
 
 }  // namespace
 
-Decoded decode(std::span<const std::uint8_t> bytes, std::uint32_t address) {
+Decoded decode(std::span<const std::uint8_t> bytes) {
     if (bytes.empty()) {
         return fail(bytes, 0, "end of input");
     }
@@ -510,6 +504,10 @@ Decoded decode(std::span<const std::uint8_t> bytes, std::uint32_t address) {
             decoded.a = static_cast<std::uint8_t>(one.reg);
             decoded.b = static_cast<std::uint8_t>(two.reg);
             decoded.immediate = two.mode == 1 ? two.value : 0;
+            decoded.op1 = Operand{static_cast<std::uint8_t>(one.mode),
+                                  static_cast<std::uint8_t>(one.reg), one.value};
+            decoded.op2 = Operand{static_cast<std::uint8_t>(two.mode),
+                                  static_cast<std::uint8_t>(two.reg), two.value};
             return decoded;
         }
         case 0xF1: {
@@ -626,6 +624,8 @@ Decoded decode(std::span<const std::uint8_t> bytes, std::uint32_t address) {
             decoded.op = static_cast<std::uint8_t>(op);
             decoded.a = static_cast<std::uint8_t>(fd);
             decoded.b = static_cast<std::uint8_t>(base);
+            decoded.op1.mode = static_cast<std::uint8_t>(mode);
+            decoded.immediate = has_displacement ? static_cast<std::int8_t>(bytes[3]) : 0;
             return decoded;
         }
         case 0xF5: {
@@ -658,7 +658,8 @@ Decoded decode(std::span<const std::uint8_t> bytes, std::uint32_t address) {
             }
             auto decoded = make(OpClass::FpConvert, 3, first, text);
             decoded.op = static_cast<std::uint8_t>(op);
-            decoded.a = static_cast<std::uint8_t>(op >= 2 ? r : fd);
+            decoded.a = static_cast<std::uint8_t>(fd);
+            decoded.b = static_cast<std::uint8_t>(r);
             return decoded;
         }
         case 0xF6: {
@@ -807,8 +808,8 @@ Decoded decode(std::span<const std::uint8_t> bytes, std::uint32_t address) {
             decoded.op = static_cast<std::uint8_t>(op);
             decoded.a = static_cast<std::uint8_t>(fd);
             decoded.b = static_cast<std::uint8_t>(base);
+            decoded.op1.mode = static_cast<std::uint8_t>(mode);
             decoded.immediate = disp;
-            (void)address;
             return decoded;
         }
         default:
