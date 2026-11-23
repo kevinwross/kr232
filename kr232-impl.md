@@ -1841,6 +1841,19 @@ Result: `trap 1 at 0x0000031e after 4 steps`.
 That is the **M5 blocker**, and it is a design question rather than a bug: when is a trap terminal? A kernel needs traps to be **handled** (execution continues into the handler), while every M1 test expects a trap to be **reported** as a stop. Something must distinguish the two -- an unhandled vector (handler word zero), a `--stop-on-trap` flag for the tests, or an explicit "trap reported, continued" result the CLI prints and carries on from.
 
 Not decided this round, because choosing it silently would change what every existing trap test means. The kernel task stays open.
+### 2026-11-23T21:35:00-08:00 — M5: a handled trap continues, and the kernel returns
+
+Host: CROSBY (Windows). Decided and implemented the trap policy the last entry left open: **a vector whose handler word is non-zero enters the handler and retires the step**, still reporting the vector; **a vector with no handler stops as `Trapped`**, which is exactly what the protection and address-error tests depend on. Nothing in the ISA changes -- §11.3 already says PC = the handler word; the emulator was choosing to stop instead of continuing.
+
+```
+kernel.k232:  halted status 0 after 10 steps
+kr232_tests:  79 cases, 0 failed checks
+ctest:        8 of 8
+```
+
+The kernel takes its breakpoint, the handler adds one to the saved PC, `IRET` returns past the `BRK`, and `SYS 0` exits with status 0. That is the kernel task's *"a trap reaches the handler and returns"* check, witnessed end to end.
+
+One test's expectation changed with the decision and is marked as such in the source: `syscall_vectors_to_the_handler_and_the_frame_saves_the_next_pc` now expects `Retired` with `vector == 9`, because a syscall handler exists in that test.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
