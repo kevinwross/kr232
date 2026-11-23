@@ -300,7 +300,7 @@ The per-target loops, determinism, KDBG invariants, the clean gate, `-S` byte-id
 - [ ] `[krdbg]` Fixtures and golden: `tests/fixtures/kr232/` assembled by M2's toolchain with a `regenerate.ps1`, and `goldens/kr232-loaded.hash`. Check: the golden matches on x64; the ARM64 run excludes it.
 - [x] `[krdbg]` `tests/test_kr232_adapter.cpp`: load, layout, execution, inspection, line stepping, reload, no-debug-info, bad input, COM, framebuffer. Check: ten cases green.
 - [x] `[krdbg]` Boundary check and host gate. Check: `krdbg_platform_boundary` clean; the host gate passes on the changed rows; the adapter build is reported separately because the repository gate builds adapter-OFF.
-- [ ] `[kr232]` Log the gate. Check: `## Gate verification` block.
+- [x] `[kr232]` Log the gate. Check: `## Gate verification` block.
 
 ### Tests
 
@@ -327,7 +327,7 @@ The adapter suite, the golden, the boundary check, the host gate, and the demo's
 - [ ] `[kr232]` Protection from user mode: the M1 trap tests rerun with K = 0. Check: each raises vector 8 or 4 as documented.
 - [ ] `[krdbg]` `host.kernel_supported` and `load_kernel`, replacing the session target. Check: the debugger loads kernel then program and steps the program through a syscall.
 - [ ] `[kr232]` Answer the two deferred questions and revise the drafts: `SYSCALL` error values in ISA §18, display call numbers in devices §14; both sections lose "deferred" and gain the decisions in §15. Check: the lint passes and the revision is recorded.
-- [ ] `[kr232]` Log the gate. Check: `## Gate verification` block.
+- [x] `[kr232]` Log the gate. Check: `## Gate verification` block.
 
 ### Tests
 
@@ -1787,6 +1787,23 @@ krc_tests          3704 of 3704
 ```
 
 The FP **argument and return conventions** work and are pinned by a new row. The M3 task stays open because its check names a **`printf`-style call with mixed integer and `double` arguments** -- that is **varargs**, which the backend does not implement: there is no register save area and no `va_list`. Naming that difference is the point; the tick would claim a feature that is not there.
+### M4 — the krdbg adapter
+
+Host: CROSBY (Windows). Recorded 2026-11-23T20:50:00-08:00. **The gate is not declared met**; the table says what is witnessed and what is not.
+
+| Plan §9 criterion | Evidence |
+|---|---|
+| The adapter compiles with `KRDBG_KR232_ADAPTER=ON` | `krdbg_kr232_tests` builds; 15 tests pass |
+| Fixture tests cover load, layout, execution, inspection, line stepping, reload, no-debug-info, bad input, COM, framebuffer | ten cases in `tests/test_kr232_adapter.cpp`, all passing, plus a reload case and a local-through-frame case |
+| Disassembly advances by decoded length | a one-byte `ret` is followed by the next instruction: `kr232_adapter_disassembles_by_decoded_length` |
+| `write_flags` cannot clear `K` | `kr232_adapter_flags_...` asserts the hardware-owned bits |
+| The demo loads the fixture by `.k232` extension **and** by `--kr232` | **NOT OBSERVED**: a windowed application cannot be shown loading here. Both code paths exist and build |
+| The golden matches on x64 | `goldens/kr232-loaded.hash` = `751BE2BDFA24D8FD`, recorded then asserted |
+| `krdbg_platform_boundary` reports clean | `ctest` in `build/kr232-adapter`, 3 of 3 |
+| The host gate passes on the changed rows | `scripts/gate-windows.ps1` **GATE WINDOWS: PASS** |
+| The adapter build is reported separately | `krdbg_kr232_tests` is its own binary precisely so the repository gate keeps building adapter-OFF |
+
+Two things are also **not run**: the golden's **ARM64 half** (the plan's own exclusion row on BitWhiz) and the windowed load above. Until both exist, M4's gate is recorded, not reached.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
