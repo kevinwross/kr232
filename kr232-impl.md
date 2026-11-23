@@ -113,6 +113,7 @@ Push what has been verified, at the size of a reviewable unit, and never leave a
 2. **ARM64 is a milestone cadence.** BitWhiz runs at each gate and additionally whenever a change is platform-sensitive: alignment, word size, endianness, or anything reading host byte order.
 3. **Log before push.** The entry names host, command, result and revision. A push whose entry is missing has no evidence.
 4. **No force-push. Tags only at approvals and freezes**: `spec-approval-1` exists; `isa-1.0` and `devices-1.0` are cut at M3's gate. Milestones get commits, not tags.
+5. **One red may sit on a default branch, and only when a gate requires it.** The guide's first commit for a target is documentation plus a failing test, so `krcompiler`'s `master` carries exactly one: the test that names what turns it green and in which milestone. The gate block records the test, its removal condition and the revision it landed at. No other red is acceptable, and a red without a recorded removal condition is a regression like any other.
 
 ## 3. Logging and timestamps
 
@@ -355,7 +356,7 @@ The kernel's entry and return, the syscall table's validation, protection from u
 
 | Milestone | State | Gate recorded |
 |---|---|---|
-| M0 | tasks complete — 8 of 8; gate pending the merge decision | — |
+| M0 | complete — gate recorded 2026-11-22T20:07:37-08:00 | M0 |
 | M1 | not started | — |
 | M2 | not started | — |
 | M3 | not started | — |
@@ -445,4 +446,14 @@ Next: the M0 gate's merge clause, which is the owner's action.
 
 ## 14. Gate verification
 
-*(One block per gate, stamped with the first build's start, never rewritten.)*
+### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
+
+Build: `vcvarsall.bat x64`, then `cmake --build --preset windows-msvc-debug -j 10 --target krc`. The stamp is that build's start, printed before it ran. The `krc` binary was **not relinked** — nothing under `src/` changed, only documentation and a test registration — so its modification time could not identify this gate; the build's own start line is the identifier.
+Tests: `ctest --preset windows-msvc-debug` → **919 passed, 1 failed of 920**, 268 s. The single failure is `krc_kr232_no_backend`, the test this milestone was required to add; M2's profile row turns it green without editing it.
+Lint: `node tools/check-isa.mjs` → `ok: 81/81 vectors; Appendix B covers 0x00-0xFF; Appendix C tiles 4 GiB; 13 device page rows tile the window; tables well-formed`.
+Merged: `krcompiler` `master` **7c31e3d**, a `--no-ff` merge of `kr232-m0` (`972294b`, `b16e3be`, `3db94f7`, `682f7ee`, `7952efb`).
+Evidence: ADR **0057** and ADR **0058**; `docs/abi-kr232.md` (265 lines); **D-051** in `plan.md` Appendix A; target id **5** in `docs/symbols.md`, where KR216's 4 was added at the same time because it had never been recorded; and the refusal test's own output, `krc: error: unknown target 'kr232' (expected kr32, kr16, or kr64)`, against its expected regex.
+ARM64: **not run** — M0 changes documentation and one test registration, and no `kr232` build exists to run there; the first ARM64 row is M1's.
+Gate: plan §5 — both ADRs merged, the ABI document merged, id 5 recorded, and the failing test fails for the documented reason. **Met.**
+
+*(M1's gate block follows when that milestone closes.)*
