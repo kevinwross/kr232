@@ -136,3 +136,32 @@ The instruction was `st [fp-96], r6` after `shl r7, #2`, and `shl r7, #2` was th
 bug: it shifted right. A five-line assembly test of the shift — `ld r7, #1; shl r7,
 #2`, break after, expect `r7 = 4` — now exists in `kr232/tests/test_machine.cpp` and
 would have caught it in the first hour.
+## Porting notes
+
+The four options exist in `kr232`, `kr32`, `kr16` and `kr216` under the same names.
+Each port adapts three things, and each port's commit records which it verified.
+
+| Machine | Word watched | Registers dumped by `--break` | Frame register |
+|---|---|---|---|
+| kr232 | 32-bit | r2–r8, FP, SP | r13 |
+| kr32 | 32-bit | r2–r5, SP | r13 |
+| kr16 | 16-bit (two bytes) | r0–r4 and PC | none: kr16 keeps PC and SP outside the register file |
+| kr216 | 16-bit | r2–r9, then FP and SP | r13 |
+
+`--watch-fp` reports nothing on a machine with no frame register, which is a
+statement about the machine, not a failure of the instrument.
+
+**What has been seen working**, as opposed to implemented:
+
+- kr232: all four, including the run that found the shift defect.
+- kr32: a break at the entry printing the registers, and a page log showing three
+  stores at the first instruction (`bios.k32`).
+- kr16: a break at the image entry, and both a watch hit (`0x2000` going from
+  `0x1234` to `0x5678`) and a page log on a five-instruction program written to
+  exercise them.
+- kr216: a break at `0x0200` printing the registers and `SP=0xFEF0`. No image in
+  that repository writes memory, so a watch hit has not been demonstrated there.
+
+One cosmetic difference is worth knowing: kr216's emulator prints its budget or
+halt message after a breakpoint stops the run, because the stop is taken inside the
+step loop and the message is emitted afterwards. The break output is correct.
