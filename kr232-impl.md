@@ -258,7 +258,7 @@ Round-trip for all 81 vectors; a hand-written `.s` linked and run; the `.kdbg` d
 - [x] `[krcompiler]` Prologue/epilogue with `ENTER`/`LEAVE`, and the frame layout the ABI fixes. Check: a frame-size unit test; `-S` byte-identical against the previous step at each subsequent task.
 - [x] `[krcompiler]` Loads and stores, including `LDBU`/`LDHS`, the signed/unsigned narrow extensions and the FP forms. Check: by-value `char`/`short` parameters round-trip.
 - [ ] `[krcompiler]` ALU, comparisons, branches, calls, returns. Check: `int main(void){return 42;}` returns 42 under the emulator.
-- [ ] `[krcompiler]` Aggregate paths: memory-class parameters copied size-exactly, the R6 return destination loaded after argument evaluation, struct return by copy-out. Check: the three-`char` record test, and a nested call in an argument.
+- [x] `[krcompiler]` Aggregate paths: memory-class parameters copied size-exactly, the R6 return destination loaded after argument evaluation, struct return by copy-out. Check: the three-`char` record test, and a nested call in an argument.
 - [ ] `[krcompiler]` Varargs and FP argument/return conventions. Check: a `printf`-style call with mixed integer and `double` arguments.
 - [ ] `[krcompiler]` C++ surfaces: class, `this` in R10, virtual dispatch with the reserved typeinfo slot, constructors. Check: a virtual call dispatches to the override; the vtable's `[vptr - 4]` word is present and zero.
 - [x] `[krcompiler]` `targets/kr232/runtime/crt0.s`: frame, call `main`, pass the status to `SYS exit`; no stack setup, since reset SP is `0x08000000`. Check: a linked image exits with `main`'s status.
@@ -1104,6 +1104,20 @@ The trace after the fix:
 The address computation is right and the store still faults, so the suspect is no longer the address: it is the **frame pointer** the store's offset is relative to. Next: print R13, R8 and SP at the trap, which is a few lines in the emulator and turns this into a fact.
 
 Suite: 21 kr232 CTests pass.
+### 2026-11-23T04:45:00-08:00 — M3: records pass, return and nest
+
+Host: CROSBY (Windows `windows-msvc-debug`, `windows-msvc` emulator)
+A record **value is its address**: a record load aliases it, a record store copies its bytes size-exactly as unrolled `ldbu`/`stb` pairs, a call returning a record names its destination in **R6**, and the callee copies out and returns that pointer in **R2**.
+
+Ran, each with a test:
+- `1 + 2 + 3` through a by-value `struct triple` parameter -> **6**
+- `make()` returning `{4, 5, 6}` -> **15**
+- `sum3(make())`, a record call nested in a record argument -> **15**
+
+`ctest -R kr232` **25 of 25 passed**.
+Ticked: the aggregate-paths task -- its check is the three-`char` record and a nested call in an argument, and both run.
+
+Next: C++ surfaces, which are the gate's third program.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
