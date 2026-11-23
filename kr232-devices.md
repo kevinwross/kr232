@@ -580,6 +580,9 @@ bound by the console's palette.
 | `gfx_draw_line` | 19 | x0, y0, x1, y1, colour |
 | `gfx_draw_text` | 20 | x, y, pointer, length, fg, bg |
 | `gfx_upload` | 21 | source address, surface offset, w, h, source stride |
+| `fb_info` | 22 | pointer to three words that receive width, height, stride |
+| `input_next` | 23 | -- (one keyboard event, or `0xFFFFFFFF` when the queue is empty) |
+| `input_pending` | 24 | -- (the number of queued events) |
 
 Numbers 0-2 keep their shared meaning (ISA §15.49) and 3-15 stay reserved. Errors are the ISA
 §18 values: -1 for a refused argument, -2 for an unknown call; the device's own rejection is
