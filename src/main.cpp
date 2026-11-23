@@ -71,6 +71,10 @@ int main(int argc, char** argv) {
     bool want_trace = false;
     bool want_watch = false;
     std::uint32_t watch_address = 0;
+    bool want_break = false;
+    std::uint32_t break_address = 0;
+    unsigned break_limit = 1;
+    unsigned break_hits = 0;
     std::deque<std::pair<std::uint32_t, std::string>> trace;
     bool want_transcript = false;
     // Text queued on the console before the run, so a program that reads input
@@ -81,9 +85,15 @@ int main(int argc, char** argv) {
             want_frame_hash = true;
         } else if (std::strcmp(argv[i], "--trace") == 0) {
             want_trace = true;
+        } else if (std::strcmp(argv[i], "--break") == 0 && i + 1 < argc) {
+            break_address = static_cast<std::uint32_t>(std::strtoul(argv[++i], nullptr, 0));
+            want_break = true;
+
         } else if (std::strcmp(argv[i], "--watch") == 0 && i + 1 < argc) {
             watch_address = static_cast<std::uint32_t>(std::strtoul(argv[++i], nullptr, 0));
             want_watch = true;
+        } else if (std::strcmp(argv[i], "--break-max") == 0 && i + 1 < argc) {
+            break_limit = static_cast<unsigned>(std::strtoul(argv[++i], nullptr, 0));
         } else if (std::strcmp(argv[i], "--transcript") == 0) {
             want_transcript = true;
         } else if (std::strcmp(argv[i], "--base") == 0 && i + 1 < argc) {
@@ -167,6 +177,22 @@ int main(int argc, char** argv) {
             trace.emplace_back(step_pc, decoded.ok ? decoded.text : std::string("(data)"));
             if (trace.size() > 40) {
                 trace.pop_front();
+            }
+        }
+        if (want_break && machine.pc() == break_address) {
+            // The state at a named instruction: the argument registers, the frame and
+            // stack pointers, and the words just below the stack pointer, which is
+            // where a callee's incoming slots live.
+            std::printf("break at 0x%08x: r2=0x%08x r3=0x%08x r4=0x%08x r5=0x%08x r6=0x%08x fp=0x%08x sp=0x%08x\n",
+                        step_pc, machine.reg(2), machine.reg(3), machine.reg(4), machine.reg(5),
+                        machine.reg(6), machine.reg(13), machine.reg(15));
+            for (int word = 0; word < 8; ++word) {
+                std::uint32_t value = 0;
+                (void)machine.memory().read32(machine.reg(15) + static_cast<std::uint32_t>(4 * word), value);
+                std::printf("  [sp+%2d] = 0x%08x\n", 4 * word, value);
+            }
+            if (++break_hits >= break_limit) {
+                return 0;
             }
         }
         std::uint32_t watched_before = 0;
