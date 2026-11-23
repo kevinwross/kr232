@@ -69,6 +69,8 @@ int main(int argc, char** argv) {
     std::uint64_t max_steps = 1000000;
     bool want_frame_hash = false;
     bool want_trace = false;
+    bool want_watch = false;
+    std::uint32_t watch_address = 0;
     std::deque<std::pair<std::uint32_t, std::string>> trace;
     bool want_transcript = false;
     // Text queued on the console before the run, so a program that reads input
@@ -79,6 +81,9 @@ int main(int argc, char** argv) {
             want_frame_hash = true;
         } else if (std::strcmp(argv[i], "--trace") == 0) {
             want_trace = true;
+        } else if (std::strcmp(argv[i], "--watch") == 0 && i + 1 < argc) {
+            watch_address = static_cast<std::uint32_t>(std::strtoul(argv[++i], nullptr, 0));
+            want_watch = true;
         } else if (std::strcmp(argv[i], "--transcript") == 0) {
             want_transcript = true;
         } else if (std::strcmp(argv[i], "--base") == 0 && i + 1 < argc) {
@@ -164,8 +169,20 @@ int main(int argc, char** argv) {
                 trace.pop_front();
             }
         }
+        std::uint32_t watched_before = 0;
+        if (want_watch) {
+            (void)machine.memory().read32(watch_address, watched_before);
+        }
         const kr232::StepResult result = machine.step();
         ++steps;
+        if (want_watch) {
+            std::uint32_t watched_after = 0;
+            (void)machine.memory().read32(watch_address, watched_after);
+            if (watched_after != watched_before) {
+                std::printf("watch 0x%08x at pc=0x%08x: 0x%08x -> 0x%08x\n", watch_address,
+                            step_pc, watched_before, watched_after);
+            }
+        }
         if (result.stop == kr232::Stop::Halted) {
             std::printf("halted status %u after %llu steps\n", static_cast<unsigned>(result.status),
                         static_cast<unsigned long long>(steps));
