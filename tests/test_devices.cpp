@@ -294,3 +294,96 @@ TEST_CASE(the_aperture_is_byte_addressable_and_little_endian) {
     CHECK(!devices.aperture_read(Devices::kApertureBase + Devices::kApertureSize - 2, 4, word));
     CHECK(devices.frame_bytes() != nullptr);
 }
+
+namespace {
+
+// Submits one graphics command: registers, then the doorbell.
+void submit(Devices& devices, std::uint32_t op, std::initializer_list<std::uint32_t> args) {
+    CHECK(write_register(devices, 9, 0x00, op) == DeviceResult::Ok);
+    std::uint32_t offset = 0x04;
+    for (const std::uint32_t arg : args) {
+        CHECK(write_register(devices, 9, offset, arg) == DeviceResult::Ok);
+        offset += 4;
+    }
+    CHECK(write_register(devices, 9, 0x24, 1) == DeviceResult::Ok);
+}
+
+std::uint32_t pixel(Devices& devices, std::uint32_t offset) {
+    std::uint32_t value = 0;
+    (void)devices.aperture_read(Devices::kApertureBase + offset, 4, value);
+    return value;
+}
+
+}  // namespace
+
+TEST_CASE(fill_rect_draws_inside_the_selected_surface) {
+    Devices devices;
+    kr232::Memory ram(0x10000);
+    submit(devices, 8, {0, 4, 2, 16});        // SET_SURFACE: 4x2 at 0
+    devices.run_graphics(ram);
+    CHECK(devices.target_surface().width == 4);
+    submit(devices, 3, {1, 0, 2, 1, 0x00FF0000u});  // FILL_RECT
+    devices.run_graphics(ram);
+    CHECK(pixel(devices, 0) == 0);            // x = 0 untouched
+    CHECK(pixel(devices, 4) == 0x00FF0000u);  // x = 1
+    CHECK(pixel(devices, 8) == 0x00FF0000u);  // x = 2
+    CHECK(pixel(devices, 12) == 0);
+    std::uint32_t status = 0;
+    CHECK(read_register(devices, 9, 0x28, status) == DeviceResult::Ok);
+    CHECK((status & 1u) == 0);  // no error
+}
+
+TEST_CASE(a_rectangle_that_leaves_the_surface_is_clamped_not_rejected) {
+    Devices devices;
+    kr232::Memory ram(0x10000);
+    submit(devices, 8, {0, 4, 2, 16});
+    devices.run_graphics(ram);
+    submit(devices, 3, {3, 1, 10, 10, 0x0000FF00u});  // starts in, runs out
+    devices.run_graphics(ram);
+    std::uint32_t status = 0;
+    CHECK(read_register(devices, 9, 0x28, status) == DeviceResult::Ok);
+    CHECK((status & 1u) == 0);  // succeeds
+    CHECK(pixel(devices, 3 * 4 + 16) == 0x0000FF00u);  // the one pixel that fits
+}
+
+TEST_CASE(an_invalid_surface_and_an_unknown_command_set_the_sticky_error) {
+    Devices devices;
+    kr232::Memory ram(0x10000);
+    submit(devices, 8, {0, 4, 2, 8});  // stride below width*4
+    devices.run_graphics(ram);
+    std::uint32_t status = 0;
+    CHECK(read_register(devices, 9, 0x28, status) == DeviceResult::Ok);
+    CHECK((status & 1u) != 0);  // ERROR
+    CHECK(devices.target_surface().width == 800);  // the default target is unchanged
+
+    CHECK(write_register(devices, 9, 0x28, 1) == DeviceResult::Ok);  // clear
+    CHECK(read_register(devices, 9, 0x28, status) == DeviceResult::Ok);
+    CHECK((status & 1u) == 0);
+
+    submit(devices, 77, {});  // reserved opcode
+    devices.run_graphics(ram);
+    CHECK(read_register(devices, 9, 0x28, status) == DeviceResult::Ok);
+    CHECK((status & 1u) != 0);
+}
+
+TEST_CASE(the_flip_command_commits_a_frame) {
+    Devices devices;
+    kr232::Memory ram(0x10000);
+    submit(devices, 7, {});  // FLIP
+    devices.run_graphics(ram);
+    CHECK(devices.committed_frame().number == 1);
+    CHECK(devices.committed_frame().offset == 0x001E0000u);  // the default BACK
+}
+
+TEST_CASE(upload_copies_rows_from_guest_ram_into_the_surface) {
+    Devices devices;
+    kr232::Memory ram(0x10000);
+    (void)ram.write32(0x2000, 0x00000011u);
+    (void)ram.write32(0x2004, 0x00000022u);
+    submit(devices, 8, {0, 2, 1, 8});                  // SET_SURFACE: 2x1 at 0
+    devices.run_graphics(ram);
+    submit(devices, 10, {0x2000, 0, 2, 1, 8});         // UPLOAD
+    devices.run_graphics(ram);
+    CHECK(pixel(devices, 0) == 0x00000011u);
+    CHECK(pixel(devices, 4) == 0x00000022u);
+}

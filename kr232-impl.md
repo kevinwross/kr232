@@ -583,6 +583,15 @@ Tests: the reset mode, `stride` following `WIDTH` and an invalid width leaving b
 Found: `make_unique<vector<uint8_t>>(kApertureSize, 0)` tripped `C4244` inside `<memory>` under `/W4 /WX` — the literal zero converting to `uint8_t` in the forwarded constructor. The fix was to spell the size and the fill value with their own types, not to relax the warning.
 Next: graphics commands, then terminal and blitter.
 
+### 2026-11-22T20:48:47-08:00 — M1: the graphics command page
+
+Host: CROSBY (Windows `windows-msvc`) and CROSBY WSL (`linux-wsl`)
+Added: **page 9** with `COMMAND`, `ARG0`–`ARG7`, `DOORBELL`, `STATUS` and the sticky `ERROR`; the machine runs a submitted command after the instruction that rang the doorbell, handing it its own `Memory` because `DRAW_TEXT` and `UPLOAD` read guest RAM and the host is the trust boundary. Implemented: `SET_CLIP` (intersect), `FILL_RECT`, `COPY_RECT`, `DRAW_LINE` (Bresenham, both endpoints), `FLIP`, `SET_SURFACE` with the §8.3 validation, `COPY_RECT_STRIDED` and `UPLOAD`. Rectangles clamp to the target and clip and never fail; an invalid surface or a reserved opcode sets `ERROR` and changes nothing.
+Ran: Windows 58 cases and 0 failed checks; WSL build and `ctest` 3 of 3.
+Tests: a fill landing at the right byte offsets with the neighbours untouched; a rectangle that leaves the surface clamped and successful; an invalid stride and a reserved opcode each setting the sticky error and leaving the default target alone; the `FLIP` command committing a frame; and `UPLOAD` copying two words from RAM into the surface.
+Not implemented, and loud about it: `DRAW_TEXT` (op 6) sets `ERROR` and draws nothing until the 10×20 glyph set lands with the terminal page. A guest asking for text gets a defined failure rather than silently wrong pixels — that is the intermediate state, and it is the one entry of §8.2 that is not yet real.
+Next: the terminal page, which brings the glyph set and closes `DRAW_TEXT`.
+
 ### 2026-11-22T20:06:19-08:00 — the BitWhiz alias now matches both spellings
 
 Host: CROSBY and BitWhiz

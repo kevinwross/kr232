@@ -207,6 +207,9 @@ StepResult Machine::step() {
         }
         ++cycles_;
         devices_.tick(cycles_);
+        if (devices_.graphics_pending()) {
+            devices_.run_graphics(memory_);
+        }
         if (devices_.reset_requested()) {
             devices_.clear_requests();
             reset();

@@ -1,5 +1,11 @@
 #include <kr232/devices.h>
 
+#include <kr232/memory.h>
+
+#include <algorithm>
+#include <cstdlib>
+#include <cstring>
+
 namespace kr232 {
 namespace {
 
@@ -54,6 +60,211 @@ DeviceResult Devices::decode(std::uint32_t address, std::uint32_t width, unsigne
         return DeviceResult::Reserved;
     }
     return DeviceResult::Ok;
+}
+
+Devices::Surface Devices::target_surface() const noexcept {
+    if (explicit_surface_) {
+        return target_;
+    }
+    return Surface{fb_back_, fb_width_, fb_height_, fb_stride_};
+}
+
+void Devices::run_graphics(const Memory& ram) {
+    graphics_pending_ = false;
+    const Surface surface = target_surface();
+    std::vector<std::uint8_t>& memory = vram();
+
+    const auto put = [&](std::uint32_t x, std::uint32_t y, std::uint32_t colour) {
+        if (x < clip_x_ || y < clip_y_ || x >= clip_x_ + clip_w_ || y >= clip_y_ + clip_h_) {
+            return;  // clipped: a drawing call never rejects, it just draws less
+        }
+        const std::uint64_t at = static_cast<std::uint64_t>(surface.offset) +
+                                 static_cast<std::uint64_t>(y) * surface.stride + x * 4u;
+        if (at + 4 > kApertureSize) {
+            return;
+        }
+        for (unsigned byte = 0; byte < 4; ++byte) {
+            memory[static_cast<std::size_t>(at) + byte] =
+                static_cast<std::uint8_t>((colour >> (8 * byte)) & 0xFFu);
+        }
+    };
+    const auto get = [&](std::uint32_t x, std::uint32_t y) {
+        const std::uint64_t at = static_cast<std::uint64_t>(surface.offset) +
+                                 static_cast<std::uint64_t>(y) * surface.stride + x * 4u;
+        std::uint32_t colour = 0;
+        if (at + 4 <= kApertureSize) {
+            for (unsigned byte = 0; byte < 4; ++byte) {
+                colour |= static_cast<std::uint32_t>(memory[static_cast<std::size_t>(at) + byte])
+                          << (8 * byte);
+            }
+        }
+        return colour;
+    };
+
+    switch (g_command_) {
+        case 1: {  // SET_CLIP: intersect with the target
+            const std::uint32_t x = std::max(g_args_[0], clip_x_);
+            const std::uint32_t y = std::max(g_args_[1], clip_y_);
+            const std::uint32_t right = std::min(g_args_[0] + g_args_[2], clip_x_ + clip_w_);
+            const std::uint32_t bottom = std::min(g_args_[1] + g_args_[3], clip_y_ + clip_h_);
+            clip_x_ = x;
+            clip_y_ = y;
+            clip_w_ = right > x ? right - x : 0;
+            clip_h_ = bottom > y ? bottom - y : 0;
+            return;
+        }
+        case 3: {  // FILL_RECT
+            const std::uint32_t x0 = std::max(g_args_[0], clip_x_);
+            const std::uint32_t y0 = std::max(g_args_[1], clip_y_);
+            const std::uint32_t x1 = std::min(g_args_[0] + g_args_[2], clip_x_ + clip_w_);
+            const std::uint32_t y1 = std::min(g_args_[1] + g_args_[3], clip_y_ + clip_h_);
+            for (std::uint32_t y = y0; y < y1; ++y) {
+                for (std::uint32_t x = x0; x < x1; ++x) {
+                    put(x, y, g_args_[4]);
+                }
+            }
+            return;
+        }
+        case 4: {  // COPY_RECT within the target
+            const std::uint32_t sx = g_args_[1];
+            const std::uint32_t sy = g_args_[2];
+            const std::uint32_t w = g_args_[3];
+            const std::uint32_t h = g_args_[4];
+            std::vector<std::uint32_t> pixels(static_cast<std::size_t>(w) * h, 0);
+            for (std::uint32_t y = 0; y < h; ++y) {
+                for (std::uint32_t x = 0; x < w; ++x) {
+                    pixels[static_cast<std::size_t>(y) * w + x] = get(sx + x, sy + y);
+                }
+            }
+            for (std::uint32_t y = 0; y < h; ++y) {
+                for (std::uint32_t x = 0; x < w; ++x) {
+                    put(g_args_[1] + x, g_args_[2] + y, pixels[static_cast<std::size_t>(y) * w + x]);
+                }
+            }
+            return;
+        }
+        case 5: {  // DRAW_LINE, both endpoints included
+            std::int64_t x0 = g_args_[0];
+            std::int64_t y0 = g_args_[1];
+            const std::int64_t x1 = g_args_[2];
+            const std::int64_t y1 = g_args_[3];
+            const std::int64_t dx = std::llabs(x1 - x0);
+            const std::int64_t dy = -std::llabs(y1 - y0);
+            const std::int64_t sx = x0 < x1 ? 1 : -1;
+            const std::int64_t sy = y0 < y1 ? 1 : -1;
+            std::int64_t error = dx + dy;
+            for (;;) {
+                put(static_cast<std::uint32_t>(x0), static_cast<std::uint32_t>(y0), g_args_[4]);
+                if (x0 == x1 && y0 == y1) {
+                    break;
+                }
+                const std::int64_t twice = 2 * error;
+                if (twice >= dy) {
+                    error += dy;
+                    x0 += sx;
+                }
+                if (twice <= dx) {
+                    error += dx;
+                    y0 += sy;
+                }
+            }
+            return;
+        }
+        case 6:  // DRAW_TEXT: the glyph set arrives with the terminal page
+            g_error_ = true;
+            return;
+        case 7:  // FLIP
+            flip();
+            return;
+        case 8: {  // SET_SURFACE
+            const std::uint32_t offset = g_args_[0];
+            const std::uint32_t width = g_args_[1];
+            const std::uint32_t height = g_args_[2];
+            const std::uint32_t stride = g_args_[3];
+            const bool ok = width >= 1 && width <= 1920 && height >= 1 && height <= 1080 &&
+                            stride % 4u == 0 && stride >= width * 4u && stride <= 7680u &&
+                            offset % 4u == 0 &&
+                            static_cast<std::uint64_t>(offset) +
+                                    static_cast<std::uint64_t>(height) * stride <=
+                                kApertureSize;
+            if (!ok) {
+                g_error_ = true;
+                return;
+            }
+            explicit_surface_ = true;
+            target_ = Surface{offset, width, height, stride};
+            clip_x_ = 0;
+            clip_y_ = 0;
+            clip_w_ = width;
+            clip_h_ = height;
+            return;
+        }
+        case 9: {  // COPY_RECT_STRIDED from another surface in the aperture
+            const std::uint32_t source = g_args_[0];
+            const std::uint32_t source_stride = g_args_[1];
+            const std::uint32_t w = g_args_[4];
+            const std::uint32_t h = g_args_[5];
+            if (source_stride % 4u != 0 || source_stride < w * 4u ||
+                static_cast<std::uint64_t>(source) + static_cast<std::uint64_t>(h) * source_stride >
+                    kApertureSize) {
+                g_error_ = true;
+                return;
+            }
+            std::vector<std::uint32_t> pixels(static_cast<std::size_t>(w) * h, 0);
+            for (std::uint32_t y = 0; y < h; ++y) {
+                for (std::uint32_t x = 0; x < w; ++x) {
+                    const std::uint64_t at = static_cast<std::uint64_t>(source) +
+                                             static_cast<std::uint64_t>(y) * source_stride + x * 4u;
+                    std::uint32_t colour = 0;
+                    for (unsigned byte = 0; byte < 4; ++byte) {
+                        colour |= static_cast<std::uint32_t>(
+                                      memory[static_cast<std::size_t>(at) + byte])
+                                  << (8 * byte);
+                    }
+                    pixels[static_cast<std::size_t>(y) * w + x] = colour;
+                }
+            }
+            for (std::uint32_t y = 0; y < h; ++y) {
+                for (std::uint32_t x = 0; x < w; ++x) {
+                    put(g_args_[2] + x, g_args_[3] + y, pixels[static_cast<std::size_t>(y) * w + x]);
+                }
+            }
+            return;
+        }
+        case 10: {  // UPLOAD from guest RAM
+            const std::uint32_t address = g_args_[0];
+            const std::uint32_t destination = g_args_[1];
+            const std::uint32_t w = g_args_[2];
+            const std::uint32_t h = g_args_[3];
+            const std::uint32_t source_stride = g_args_[4];
+            if (source_stride % 4u != 0 || source_stride < w * 4u ||
+                static_cast<std::uint64_t>(destination) + static_cast<std::uint64_t>(h) * surface.stride >
+                    kApertureSize) {
+                g_error_ = true;
+                return;
+            }
+            for (std::uint32_t y = 0; y < h; ++y) {
+                for (std::uint32_t x = 0; x < w; ++x) {
+                    std::uint32_t colour = 0;
+                    const std::uint32_t from = address + y * source_stride + x * 4u;
+                    if (ram.read32(from, colour) != Access::Ok) {
+                        g_error_ = true;  // stop at the first row that leaves RAM
+                        return;
+                    }
+                    const std::uint64_t at = static_cast<std::uint64_t>(destination) +
+                                             static_cast<std::uint64_t>(y) * surface.stride + x * 4u;
+                    for (unsigned byte = 0; byte < 4; ++byte) {
+                        memory[static_cast<std::size_t>(at) + byte] =
+                            static_cast<std::uint8_t>((colour >> (8 * byte)) & 0xFFu);
+                    }
+                }
+            }
+            return;
+        }
+        default:  // reserved: an error, and nothing drawn
+            g_error_ = true;
+            return;
+    }
 }
 
 DeviceResult Devices::read(std::uint32_t address, std::uint32_t width,
@@ -208,6 +419,25 @@ DeviceResult Devices::read(std::uint32_t address, std::uint32_t width,
                 return DeviceResult::Undefined;
         }
     }
+    if (page == 9) {  // graphics commands
+        switch (offset) {
+            case 0x00:
+                value = g_command_;
+                return DeviceResult::Ok;
+            case 0x24:  // DOORBELL is write-only
+                value = 0;
+                return DeviceResult::Ok;
+            case 0x28:
+                value = g_error_ ? 1u : 0u;
+                return DeviceResult::Ok;
+            default:
+                if (offset >= 0x04 && offset <= 0x20) {
+                    value = g_args_[(offset - 0x04) / 4];
+                    return DeviceResult::Ok;
+                }
+                return DeviceResult::Undefined;
+        }
+    }
     return DeviceResult::Undefined;  // a populated page whose registers are not written yet
 }
 
@@ -337,6 +567,27 @@ DeviceResult Devices::write(std::uint32_t address, std::uint32_t width, std::uin
             case 0x24:
                 return DeviceResult::Ok;  // FRAME is read-only
             default:
+                return DeviceResult::Undefined;
+        }
+    }
+    if (page == 9) {  // graphics commands
+        switch (offset) {
+            case 0x00:
+                g_command_ = value;
+                return DeviceResult::Ok;
+            case 0x24:
+                graphics_pending_ = true;
+                return DeviceResult::Ok;
+            case 0x28:
+                if ((value & 1u) != 0) {
+                    g_error_ = false;  // write 1 clears the sticky error
+                }
+                return DeviceResult::Ok;
+            default:
+                if (offset >= 0x04 && offset <= 0x20) {
+                    g_args_[(offset - 0x04) / 4] = value;
+                    return DeviceResult::Ok;
+                }
                 return DeviceResult::Undefined;
         }
     }

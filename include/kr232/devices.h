@@ -8,6 +8,8 @@
 
 namespace kr232 {
 
+class Memory;
+
 enum class DeviceResult : std::uint8_t {
     Ok,
     Undefined,   // an offset the device does not define: an address error
@@ -91,6 +93,22 @@ public:
         return vram_ ? vram_->data() : nullptr;
     }
 
+    // Graphics commands (page 9) are executed when the guest rings the doorbell.
+    // DRAW_TEXT and UPLOAD read guest RAM, so the machine hands it in rather than
+    // the device owning a second view of memory.
+    [[nodiscard]] bool graphics_pending() const noexcept { return graphics_pending_; }
+    void run_graphics(const Memory& ram);
+
+    // The target surface a command draws into; exposed for tests and, at M2, for
+    // the frame hash.
+    struct Surface {
+        std::uint32_t offset = 0;
+        std::uint32_t width = 0;
+        std::uint32_t height = 0;
+        std::uint32_t stride = 0;
+    };
+    [[nodiscard]] Surface target_surface() const noexcept;
+
 private:
     void flip() noexcept;
     [[nodiscard]] bool mode_ok() const noexcept;
@@ -126,6 +144,18 @@ private:
     bool fb_flip_error_ = false;
     Frame committed_;
     std::unique_ptr<std::vector<std::uint8_t>> vram_;
+
+    // Page 9.
+    std::uint32_t g_command_ = 0;
+    std::uint32_t g_args_[8] = {};
+    bool g_error_ = false;
+    bool graphics_pending_ = false;
+    bool explicit_surface_ = false;
+    Surface target_;
+    std::uint32_t clip_x_ = 0;
+    std::uint32_t clip_y_ = 0;
+    std::uint32_t clip_w_ = 0;
+    std::uint32_t clip_h_ = 0;
 };
 
 }  // namespace kr232
