@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <vector>
 
 namespace kr232 {
@@ -69,6 +70,10 @@ public:
     [[nodiscard]] std::uint32_t ram_bytes() const noexcept {
         return static_cast<std::uint32_t>(ram_.size());
     }
+
+    // A loader write: the host may fill the null page, which only a guest access
+    // traps on (ISA §2.3). False when the range leaves RAM.
+    [[nodiscard]] bool load(std::uint32_t address, std::span<const std::uint8_t> bytes) noexcept;
 
 private:
     std::vector<std::uint8_t> ram_;

@@ -39,6 +39,7 @@ add_library(kr232_core STATIC
     src/decoder.cpp
     src/devices.cpp
     src/frame.cpp
+    src/loader.cpp
     src/machine.cpp
     src/memory.cpp
     src/version.cpp
@@ -87,6 +88,7 @@ if(KR232_BUILD_TESTS)
         tests/test_decode.cpp
         tests/test_devices.cpp
         tests/test_frame.cpp
+        tests/test_loader.cpp
         tests/test_machine.cpp
         tests/test_memory.cpp
         tests/test_version.cpp
@@ -100,6 +102,16 @@ if(KR232_BUILD_TESTS)
 
     add_test(NAME kr232_version COMMAND kr232_tests)
     set_tests_properties(kr232_version PROPERTIES LABELS "unit")
+
+    # The CLI path: a flat image that exits through SYS 0, and the frame hash of
+    # the machine it leaves behind. The hash of an uncommitted frame is the FNV
+    # offset basis, so this also pins that the flag does not invent a frame.
+    add_test(NAME kr232_cli_frame_hash
+        COMMAND kr232-emu vm "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/halt.bin"
+                --base 0x08000000 --max-steps 10 --frame-hash)
+    set_tests_properties(kr232_cli_frame_hash PROPERTIES
+        LABELS "unit"
+        PASS_REGULAR_EXPRESSION "frame cbf29ce484222325")
 
     add_test(NAME kr232_path_hygiene
         COMMAND ${CMAKE_COMMAND}

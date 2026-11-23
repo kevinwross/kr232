@@ -357,7 +357,7 @@ The kernel's entry and return, the syscall table's validation, protection from u
 | Milestone | State | Gate recorded |
 |---|---|---|
 | M0 | complete — gate recorded 2026-11-22T20:07:37-08:00 | M0 |
-| M1 | in progress — 6 of 11 tasks | — |
+| M1 | in progress — 8 of 11 tasks | — |
 | M2 | not started | — |
 | M3 | not started | — |
 | M4 | not started | — |
@@ -621,7 +621,15 @@ Ran: Windows 71 cases and 0 failed checks; WSL build and `ctest` 3 of 3.
 Tests: the empty frame's basis value and its text; identical pixels hashing equal and a one-byte change hashing differently; a 32-byte and a 64-byte stride over the same visible pixels hashing equal; pixels written but never committed staying out of the hash; and the text format.
 Found: the first version hashed whenever VRAM existed, and the default committed descriptor is 800×600 even before a flip — so an uncommitted machine hashed 1.9 MB of zeros instead of the empty value. The fix was to key emptiness on the committed frame number, which is what "has been committed" actually means.
 Not ticked yet: `--frame-hash` in the emulator. The flag needs a program to run, and loading one is the next task; wiring the flag without it would print the hash of an empty machine and prove nothing.
-Next: the flat loader and the CLI, which makes `--frame-hash` real.
+### 2026-11-22T20:56:12-08:00 — M1: the flat loader and the CLI
+
+Host: CROSBY (Windows `windows-msvc`) and CROSBY WSL (`linux-wsl`)
+Added: `include/kr232/loader.h`, `src/loader.cpp`, and the real `vm` command. `load_flat` places an image at a base and points PC at its entry — the reset word at `0x0100` when the base is 0, the base itself otherwise — and refuses an image that does not fit before writing a byte. The CLI takes `vm <image> [--base <hex>] [--max-steps <n>] [--frame-hash]`, prints `halted status N after M steps`, reports a trap with its vector and PC and exits 1, and prints the frame hash as `frame <hex>`.
+Ran: Windows 75 cases and 0 failed checks, `ctest` 4 of 4; WSL build and `ctest` 4 of 4.
+Found: the loader's fit check probed with `read8`, which refuses the null page — so a kernel image at base 0 could never load, since the host must be able to fill `0x0000`-`0x00FF` even though a guest access there traps. `Memory` gained a host-side `load()` that bypasses only that rule.
+Also found: the CLI test first used a `[\s\S]` expression that CMake's regex engine does not implement, so it failed on both hosts while the command itself was correct; it now pins the exact frame hash, which is the stronger assertion.
+Ticked: frame commit and `--frame-hash`, and the flat loader with the CLI.
+Next: the hand-encoded kernel image, then the M1 gate.
 
 ### 2026-11-22T20:06:19-08:00 — the BitWhiz alias now matches both spellings
 

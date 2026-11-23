@@ -116,6 +116,15 @@ Access Memory::read32(std::uint32_t address, std::uint32_t& out) const noexcept 
     return Access::Ok;
 }
 
+bool Memory::load(std::uint32_t address, std::span<const std::uint8_t> bytes) noexcept {
+    if (static_cast<std::uint64_t>(address) + bytes.size() > ram_.size()) {
+        return false;
+    }
+    std::copy(bytes.begin(), bytes.end(),
+              ram_.begin() + static_cast<std::ptrdiff_t>(address));
+    return true;
+}
+
 Access Memory::write8(std::uint32_t address, std::uint8_t value) noexcept {
     if (!contains(address, 1)) {
         return Access::Unmapped;
