@@ -660,7 +660,14 @@ Found: there is no `kr216_assembler.cpp` to port. `src/asm/` holds encoders for 
 - The text parser on top, which is what turns Appendix A into the 81-vector round trip.
 Order: encoder first, so the round-trip test can be written against bytes before a parser exists, then the parser.
 Not landed: no code this round. Reading the three encoders' shapes plus the ABI and descriptor documents used the round; the encoder starts next with a full budget rather than half a file.
-Next: the rest of the encoder and the text parser.
+Next: the Normal and escape forms, then the text parser.
+
+### 2026-11-22T21:10:04-08:00 — M2: the compact register form
+
+Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2`
+Added: `encode_compact_register` — first byte `0x80 + op`, second `Ra << 4 | Rb` — with the ISA §6.1 rule that `NEG`, `NOT` and `JMP` require R0 as the second register and are refused otherwise. Ten encodings are pinned against the Appendix: `mov`, `add`, `sub`, `and`, `ld`, `st`, `ldbu`, `neg`, `not`, `jmp`.
+Ran: krcompiler's suite `2551 assertions`, all passing; the kr232 group is now eight cases and 238 assertions.
+Next: the Normal form's 32 ops, whose payload layout varies per opcode, then the generic specifier pair and the escapes. The text parser follows the encoder, so round trips are tested against bytes first.
 
 ### 2026-11-22T21:09:09-08:00 — M2: the encoder's first three forms
 
