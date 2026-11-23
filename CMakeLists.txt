@@ -162,3 +162,27 @@ if(KR232_BUILD_TESTS)
     set_tests_properties(kr232_path_hygiene_selftest PROPERTIES
         WILL_FAIL TRUE LABELS "hygiene")
 endif()
+
+# The kernel is guest code: it is built by krc from the prefix, never by the host
+# compiler, and the option is OFF so M1-M3 need no compiler at all.
+option(KR232_BUILD_KERNEL "Build the kr232 kernel with krc from the prefix" OFF)
+set(KR232_KRC "" CACHE FILEPATH "krc executable that builds the kernel")
+set(KR232_KRLD "" CACHE FILEPATH "krld executable that links the kernel")
+if(KR232_BUILD_KERNEL)
+    if(NOT EXISTS "${KR232_KRC}" OR NOT EXISTS "${KR232_KRLD}")
+        message(FATAL_ERROR
+            "KR232_BUILD_KERNEL=ON expects KR232_KRC and KR232_KRLD to name "
+            "an installed krc and krld; the kernel is guest code and kr232 "
+            "never builds it with the host compiler")
+    endif()
+    set(KR232_KERNEL_IMAGE "${CMAKE_BINARY_DIR}/kernel.k232")
+    add_custom_target(kr232_kernel ALL
+        COMMAND "${KR232_KRC}" -c --target kr232
+                "${CMAKE_CURRENT_SOURCE_DIR}/targets/kr232/kernel/kernel.s"
+                -o "${CMAKE_BINARY_DIR}/kernel.o"
+        COMMAND "${KR232_KRLD}" --entry=_start
+                "${CMAKE_BINARY_DIR}/kernel.o"
+                -o "${KR232_KERNEL_IMAGE}"
+        COMMENT "Building the kr232 kernel with krc from the prefix"
+        VERBATIM)
+endif()
