@@ -1648,6 +1648,28 @@ krld --base=0 ... / --base=0x08000000 ...             (same, so it is not the ba
 Each object links alone; the **pair** fails. The distance `call main` needs is a few hundred bytes, far inside rel16, so the overflowing relocation is not the obvious one -- and `krld`'s message names the width but **not the symbol**, which is why this is still unknown.
 
 The next step is therefore in the tool, not the harness: make `krld`'s overflow message name the relocation's symbol and offset. One line of diagnostic ends what three rounds of inference could not, and it is a permanent improvement to every future link failure.
+### 2026-11-23T18:40:00-08:00 — M4: a backwards branch is not an overflow
+
+Host: CROSBY (Windows). The diagnostic paid for itself on its first use:
+
+```
+krld: link relocation overflows its width (value 0xFFFFFFFFFFFFFFE5, width 2, offset 25)
+```
+
+`0xFFFFFFFFFFFFFFE5` is **-27**: a PC-relative branch to a target *behind* the instruction. The linker wrote the difference as an unsigned 64-bit value and refused it, so any backwards branch failed to link. A kr232 object on its own never showed it; only the pair (crt0 calling `main`) placed a target behind a branch.
+
+Fixed in `src/linker/linker.cpp` (**c5654c5**): the check now accepts a value that fits **either** as unsigned **or** as two's complement, and still rejects a genuine overflow, naming value, width and offset.
+
+Evidence after the fix:
+
+```
+krld: linked 2 object(s) to k.k232 (entry 868)
+kr232-emu: halted status 7 after 11 steps
+```
+
+`host_build.c` returns 7, and the emulator reports exactly that. `krc_tests` **3704 of 3704**, `ctest -R kr232` **27 of 27**.
+
+This was a real krcompiler defect, not a kr232 one: every target that emits a backwards PC-relative relocation was affected, and only a link that placed a target behind a branch could reveal it.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
