@@ -1280,6 +1280,14 @@ The earlier failure was the **presentation-bit gate**, not the program: `frame()
 `krdbg_tests` **112 tests, 0 failures**. Ticked: the device-views task.
 
 Next: source-level path resolution and `replace_target`, host wiring, fixtures and golden, the remaining adapter cases, and the boundary gate.
+### 2026-11-23T10:00:00-08:00 — M4: host wiring scoped, not half-landed
+
+Host: CROSBY (Windows)
+Started the host-wiring task and stopped deliberately. The wiring is four coordinated pieces in `apps/demo/main.cpp` plus the CMake define: the include under `KRDBG_HAVE_KR232`, the `--kr232 <image>` option and its field, the load block that mirrors kr216's (`ProgramInfo` from the loaded target's `pc`, a `DebugSession` with **no** reload callback because the adapter reloads from its own image), and `load_any`'s dispatch on the `.k232` extension.
+
+I landed the include, the option and the field, then **reverted them**: an option that parses and does nothing is a worse state than no option, and the load block is the part that makes the flag meaningful. Two of the three scripted replacements had already failed on their anchors before that, which is the same lesson as before -- the editor tool is the only reliable way to change this file.
+
+Next: the four pieces as one edit with a build between each, then `krdbg --kr232 tests/fixtures/kr232/session.k232` as the check.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
