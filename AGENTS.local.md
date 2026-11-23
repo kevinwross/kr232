@@ -60,7 +60,7 @@ Target-specific notes:
 
 **Toolchain.** Node v26.13.1 at `C:\Program Files\nodejs\node.exe`, found with `Get-Command node`. No compiler, SDK, or package manager is needed, and nothing is installed from this repository.
 
-**Verified on** CROSBY **at** 2026-11-25: `node tools/check-isa.mjs` → exit 0, `ctest` in `build/windows-msvc` → 15 of 15 with the kernel and the package rows, and `scripts/check-arm64.ps1` → the same four suites pass on BitWhiz (aarch64).**
+**Verified on** CROSBY **at** 2026-11-25: `node tools/check-isa.mjs` → exit 0, `ctest` in `build/windows-msvc` → 15 of 15 with the kernel and the package rows, and `scripts/check-arm64.ps1` → the same four suites pass on BitWhiz (aarch64).
 
 **What the lint covers, and what it does not.** `tools/check-isa.mjs` reads only `kr232-isa.md` and `kr232-devices.md`: Appendix A's vectors, Appendix B's first-byte map, Appendix C's 4 GiB tiling, the device page tables and the shape of every table. It does **not** read `kr232-plan.md` or `kr232-impl.md` — the plan's status row and §14's gate records are prose, kept true by review, and no command can tell you they have gone stale.
 
