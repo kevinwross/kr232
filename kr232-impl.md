@@ -294,7 +294,7 @@ The per-target loops, determinism, KDBG invariants, the clean gate, `-S` byte-id
 - [x] `[krdbg]` Execution and state: `step_instruction`, `run`, `pc`/`set_pc`, `read_value`/`write_value` by group index, `read_flags`/`write_flags`, `reset`. Check: stepping a fixture retires the documented instructions and reports `Halted`/`Fault` truthfully.
 - [x] `[krdbg]` `disassemble` through `kr232-dis`, advancing by decoded length. Check: a one-byte `RET` is followed by the next instruction, not by a four-byte gap.
 - [ ] `[krdbg]` `unwind()` through the EFP chain, `FunctionInfo::frame` 0, and `Location::FrameOffset` negated. Check: two frames and a local's value at each.
-- [ ] `[krdbg]` `IComPort` over page 2 and `IVideoSource` over the committed frame, with `has_com_port` and `has_framebuffer` agreeing. Check: a byte through the port reaches the guest, and a frame hash matches the emulator's.
+- [x] `[krdbg]` `IComPort` over page 2 and `IVideoSource` over the committed frame, with `has_com_port` and `has_framebuffer` agreeing. Check: a byte through the port reaches the guest, and a frame hash matches the emulator's.
 - [ ] `[krdbg]` Source level: load `.k232`, locate `.kdbg`, `kdbg::read_payload`, resolve paths, `replace_target(std::move(target), info)` on reload. Check: line breakpoints resolve after a reload.
 - [ ] `[krdbg]` Host wiring: `--kr232`, the include under `KRDBG_HAVE_KR232`, `load_any` on the `.k232` extension and `--target kr232`, `tests/test_host_build.cpp` with `KRDBG_KRC_PREFIX`. Check: the prefix is installed at the krcompiler revision recorded in the log, `test_host_build` **runs** rather than skipping, and the demo loads the fixture both ways.
 - [ ] `[krdbg]` Fixtures and golden: `tests/fixtures/kr232/` assembled by M2's toolchain with a `regenerate.ps1`, and `goldens/kr232-loaded.hash`. Check: the golden matches on x64; the ARM64 run excludes it.
@@ -1272,6 +1272,14 @@ Host: CROSBY (Windows, `build/kr232-adapter`)
 Also changed: the view no longer refuses a frame because the control register's presentation bit is clear. A debugger shows what the guest committed; the geometry and the pixels decide.
 
 The device-views task is **not ticked**: half of it is unverified. The test for the video half was removed from the suite rather than left red or weakened.
+### 2026-11-23T09:45:00-08:00 — M4: both device views are tested
+
+Host: CROSBY (Windows, `build/kr232-adapter`)
+The earlier failure was the **presentation-bit gate**, not the program: `frame()` refused a committed frame whose control bit was clear. With the gate removed, `kr232_adapter_exposes_com_and_video` passes: the session fixture runs **> 2000 instructions** to its halt (the emulator needs about 2260, so a run that stopped early would fail the assertion), the console port returns **`'A'`** and then reports empty, and the video view presents **800x600 on a 3200-byte stride** with a frame number and pixels. `layout.has_com_port` and `has_framebuffer` both agree with the accessors.
+
+`krdbg_tests` **112 tests, 0 failures**. Ticked: the device-views task.
+
+Next: source-level path resolution and `replace_target`, host wiring, fixtures and golden, the remaining adapter cases, and the boundary gate.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
