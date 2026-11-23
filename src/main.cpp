@@ -62,9 +62,12 @@ int main(int argc, char** argv) {
     std::uint32_t base = 0;
     std::uint64_t max_steps = 1000000;
     bool want_frame_hash = false;
+    bool want_transcript = false;
     for (int i = 3; i < argc; ++i) {
         if (std::strcmp(argv[i], "--frame-hash") == 0) {
             want_frame_hash = true;
+        } else if (std::strcmp(argv[i], "--transcript") == 0) {
+            want_transcript = true;
         } else if (std::strcmp(argv[i], "--base") == 0 && i + 1 < argc) {
             base = static_cast<std::uint32_t>(std::strtoul(argv[++i], nullptr, 0));
         } else if (std::strcmp(argv[i], "--max-steps") == 0 && i + 1 < argc) {
@@ -109,6 +112,22 @@ int main(int argc, char** argv) {
     if (want_frame_hash) {
         std::printf("frame %s\n",
                     kr232::frame_hash_text(kr232::frame_hash(machine.devices())).c_str());
+    }
+    // The terminal grid is what a program wrote to the console; printing it is how
+    // a transcript check reads the screen without a renderer.
+    if (want_transcript) {
+        const auto& devices = machine.devices();
+        std::printf("transcript:\n");
+        for (std::uint32_t y = 0; y < devices.terminal_rows(); ++y) {
+            std::string row;
+            for (std::uint32_t x = 0; x < devices.terminal_columns(); ++x) {
+                row.push_back(static_cast<char>(devices.terminal_cell(x, y).ch));
+            }
+            while (!row.empty() && row.back() == ' ') {
+                row.pop_back();
+            }
+            std::printf("%s\n", row.c_str());
+        }
     }
     // The program's SYS exit status is the process status (kr232-plan 6).
     return machine.halted() ? machine.exit_status() : 0;
