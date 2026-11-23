@@ -668,7 +668,16 @@ Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2`
 Added: `F3` register-register with FNEG, FABS, FSQRT and FRND refusing a second register; `F4` fp memory with its optional `d8`; `F5` conversions; `F6` push and pop; `ENTER` choosing `F7`, `F8` or `FB` by frame size, refusing a frame that is not a multiple of four and a mask with bits 13-15 set; `F9`'s six-byte wide form; and `FA`'s seven-byte fp memory. Sixteen encodings and ten rejections pinned by layout.
 Ran: krcompiler's suite 2812 assertions, all passing; eleven kr232 cases.
 State: every instruction class of ISA section 3.1 now has an encoder. What is missing is not a class but the proof: the 81-vector round trip needs a parser to produce text and a disassembler to read bytes back, and that is the next task.
-Next: the text parser, then the round trip for all 81 vectors.
+Next: the immediate, bracket, branch and FP text, then the round trip.
+
+### 2026-11-22T21:14:39-08:00 — M2: the parser's first slice
+
+Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2`
+Added: `src/asm/kr232_parser.{h,cpp}` with `parse_instruction` — case-insensitive mnemonic lookup, operands split on commas and trimmed, the ten zero-operand Short forms, `push`/`pop`/`inc`/`dec`/`call` with a register, the unary `neg`/`not`/`sxtb`/`sxth`, and the two-register compact operations. Every other shape — immediate, bracketed address, branch displacement, FP — is refused with an error rather than guessed at.
+Ran: krcompiler's suite 2875 assertions, all passing; two parser cases.
+Found: the first version of the file carried helpers for immediates and conditions that nothing called yet, which `/W4` treats as dead code; they were removed rather than suppressed and will come back with the shapes that use them. A brace-initialised operand also narrowed `unsigned` to `uint8_t`, which the same warning level caught.
+Next: immediate and bracket operands, branches and the FP forms, then the fixture that assembles text and compares it with the Appendix bytes for all 81 vectors.
+
 
 
 ### 2026-11-22T21:12:23-08:00 — M2: the generic and long-integer escapes
