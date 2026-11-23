@@ -321,7 +321,7 @@ The adapter suite, the golden, the boundary check, the host gate, and the demo's
 ### Tasks
 
 - [x] `[kr232]` Kernel in `targets/kr232/kernel/`, built by a custom target that invokes `krc` from the prefix and links with `krld`, guarded by `KR232_BUILD_KERNEL` (default OFF so M1–M3 need no compiler): vector table at `0x0100`, a trap handler that resumes `SYSCALL`, and `IRET` into user mode with a constructed frame. Check: a trap reaches the handler and returns; the layout check confirms the host build never compiles it, and the kernel target's command line names `krc`.
-- [ ] `[kr232]` Syscall table: `write`, `read`, `exit`, blitter copy/fill, graphics commands, with kernel-side validation of every user pointer. Check: an invalid pointer is rejected without trapping the kernel.
+- [x] `[kr232]` Syscall table: `write`, `read`, `exit`, blitter copy/fill, graphics commands, with kernel-side validation of every user pointer. Check: an invalid pointer is rejected without trapping the kernel.
 - [x] `[kr232]` `--user <program.k232>` on the CLI: preload at `0x08000000`, no entry word, the kernel builds the frame. Check: the kernel enters the program at its link address.
 - [ ] `[krcompiler]` A user-mode program built by krc that prints, draws and exits through the table. Check: it runs and its frame matches a golden.
 - [ ] `[kr232]` Protection from user mode: the M1 trap tests rerun with K = 0. Check: each raises vector 8 or 4 as documented.
@@ -1961,6 +1961,25 @@ krc_tests 3704 of 3704; ctest -R kr232 28 of 28
 ```
 
 With the kernel rebuilt and the user program reloaded it still ends at `trap 8 at 0x00000000 after 13 steps`, so the IRET frame's PC is zero: the value stored from R2 is not reaching `[frame+4]`, or R2 is zero by then. The kernel's frame stores themselves are now known-good encodings, which halves the search again.
+### 2026-11-24T00:15:00-08:00 — M5: the syscall table answers, and a bad pointer is refused
+
+Host: CROSBY (Windows). End to end, with a user program that makes three calls:
+
+```
+kernel:  halted status 7 after 62 steps
+```
+
+The program calls **write** with a valid pointer (kernel answers 0), calls **write** with `0x10` (kernel refuses with -1 **without touching memory**), compares the two results and exits with 7 only if the refusal happened. It did.
+
+The last trap was a lesson in the same family as the rest: the user image had been linked at the **default base**, so `--user` placed it below `0x08000000` and its first fetch raised vector 8 at PC 0. `--user` now refuses such an image and says so:
+
+```
+kr232-emu: the user image is based at 0x000003AC, below user RAM; link it with --base=0x08000000
+```
+
+Ticked: **the syscall table** -- dispatch, pointer validation, and the refusal path, all witnessed by a program that can only exit 7 if the invalid pointer was rejected rather than trapping the kernel. `ctest` 8 of 8.
+
+M5 at 3 of 7. Remaining: a user program that prints and draws through the table, protection with K=0, krdbg's kernel support, and the two deferred questions.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
