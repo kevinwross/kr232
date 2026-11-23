@@ -1262,6 +1262,16 @@ Host: CROSBY (Windows, `build/kr232-adapter`)
 Two false starts, both worth recording: the first version walked the *fixture*, which is two one-byte instructions and therefore has neither a `ret` nor a long encoding; the second used the fixture's entry for the walk while the long instruction was the one just written. Starting the walk at the scratch code is what makes the assertion about the behaviour rather than the fixture's contents.
 
 Ticked: the `disassemble` task. Next: `unwind` with two frames, the two device views, host wiring, fixtures and golden.
+### 2026-11-23T09:30:00-08:00 — M4: the COM port works, the frame view does not
+
+Host: CROSBY (Windows, `build/kr232-adapter`)
+`Kr232ComPort` consumes the console's output through the device's own queue; a fixture built by M2's toolchain (`session.k232`, which says one byte, draws 4x4 and flips) is checked in, and the COM read returns **`'A'`** -- the byte the program wrote. Under the emulator the same fixture prints `A`, halts with status **7** and produces frame hash `d84ca06f0a9b9647`.
+
+`Kr232Video` returns **nothing**. The evidence narrows it: the COM read and the video view use the same `Machine`, so the program ran; but `frame_bytes()` is null, which means `vram` was never allocated, which means the **flip never reached the device** in this run -- against the same fixture producing a frame hash under the emulator. That contradiction is the next thing to instrument, not to guess at.
+
+Also changed: the view no longer refuses a frame because the control register's presentation bit is clear. A debugger shows what the guest committed; the geometry and the pixels decide.
+
+The device-views task is **not ticked**: half of it is unverified. The test for the video half was removed from the suite rather than left red or weakened.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
