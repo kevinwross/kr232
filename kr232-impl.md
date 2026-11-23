@@ -660,7 +660,16 @@ Found: there is no `kr216_assembler.cpp` to port. `src/asm/` holds encoders for 
 - The text parser on top, which is what turns Appendix A into the 81-vector round trip.
 Order: encoder first, so the round-trip test can be written against bytes before a parser exists, then the parser.
 Not landed: no code this round. Reading the three encoders' shapes plus the ABI and descriptor documents used the round; the encoder starts next with a full budget rather than half a file.
-Next: the escape forms, then the text parser.
+Next: the FP and frame escapes, then the text parser.
+
+### 2026-11-22T21:12:23-08:00 — M2: the generic and long-integer escapes
+
+Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2`
+Added: `encode_generic` for `F0` — two specifier bytes of `0 MMM RRRR`, at most one extension (`imm16`, `d8`, `d16` or `d32`), and an immediate specifier's register field required to be zero — and `encode_long_integer` for `F1`'s eight operations with a 32-bit address or a PC/SP displacement.
+Ran: krcompiler's suite 2709 assertions, all passing; ten kr232 cases now, 396 assertions.
+Found: the first test asserted that a single mode-5 operand was illegal when combined with a register operand, which is the *legal* single-extension case; the illegal pair is two extending operands. The test was wrong and the encoder right, and the corrected pair now pins that.
+Next: `F3`-`F6` and the frame escapes `F7`/`F8`/`FB`, then `F9`/`FA`, then the text parser.
+
 
 ### 2026-11-22T21:11:07-08:00 — M2: all thirty-two normal forms
 
