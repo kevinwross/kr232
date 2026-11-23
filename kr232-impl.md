@@ -1542,6 +1542,17 @@ Host: CROSBY (Windows). `tests/test_host_build.cpp` is now compiled into `krdbg_
 `krdbg_kr232_tests` **14 tests, 0 failures** -- but the two host-build cases **return early** without `KRDBG_KRC_PREFIX`, so those 14 do not include a host build. That is the repository's existing skip behaviour and exactly the thing the task's check refuses to accept.
 
 The install did not happen: `cmake --install build/windows-msvc-debug --prefix .../dist` fails with "File exists" on a library inside the build tree, so the prefix layout the chain wants is not being produced by that command. Next: read `discover_toolchain` for the layout it expects, then produce it (either a working install rule or the documented layout), and only then claim the task.
+### 2026-11-23T16:40:00-08:00 — M4: the chain grew kr232, the host cases still skipped
+
+Host: CROSBY (Windows). `krdbg::host::BuildChain` refused every target but kr32 and kr16; it now accepts **kr232** -- `.k232` image, the startup assembled from the prefix's `share/krc/sysroot/kr232/lib/crt0.s` as kr16's is, no `--base` because a container records its own (commit **e834fa9**, builds clean).
+
+Built the prefix by hand, since `cmake --install` fails: `bin/krc.exe`, `bin/krld.exe`, `share/krc/sysroot/kr232/{include,lib}`.
+
+**The host-build cases still did not run.** They reported PASS and the process exited 0, but **no `host_build*.k232` exists anywhere under either repository's build tree**, so both returned at the empty-prefix guard. `KRDBG_KRC_PREFIX` was set in the same shell that launched the binary. Until that is explained, "14 tests, 0 failures" says nothing about a host build, and the task stays unticked.
+
+Confirmed by absence, not assumed: a search for the produced image across both build trees found nothing.
+
+Next: print the prefix the test sees, or call `discover_toolchain` directly and report its error -- one measurement, the same lesson.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
