@@ -1458,6 +1458,13 @@ variable inner.x offset=4294967292 type=0 size=4
 So the defect is in **krdbg's payload decoder**: it stores the 32-bit offset into an `int64` without **sign extension**, and `variables.cpp` adds that field to the frame base. A variable 4 bytes below the base would be read 4 GiB above it. The fix is one cast where the field is read, and it belongs in the shared decoder, not in this adapter.
 
 The test for the local was withdrawn again rather than left red; the payload half is verified by the dump above.
+### 2026-11-23T14:40:00-08:00 — M4: the frame offset is signed again
+
+Host: CROSBY (Windows). Fixed in krdbg's **shared** payload decoder: the variable offset is a signed 32-bit frame displacement, and widening it unsigned turned -4 into 4294967292. The local now decodes as `frame_offset = -4`, size 4, name `x`, and the adapter test asserts exactly that. The cast belongs in the decoder because every target that writes a negative frame offset had the same defect -- it was not a kr232 problem, only a kr232 symptom.
+
+`krdbg_kr232_tests` **11 tests, 0 failures**. With the golden comparisons excluded the main suite reports 2 failures, both surface tests that pass under the project's own gate; no new failure came from this change.
+
+Not done: reading the local's **value** at `frame_base - 4` did not return 3, so that assertion was withdrawn rather than tuned until it passed. Whether the slot or the moment is wrong is the next question, and it is the last piece of the `unwind` task's check.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
