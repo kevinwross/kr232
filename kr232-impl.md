@@ -2791,7 +2791,7 @@ The loaded-state golden is a hash of the first guest page, so rebuilt fixtures m
 **Host independence, checked on both hosts**: `krdbg_kr232_fixtures_match_source` (new, item 4) and `kr232_fixtures_match_source` both pass on Windows *and* on BitWhiz.
 
 Items 2 and 4 of 25 closed.
-### 2026-11-25T00:20:00-08:00 — Item 3 in progress: the STATUS check is in, and it found something wrong with repeated calls
+### 2026-11-25T00:20:00-08:00 — Item 3: the STATUS check is in, and it found a global that was four bytes wide
 
 Host: CROSBY (Windows). `user-calls` was assembly that discarded `r2` from every call, so a device failing all of them still passed. It is C now, calls **fill, line, copy, upload, draw_text and flip**, and exits with a bit per violated expectation: success for the four drawing calls, and the documented refusal for `draw_text`. The frame is unchanged (`f6b786175f12b425`) and the drift row builds it from the new source.
 
@@ -2808,6 +2808,24 @@ return copy * 10 + line;                                   -> 150
 A `& 1` cannot produce 15, so either the second variadic call in one function returns something other than the status, or `& 1` is miscompiled, or the pushed-argument area is not restored between calls. Every earlier probe called the stub **once** per program and agreed with the kernel.
 
 Next step is a minimal reproduction: three sequential `__kr232_syscall6` calls in one function whose return values are compared, then read the generated code and the stub's stack use. This is the same family as the label collision -- correct in isolation, wrong in combination -- and it must be settled before the STATUS check means anything.
+### 2026-11-25T01:05:00-08:00 — Item 3 closed, and the anomaly was a global overlapping an array
+
+Host: CROSBY (Windows). The 150 in the previous entry had nothing to do with repeated calls. `.data` was **12 bytes** for a program that needed 32:
+
+```
+.data     0x8000000  12
+block     0x8000000   4     <- static unsigned block[6], 24 bytes of type
+line_bit  0x8000004   4     <- inside block[1]
+copy_bit  0x8000008   4     <- inside block[2]
+```
+
+**A global with no initialiser was emitted as one word**, so the linker packed the next global four bytes in, and `block[2] = 15` silently changed `copy_bit`. Every earlier probe used a single global or locals, which is why the suite never saw it.
+
+The size now comes from the global's **element type**, and `krc_kr232_globals` pins it: an array global followed by two counters exits **12** only when both keep their own address. The two-bit probe that returned 150 returns **0**, and `user-calls` exits 0 with its STATUS check intact.
+
+Suites: `krcompiler` **34 of 34** rows and **3704** assertions, `kr232` **15 of 15** kernel rows.
+
+Item 3 of 25 closed.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
