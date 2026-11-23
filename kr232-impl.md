@@ -1192,6 +1192,16 @@ What the widened trace shows: the last forty instructions are the whole of `add`
 Prime suspect, and it is checkable: an FP store with a **negative displacement encoded as positive** would write at `FP+4` (the return address) instead of `FP-4` (slot 0). The FP memory forms were the ones the assembler initially refused with a frame offset, and the parameter spill still emits `fst f0, [fp-44]`.
 
 Next: assemble a two-line `.s` with `fst f0, [fp-4]` and decode the bytes to confirm the sign, which is a five-minute check and settles it.
+### 2026-11-23T07:05:00-08:00 — M3: the gate's C++ program runs
+
+Host: CROSBY (Windows `windows-msvc-debug`, `windows-msvc` emulator)
+A **d8 displacement is a signed byte**, and the assembler refuses anything deeper by name -- so a function holding an array, a record and vtable temporaries could not address its own slots. Frame accesses now hoist a computed base into **R8** when the offset exceeds 128 bytes.
+
+Ran: the gate's C++ program -- a class with a virtual call, a record passed by value, a record returned, and an array -- halts with status **17**, which is `2 + 15 + 0`. `ctest -R kr232` **27 of 27 passed**; `krc_kr232_run_cpp` pins it.
+
+Also settled: the FP frame displacement sign is **correct** (`fst f0, [r13-4]` encodes `f4 11 d0 fc` and decodes to `[fp-4]`), so the round-115 suspect is eliminated. Floating point remains parked with its own fault.
+
+Process note: last round I damaged a working record-copy line with a scripted replacement and did not catch it until the assembler refused the empty operand. It is repaired here, and the fixture that found it is now a test.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
