@@ -985,6 +985,14 @@ Diagnosed the drawing trap: `gfx_set_colour` stores its argument to `current_col
 Named gap, in order: emit module globals into `.data` with labels; let `ld rD, #symbol` emit an `Abs32` relocation; materialise a `GlobalVariable` operand by loading its address. Until those exist, no runtime state can live across calls and the `gfx`/`cons` packages cannot hold a current colour, cursor or mode.
 Next: global data addressing.
 
+### 2026-11-23T00:50:00-08:00 — M3: globals resolve, and the drawing writes miss
+
+Host: CROSBY (Windows `windows-msvc-debug` compiler, `windows-msvc` emulator)
+Added: globals in `.data`, a symbol immediate as `ld rD, #name` with an `Abs32` relocation, and the assembler's local-patch pass skips absolute relocations. Fixed on the way: the symbol immediate must use the **five-byte** `ld rD,#imm32` form, because the relocation writes four bytes at the immediate -- the three-byte form let those four bytes overwrite the following instructions, which is what jumped execution to zero.
+Ran: the drawing program halts with status 0 after **4132 steps** and flips; `frame 2bf050200a5e1325`.
+Found, and it blocks the package task: that hash is **identical** to the `kernel-gate` fixture's, and the empty-frame basis is `cbf29ce484222325`. So both programs flip a zero frame: the drawing program's aperture stores are not reaching the pixels the device reads, and only the flip is visible. Ticking the package task on this evidence would claim a drawing that is not drawn.
+Next: find where the aperture stores land (the `APERTURE + BACK_OFFSET` constant, the `put` call, or the stride) before any package task is ticked.
+
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
