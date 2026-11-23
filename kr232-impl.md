@@ -1562,6 +1562,21 @@ And the two host cases still pass in 0.0 s with **no `build/krdbg-host` director
 The probe that would have answered it was blocked twice by the same trap: `getenv` is a **warning-as-error** in this project, and my fix attempt left a dangling line referencing the removed variable, so the binary stayed stale while reporting green. That is the third time this session that a *stale binary* reported a pass.
 
 Not ticked. Next: extend the probe to print the prefix using `_dupenv_s` (the pattern the file already uses) and to report whether the kr232 block is compiled by a marker string, then read both answers before touching the test.
+### 2026-11-23T17:10:00-08:00 — M4: the host-build file is not in the build graph
+
+Host: CROSBY (Windows). Two probes answered what guessing could not:
+
+```
+define=1                                  (KRDBG_HAVE_KR232 in the kr232 test binary)
+prefix=C:\Users\kevin\repos\krcompiler\dist   (the C++ process does see the variable)
+marker=kr232-block-present
+```
+
+and then the decisive absence: **`build.ninja` contains no reference to `test_host_build.cpp`** (`ninja -t targets all` and a `findstr` over `build.ninja` both come back empty), even though `CMakeLists.txt` lists it in `krdbg_kr232_tests` and a reconfigure reports success. The binary also lacks the fixture string.
+
+So the file is *not compiled*, which is why the cases pass trivially and no image is built. The earlier "14 tests" and "15 tests" came from the other two files; the two `host_*` cases that report PASS are registered from a stale object or from `krdbg_tests`' copy, not from this target's new source.
+
+Nothing about the host-build task is claimed. Next: `cmake --build build/kr232-adapter --verbose` on that target and read which sources it actually compiles -- that names the discrepancy in one line, rather than another round of inference.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
