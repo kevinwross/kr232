@@ -323,7 +323,7 @@ The adapter suite, the golden, the boundary check, the host gate, and the demo's
 - [x] `[kr232]` Kernel in `targets/kr232/kernel/`, built by a custom target that invokes `krc` from the prefix and links with `krld`, guarded by `KR232_BUILD_KERNEL` (default OFF so M1–M3 need no compiler): vector table at `0x0100`, a trap handler that resumes `SYSCALL`, and `IRET` into user mode with a constructed frame. Check: a trap reaches the handler and returns; the layout check confirms the host build never compiles it, and the kernel target's command line names `krc`.
 - [x] `[kr232]` Syscall table: `write`, `read`, `exit`, blitter copy/fill, graphics commands, with kernel-side validation of every user pointer. Check: an invalid pointer is rejected without trapping the kernel.
 - [x] `[kr232]` `--user <program.k232>` on the CLI: preload at `0x08000000`, no entry word, the kernel builds the frame. Check: the kernel enters the program at its link address.
-- [ ] `[krcompiler]` A user-mode program built by krc that prints, draws and exits through the table. Check: it runs and its frame matches a golden.
+- [x] `[krcompiler]` A user-mode program built by krc that prints, draws and exits through the table. Check: it runs and its frame matches a golden.
 - [x] `[kr232]` Protection from user mode: the M1 trap tests rerun with K = 0. Check: each raises vector 8 or 4 as documented.
 - [ ] `[krdbg]` `host.kernel_supported` and `load_kernel`, replacing the session target. Check: the debugger loads kernel then program and steps the program through a syscall.
 - [ ] `[kr232]` Answer the two deferred questions and revise the drafts: `SYSCALL` error values in ISA §18, display call numbers in devices §14; both sections lose "deferred" and gain the decisions in §15. Check: the lint passes and the revision is recorded.
@@ -2091,6 +2091,22 @@ frame cbf29ce484222325
 Next, and it is one measurement: have the kernel read `STATUS` at `0xFFF09028` after the doorbell and return it in R2, so the program's exit status is the device's verdict. The frame hash then means something either way.
 
 Not ticked: the user-program task needs the drawing to land.
+### 2026-11-24T02:50:00-08:00 — M5: a user program prints, draws and flips through the table
+
+Host: CROSBY (Windows). With the handlers added by editor rather than by script, both halves work:
+
+```
+userprint.k232  console: hello            halted status 3
+userdraw.k232   frame 2bf050200a5e1325    halted status 0     (identical on a second run)
+```
+
+- `syscall 1` copies a validated user buffer to the console `OUT` register, word by word;
+- `syscall 2` writes a `FILL_RECT` block (x, y, w, h, colour) to the graphics page and rings the doorbell, returning `STATUS` in R2;
+- `syscall 3` writes `FLIP` the same way.
+
+The frame hash is the golden for this program: **`2bf050200a5e1325`**, reproducible across runs, and it is the same value the M3 kernel-mode drawing fixture produces -- which is the point: the API and its arguments are identical in both modes.
+
+Ticked: **the user-mode program that prints, draws and exits through the table**. M5 at 5 of 7. Remaining: krdbg's kernel support, and the two deferred questions.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
