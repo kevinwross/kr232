@@ -30,9 +30,9 @@ foreach ($fixture in $fixtures) {
     & $Krc -c --target kr232 $source -o $object
     if ($LASTEXITCODE -ne 0) { throw "compiling $($fixture.Source) failed" }
     if ($fixture.Base) {
-        & $Krld $fixture.Base --entry=_start $object -o $image
+        & $Krld $fixture.Base "--source-root=$here" --entry=_start $object -o $image
     } else {
-        & $Krld --entry=_start $object -o $image
+        & $Krld "--source-root=$here" --entry=_start $object -o $image
     }
     if ($LASTEXITCODE -ne 0) { throw "linking $($fixture.Image) failed" }
     Write-Output "rebuilt $($fixture.Image)"

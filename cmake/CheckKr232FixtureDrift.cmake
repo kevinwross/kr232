@@ -36,11 +36,11 @@ foreach(entry IN LISTS fixtures)
     endif()
 
     if(link_args STREQUAL "none")
-        execute_process(COMMAND "${KRLD}" --entry=_start "${WORK}/${stem}.o"
+        execute_process(COMMAND "${KRLD}" "--source-root=${FIXTURE_DIR}" --entry=_start "${WORK}/${stem}.o"
                                 -o "${WORK}/${image}"
                         RESULT_VARIABLE linked ERROR_VARIABLE link_error)
     else()
-        execute_process(COMMAND "${KRLD}" "${link_args}" --entry=_start
+        execute_process(COMMAND "${KRLD}" "${link_args}" "--source-root=${FIXTURE_DIR}" --entry=_start
                                 "${WORK}/${stem}.o" -o "${WORK}/${image}"
                         RESULT_VARIABLE linked ERROR_VARIABLE link_error)
     endif()
