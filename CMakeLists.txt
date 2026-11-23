@@ -47,6 +47,10 @@ add_library(kr232_core STATIC
 target_include_directories(kr232_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_link_libraries(kr232_core PRIVATE kr232_warnings)
 
+add_executable(kr232-dis src/dis.cpp)
+target_link_libraries(kr232-dis PRIVATE kr232_core kr232_warnings)
+target_include_directories(kr232-dis PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
 add_executable(kr232-emu src/main.cpp)
 # kr232_warnings carries the prefix-map flags, so every target with sources of
 # its own links it. Linking it into kr232_core alone left main.cpp unmapped: the
@@ -99,6 +103,18 @@ if(KR232_BUILD_TESTS)
         "KR232_ISA_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/kr232-isa.md\"")
     target_include_directories(kr232_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tests")
     target_link_libraries(kr232_tests PRIVATE kr232_core kr232_warnings)
+
+    add_test(NAME kr232_dis_flat
+        COMMAND kr232-dis "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel-gate.bin")
+    set_tests_properties(kr232_dis_flat PROPERTIES
+        LABELS "unit"
+        PASS_REGULAR_EXPRESSION "ld r2, #0xfff08000")
+
+    add_test(NAME kr232_dis_container
+        COMMAND kr232-dis "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/compiled-draw.k232")
+    set_tests_properties(kr232_dis_container PROPERTIES
+        LABELS "unit"
+        PASS_REGULAR_EXPRESSION "0x000002a1: 73 +sys")
 
     add_test(NAME kr232_version COMMAND kr232_tests)
     set_tests_properties(kr232_version PROPERTIES LABELS "unit")

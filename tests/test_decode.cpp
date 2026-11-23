@@ -456,3 +456,21 @@ TEST_CASE(every_vector_executes_with_the_effect_its_form_requires) {
         CHECK(ok);
     }
 }
+
+TEST_CASE(disassembly_names_every_appendix_vector) {
+    // The disassembler's text is what a reader sees, so this walks Appendix A and
+    // checks that each vector decodes in full and starts with the mnemonic the
+    // Appendix prints. Length is the other half: a decoder that consumed the wrong
+    // number of bytes would still produce plausible text.
+    for (const Vector& vector : read_vectors()) {
+        const auto decoded = kr232::decode(std::span<const std::uint8_t>(vector.bytes));
+        CHECK(decoded.ok);
+        if (!decoded.ok) {
+            continue;
+        }
+        CHECK(decoded.length == vector.bytes.size());
+        const std::string expected = first_token(lowered(vector.assembly));
+        const std::string actual = first_token(decoded.text);
+        CHECK(actual == expected);
+    }
+}
