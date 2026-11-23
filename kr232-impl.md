@@ -2268,6 +2268,20 @@ console: eA
 `Memory::write8` truncates with `static_cast<std::uint8_t>(value)` (`src/machine.cpp:350`), so the store is faithful; the register must hold the wrong byte before it. And yet the same `ld r9, #0x75` followed by a direct store to the console printed `u` in the probe before this one.
 
 So the difference lies between two programs that appear to differ only in which register the address was loaded into, which is worth one systematic probe rather than another hypothesis: store every byte from `0x00` to `0x7F` in turn, print each as it is stored, and read the mapping off in one run.
+### 2026-11-24T06:25:00-08:00 — M3: `STB` clears bit 4, proved by a map rather than by argument
+
+Host: CROSBY (Windows). Two loops over `0x41`-`0x7A`, one through memory and one not:
+
+```
+through stb/ld :  ABCDEFGHIJKLMNO@ABCDEFGHIJKLMNO`abcdefghijklmno`abcdefghij
+straight to device: ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz
+```
+
+The second is exact. The first differs at every value with **bit 4 set**: `0x50` ('P') becomes `0x40` ('@'), `0x5F` becomes `0x4F`, `0x70` ('p') becomes `0x60`. In one term, the stored byte is `value & 0xEF`.
+
+So `STB` drops bit 4, and `Memory::write8` itself is faithful -- it stores what it is given (`src/memory.cpp:132`). The mask is applied before the write, and there is no `0xEF` literal anywhere in `machine.cpp` or `machine.h`, which means it is composed rather than written: the likely path is the byte store's operand preparation, where a 4-bit field is being reused.
+
+That is where the next round starts, with the map as the regression test: store every byte `0x00`-`0xFF`, read each back, and require equality. A bug that clears one bit survives any test that only writes text.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
