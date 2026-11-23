@@ -1755,6 +1755,27 @@ fp=0x3ff80000 sp=0x07ffffcc ...
 So the frame layout is wrong for 8-byte values, not the call convention (fixed last round) and not the frame chain (which was never at fault). A double needs its slot at `FP-8`, `FP-16`, ... so its top word stops one slot short of `[FP]`: reserve the first 4-byte slot before allocating any 8-byte value, and give doubles an even slot index.
 
 The M3 FP task stays open on this, now with the cause proven by a value rather than inferred from a symptom.
+### 2026-11-23T20:25:00-08:00 — M3: the experiment worked, the fallout did not fit the round
+
+Host: CROSBY (Windows). Tried the frame fix the arithmetic calls for -- **every slot eight bytes**, so a double sits at `FP-8-8S` and its top word stops at `FP-1`. It worked on the target case:
+
+```
+before: trap 4 at 0x00000000 after 50 steps
+after:  halted status 4 after 72 steps
+```
+
+`add(1.5, 2.5)` now returns 4. But the wider frames pushed other programs past the assembler's signed-byte displacement:
+
+```
+krc_kr232_run_transcript : displacement out of the signed byte range
+krc_kr232_run_gfx_draw   : displacement out of the signed byte range
+```
+
+Hoisting the prologue's three direct `[r13-N]` stores through R8 was not enough -- other emitters still write the displacement directly, and finding them all is a round of its own.
+
+**Reverted**, so the tree is green again: `ctest -R kr232` **27 of 27**, `krc_tests` **3704 of 3704**. The FP task stays open with its cause proven and its fix half-written and reverted rather than half-applied.
+
+Next: enumerate every direct `[r13-` emitter in the backend, route them all through one hoisting helper, then re-apply the 8-byte slot layout. That is a bounded change with a known finish line, which is why reverting it now costs nothing.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
