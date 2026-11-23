@@ -4,6 +4,7 @@
 #include <kr232/machine.h>
 
 #include <cstdint>
+#include <vector>
 
 namespace {
 
@@ -62,4 +63,98 @@ TEST_CASE(an_image_that_does_not_fit_is_refused_whole) {
     std::uint8_t byte = 0xAA;
     CHECK(machine.memory().read8(0xFF00, byte) == kr232::Access::Ok);
     CHECK(byte == 0);
+}
+
+namespace {
+
+// A minimal `.k232`: header, one executable section at 0x0200 holding `nop`, its
+// record and a string table. The CRC field is left zero, which the container
+// defines as "absent", so the tests below exercise the other validations.
+std::vector<std::uint8_t> make_container(std::uint32_t entry, std::uint16_t target, std::uint32_t section_address, std::uint32_t crc) {
+    std::vector<std::uint8_t> image(64 + 1 + 32 + 6, 0);
+    image[0] = 'K'; image[1] = '2'; image[2] = '3'; image[3] = '2';
+    image[4] = 1;              // container version
+    image[6] = 2;              // kind executable
+    image[12] = 64;            // header size
+    image[16] = static_cast<std::uint8_t>(entry & 0xFF);
+    image[17] = static_cast<std::uint8_t>((entry >> 8) & 0xFF);
+    image[20] = 1;             // ABI version
+    image[22] = 1;             // one section
+    image[24] = static_cast<std::uint8_t>(target & 0xFF);
+    image[25] = static_cast<std::uint8_t>((target >> 8) & 0xFF);
+    const std::uint32_t size = static_cast<std::uint32_t>(image.size());
+    image[44] = static_cast<std::uint8_t>(size & 0xFF);
+    image[45] = static_cast<std::uint8_t>((size >> 8) & 0xFF);
+    image[46] = static_cast<std::uint8_t>((size >> 16) & 0xFF);
+    image[47] = static_cast<std::uint8_t>((size >> 24) & 0xFF);
+    // The single payload byte then the table at 65, the strings at 97.
+    image[64] = 0x71;          // nop
+    const std::uint32_t table = 65;
+    for (unsigned i = 0; i < 4; ++i) {
+        image[32 + i] = static_cast<std::uint8_t>((table >> (8 * i)) & 0xFF);  // section table offset
+    }
+    const std::uint32_t strings = 97;
+    for (unsigned i = 0; i < 4; ++i) {
+        image[36 + i] = static_cast<std::uint8_t>((strings >> (8 * i)) & 0xFF);
+        image[48 + i] = static_cast<std::uint8_t>((crc >> (8 * i)) & 0xFF);
+    }
+    image[40] = 6;             // string table size
+    // Section record.
+    image[table + 4] = 1;      // progbits
+    image[table + 6] = 5;      // alloc | execute
+    for (unsigned i = 0; i < 4; ++i) {
+        image[table + 8 + i] = static_cast<std::uint8_t>((section_address >> (8 * i)) & 0xFF);
+        image[table + 12 + i] = static_cast<std::uint8_t>((64u >> (8 * i)) & 0xFF);
+    }
+    image[table + 16] = 1;     // size
+    image[table + 20] = 4;     // alignment
+    const char name[] = ".text";
+    for (unsigned i = 0; i < 6; ++i) {
+        image[strings + i] = static_cast<std::uint8_t>(name[i]);
+    }
+    return image;
+}
+
+}  // namespace
+
+TEST_CASE(a_k232_container_loads_its_section_and_entry) {
+    kr232::Machine machine(0x10000);
+    const auto image = make_container(0x0200, 5, 0x0200, 0);
+    const auto outcome = kr232::load_k232(machine, image);
+    CHECK(outcome.ok);
+    CHECK(outcome.entry == 0x0200u);
+    CHECK(machine.pc() == 0x0200u);
+    CHECK(machine.step().stop == kr232::Stop::Retired);
+    CHECK(machine.pc() == 0x0201u);
+    std::uint8_t byte = 0;
+    CHECK(machine.memory().read8(0x0200, byte) == kr232::Access::Ok);
+    CHECK(byte == 0x71);
+}
+
+TEST_CASE(a_bad_magic_version_target_or_section_is_refused) {
+    kr232::Machine machine(0x10000);
+    std::string unused;
+
+    auto wrong_target = make_container(0x0200, 4, 0x0200, 0);
+    CHECK(!kr232::load_k232(machine, wrong_target).ok);
+
+    auto outside = make_container(0x0200, 5, 0x09000000, 0);  // user RAM in a kernel image
+    CHECK(!kr232::load_k232(machine, outside).ok);
+
+    auto bad_crc = make_container(0x0200, 5, 0x0200, 0x12345678);
+    CHECK(!kr232::load_k232(machine, bad_crc).ok);
+
+    auto short_header = std::vector<std::uint8_t>(32, 0);
+    CHECK(!kr232::load_k232(machine, short_header).ok);
+}
+
+TEST_CASE(load_image_dispatches_on_the_magic) {
+    kr232::Machine machine(0x10000);
+    const auto container = make_container(0x0200, 5, 0x0200, 0);
+    CHECK(kr232::load_image(machine, container).ok);
+
+    kr232::Machine flat_machine(0x10000);
+    const std::uint8_t flat[] = {0x71};
+    CHECK(kr232::load_image(flat_machine, flat, 0x1000).ok);
+    CHECK(flat_machine.pc() == 0x1000u);
 }

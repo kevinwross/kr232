@@ -82,7 +82,7 @@ int main(int argc, char** argv) {
     }
 
     kr232::Machine machine;
-    const kr232::LoadOutcome loaded = kr232::load_flat(machine, image, base);
+    const kr232::LoadOutcome loaded = kr232::load_image(machine, image, base);
     if (!loaded.ok) {
         std::fprintf(stderr, "kr232-emu: %s\n", loaded.error.c_str());
         return 2;
