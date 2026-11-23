@@ -2293,6 +2293,19 @@ kr232_tests: 81 case(s), 0 failed check(s)
 So the machine's `STB` path is **correct**, and the `value & 0xEF` seen in the guest program comes from **the program's own encoding** -- the bytes the assembler emitted -- or from the **word load** that follows the store in that program. The machine is cleared; the next step is to dump the exact bytes of the store loop and decode them, which is one command with `kr232-dis`.
 
 The test stays in the suite as the regression guard for this class: a bug that clears one bit survives every test that writes only text, which is why four text-based probes agreed with the wrong answer before a byte map disagreed with all of them.
+### 2026-11-24T06:55:00-08:00 — M3: the add encoding was `c7 60 01`, and my test guessed `86 01`
+
+Host: CROSBY (Windows). I hand-wrote the bytes for `add r6, #1` in a unit test and it failed, which looked like a machine bug. Asking the assembler instead:
+
+```
+0x0000029f: c7 60 01    add r6, #1
+```
+
+`c7`, not `86`. The failing test was **my encoding**, not the machine's arithmetic, and it was withdrawn rather than debugged further. `ctest` is 8 of 8.
+
+The guest's bit-4 loss is still unexplained, and this is the **fifth** time in this milestone that a hand-written byte sequence produced a false signal. The rule is already in this log twice and needs a third: **never write an instruction's bytes by hand -- assemble it and disassemble the result.** The one-line cost would have saved this round.
+
+Next: the guest loop's *own* bytes, taken from `kr232-dis` on the image it actually runs (`bytemap.k232`), and a debug print of `r6` and the stored byte inside the machine -- the two together will show whether the register or the memory differs, without any hand-written encoding in the way.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
