@@ -293,7 +293,7 @@ Commands draw into a target surface inside the aperture:
 | 3 | `FILL_RECT` | x, y, w, h, colour | fill a rectangle |
 | 4 | `COPY_RECT` | source offset, x, y, w, h | copy within the target |
 | 5 | `DRAW_LINE` | x0, y0, x1, y1, colour | Bresenham, both endpoints included |
-| 6 | `DRAW_TEXT` | x, y, pointer, length, fg, bg | **not implemented**: accepted, answers `STATUS` bit 0 `ERROR`, and changes no pixels — the 10x20 atlas belongs with the terminal page |
+| 6 | `DRAW_TEXT` | x, y, pointer, length, fg, bg | **not implemented, finally**: accepted, answers `STATUS` bit 0 `ERROR`, and changes no pixels. The 10x20 atlas is not in this repository — the terminal page renders its cells from a font the UI layer owns — so a guest-visible atlas would have to be designed there first, and until it is, this is the one graphics command that refuses by design |
 | 7 | `FLIP` | — | the framebuffer `FLIP` of §5.3 |
 | 8 | `SET_SURFACE` | offset, width, height, stride | select the target |
 | 9 | `COPY_RECT_STRIDED` | source offset, source stride, x, y, w, h | copy from another surface |
@@ -378,7 +378,7 @@ access raises an address-error trap. They are reserved so that the map does not 
 devices land, and the `ID` read at `0x3C` traps too, which distinguishes "not implemented" from
 "implemented and broken".
 
-## 11. Guest packages (provisional)
+## 11. Guest packages
 
 The display is only usable through a thin library. These are the packages the plan will ship; they
 are a *package* contract, not ISA, and the names are the kr32 ones with a `kr232/` prefix.
@@ -504,7 +504,7 @@ int input_pending(void);              /* 1 when at least one event waits */
 
 The struct is the packed event word byte for byte, so a guest can copy a word and cast.
 
-### 11.6 User-mode protocol (provisional)
+### 11.6 User-mode protocol
 
 A user program cannot touch page 9, the terminal page, the framebuffer control page or VRAM, so a
 display call becomes a `SYSCALL`. The shape:

@@ -209,19 +209,19 @@ A milestone is done when its exit gate runs, not when its code compiles. A check
 
 ## 12. Open questions from the drafts
 
-Two rows remain, both waiting for the kernel's syscall table in M5:
+No rows remain. Both were settled at M5:
 
-| Question | Settles at |
+| Question | Settled in |
 |---|---|
-| ISA §18.1 `SYSCALL` error values | M5 |
-| Devices §14.1 display call numbers and errors | M5 |
+| ISA §18.1 `SYSCALL` error values | `kr232-isa.md` §18: 0 success, -1 refused argument, -2 unknown call |
+| Devices §14.1 display call numbers and errors | `kr232-devices.md` §14: 16-24, with the graphics `STATUS` word carrying a device refusal |
 
 The other fourteen are closed for 1.x:
 
 - **Recorded as decisions** in `kr232-isa.md` §15.55–§15.59: the terminal mirrors to the console page (a development aid that retires when the terminal and the COM port separate), the kernel owns VRAM allocation, there are no escape sequences, the blitter is synchronous, and there is no pointer device.
 - **Closed on the drafted behaviour**, which 1.x keeps: immediate-register commands instead of a FIFO, the 10x20 font only, one committed surface per flip, no direct user VRAM without paging, no guest font, the `T`/`RDCYCLE`/cycle debug surface, no debug port, the `F0` generic form kept, and the fixed `0x08000000` boundary and kernel trap stack.
 
-The two M5 questions do not hold the freeze: no 1.x program reaches either, because only a kernel defines the `SYSCALL` numbers above 2 and only a kernel issues the display calls, so each is answered in the revision that brings M5's syscall table.
+Neither question held the freeze, and both answers are in the drafts: §18 of the ISA and §14 of the device document. A program that needs them is a program running under the kernel, which is what M5 built.
 
 ## 13. Risks and traps
 
@@ -240,6 +240,10 @@ The two M5 questions do not hold the freeze: no 1.x program reaches either, beca
 - **Boundary check.** No VM header may reach `include/krdbg`, `src/ui`, `src/core` or `src/kdbg`; a target conditional in the UI means the layout is missing a field.
 - **Narrow-integer literal defect.** The compiler's known `int`-narrower-than-32 literal bug (`new-target-guide.md` §1) does **not** apply to kr232, whose `int` is 32 bits — but the reasoning is recorded so a later `int_bits = 16` variant does not rediscover it.
 - **Golden images are x64-only.** The ARM64 run excludes golden tests; a green ARM64 row says nothing about the surface hash.
+
+- **Stale generated artefacts.** A build tree can report success for a command it generated before the source changed: in one session the emulator binary, a generated test list, an object file and a whole ctest command each described an older tree. `ctest -V` and a fresh configure are the cure, and a check that has just started failing is the moment to look.
+- **Host-dependent bytes.** Images were not reproducible: the per-file label hash covered the source text including carriage returns, and floating-point constants were labelled with `std::hash<double>`. Both used platform-defined inputs and both are fixed -- the trap is that any new hash of a platform type reintroduces it, and only a rebuild on a second host shows it.
+- **A check that cannot fail.** A golden recorded from a broken binary, a test whose condition is vacuous, a list that silently drops an empty field: the suite is green over something that does nothing. Three of this project's defects were found only after asking what would make each check fail.
 
 ## 14. What done means for 1.x
 
