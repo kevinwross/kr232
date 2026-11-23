@@ -4,62 +4,81 @@
 # drift, the tests keep passing against an old program and nothing says so. The
 # kernel has had this row since it was added; this one covers the rest.
 #
-# Required: KRC, KRLD, FIXTURE_DIR, WORK
+# Required: KRC, KRLD, FIXTURE_DIR, RUNTIME, WORK
 
 if(NOT DEFINED KRC OR NOT DEFINED KRLD OR NOT DEFINED FIXTURE_DIR OR NOT DEFINED WORK)
     message(FATAL_ERROR "KRC, KRLD, FIXTURE_DIR and WORK are required")
 endif()
 file(MAKE_DIRECTORY "${WORK}")
 
-# source|image|link arguments; an empty field is dropped by some CMake policies,
-# so "none" marks the fixtures that need no extra arguments.
-set(fixtures
+function(compile out source)
+    execute_process(COMMAND "${KRC}" -c --target kr232 ${ARGN} "${source}" -o "${out}"
+                    RESULT_VARIABLE state ERROR_VARIABLE error)
+    if(NOT state EQUAL 0)
+        message(FATAL_ERROR "compiling ${source} failed:\n${error}")
+    endif()
+endfunction()
+
+function(compare image)
+    file(SHA256 "${FIXTURE_DIR}/${image}" checked_in)
+    file(SHA256 "${WORK}/${image}" rebuilt)
+    if(NOT checked_in STREQUAL rebuilt)
+        set(FAILURES
+            "${FAILURES}  ${image} does not match its source: rebuild it with "
+            "regenerate.ps1 and commit both\n" PARENT_SCOPE)
+    endif()
+endfunction()
+
+set(FAILURES "")
+
+# One source, one image, no extra arguments: these are flat kernel-mode images.
+set(simple
     "user-exit42.s|user-exit42.k232|--base=0x08000000"
-    "user-calls.s|user-calls.k232|--base=0x08000000"
     "user-echo.s|user-echo.k232|--base=0x08000000"
     "user-text.s|user-text.k232|--base=0x08000000"
     "blank-flip.s|blank-flip.k232|none"
     "kernel-gate.s|kernel-gate.bin|none")
 
-set(failures "")
-foreach(entry IN LISTS fixtures)
+foreach(entry IN LISTS simple)
     string(REPLACE "|" ";" fields "${entry}")
     list(GET fields 0 source)
     list(GET fields 1 image)
     list(GET fields 2 link_args)
     string(REPLACE ".s" "" stem "${source}")
-
-    execute_process(COMMAND "${KRC}" -c --target kr232
-                            "${FIXTURE_DIR}/${source}" -o "${WORK}/${stem}.o"
-                    RESULT_VARIABLE compiled ERROR_VARIABLE compile_error)
-    if(NOT compiled EQUAL 0)
-        message(FATAL_ERROR "compiling ${source} failed:\n${compile_error}")
-    endif()
-
+    compile("${WORK}/${stem}.o" "${FIXTURE_DIR}/${source}")
     if(link_args STREQUAL "none")
-        execute_process(COMMAND "${KRLD}" "--source-root=${FIXTURE_DIR}" --entry=_start "${WORK}/${stem}.o"
-                                -o "${WORK}/${image}"
-                        RESULT_VARIABLE linked ERROR_VARIABLE link_error)
-    else()
-        execute_process(COMMAND "${KRLD}" "${link_args}" "--source-root=${FIXTURE_DIR}" --entry=_start
+        execute_process(COMMAND "${KRLD}" "--source-root=${FIXTURE_DIR}" --entry=_start
                                 "${WORK}/${stem}.o" -o "${WORK}/${image}"
-                        RESULT_VARIABLE linked ERROR_VARIABLE link_error)
+                        RESULT_VARIABLE state ERROR_VARIABLE error)
+    else()
+        execute_process(COMMAND "${KRLD}" "${link_args}" "--source-root=${FIXTURE_DIR}"
+                                --entry=_start "${WORK}/${stem}.o" -o "${WORK}/${image}"
+                        RESULT_VARIABLE state ERROR_VARIABLE error)
     endif()
-    if(NOT linked EQUAL 0)
-        message(FATAL_ERROR "linking ${image} failed:\n${link_error}")
+    if(NOT state EQUAL 0)
+        message(FATAL_ERROR "linking ${image} failed:\n${error}")
     endif()
-
-    file(SHA256 "${FIXTURE_DIR}/${image}" checked_in)
-    file(SHA256 "${WORK}/${image}" rebuilt)
-    if(NOT checked_in STREQUAL rebuilt)
-        string(APPEND failures
-            "  ${image} does not match ${source}: rebuild it with\n"
-            "    krc -c --target kr232 ${source} -o ${stem}.o\n"
-            "    krld ${link_args} --entry=_start ${stem}.o -o ${image}\n")
-    endif()
+    set(FAILURES "${FAILURES}" PARENT_SCOPE)
+    compare("${image}")
 endforeach()
 
-if(NOT failures STREQUAL "")
-    message(FATAL_ERROR "fixtures do not match their sources:\n${failures}")
+# user-calls.c is a user-mode program: it needs the startup and the variadic stub,
+# because it checks the STATUS each kernel call returns.
+if(DEFINED RUNTIME)
+    compile("${WORK}/crt0_user.o" "${RUNTIME}/crt0_user.s")
+    compile("${WORK}/syscall6.o" "${RUNTIME}/syscall6.s")
+    compile("${WORK}/user-calls.o" "${FIXTURE_DIR}/user-calls.c")
+    execute_process(COMMAND "${KRLD}" "--source-root=${FIXTURE_DIR}" --base=0x08000000
+                            --entry=_start "${WORK}/crt0_user.o" "${WORK}/user-calls.o"
+                            "${WORK}/syscall6.o" -o "${WORK}/user-calls.k232"
+                    RESULT_VARIABLE state ERROR_VARIABLE error)
+    if(NOT state EQUAL 0)
+        message(FATAL_ERROR "linking user-calls.k232 failed:\n${error}")
+    endif()
+    compare("user-calls.k232")
+endif()
+
+if(NOT FAILURES STREQUAL "")
+    message(FATAL_ERROR "fixtures do not match their sources:\n${FAILURES}")
 endif()
 message(STATUS "all fixture images match their sources")

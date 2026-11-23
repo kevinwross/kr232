@@ -149,6 +149,7 @@ if(KR232_BUILD_TESTS)
                     -DKRC=${KR232_KRC}
                     -DKRLD=${KR232_KRLD}
                     -DFIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures
+                    -DRUNTIME=${KR232_RUNTIME_DIR}
                     -DWORK=${CMAKE_BINARY_DIR}/fixtures
                     -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232FixtureDrift.cmake)
     endif()
