@@ -676,7 +676,16 @@ Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2`
 Added: `src/asm/kr232_parser.{h,cpp}` with `parse_instruction` — case-insensitive mnemonic lookup, operands split on commas and trimmed, the ten zero-operand Short forms, `push`/`pop`/`inc`/`dec`/`call` with a register, the unary `neg`/`not`/`sxtb`/`sxth`, and the two-register compact operations. Every other shape — immediate, bracketed address, branch displacement, FP — is refused with an error rather than guessed at.
 Ran: krcompiler's suite 2875 assertions, all passing; two parser cases.
 Found: the first version of the file carried helpers for immediates and conditions that nothing called yet, which `/W4` treats as dead code; they were removed rather than suppressed and will come back with the shapes that use them. A brace-initialised operand also narrowed `unsigned` to `uint8_t`, which the same warning level caught.
-Next: bracketed addresses, then branches, then FP.
+Next: branches, then FP, then the 81-vector fixture.
+
+### 2026-11-22T21:19:17-08:00 — M2: bracketed addresses
+
+Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2`
+Added: address parsing for `[rN]`, `[rN+d8]`, `[rN-d8]`, `[rN]+`, `-[rN]`, `[pc+d]`, `[sp+d]` and `[absolute]`, used by the loads and stores and by `lea`. A plain `[Rb]` takes the two-byte compact form when one exists; absolute `ld`/`st` take the five-byte register form, the byte and halfword accesses take `F1`, and `lea` from PC or SP takes `F1` ops 3 and 4.
+Ran: krcompiler's suite 3007 assertions, all passing; four parser cases.
+Found: two defects, both in my new code rather than the specification. The post-increment mark sits outside the brackets, and the parser validated the closing bracket before stripping the `+`, so every `[rN]+` was refused. And a plain `[Rb]` was being encoded as the three-byte normal form when the two-byte compact form exists — the shorter encoding is the one an assembler owes the caller.
+Next: branches and absolute `jmp`/`call`, then the FP text, then the fixture that assembles every Appendix A line and compares the bytes.
+
 
 ### 2026-11-22T21:17:44-08:00 — M2: register-with-immediate text
 
