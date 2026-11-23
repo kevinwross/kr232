@@ -660,7 +660,16 @@ Found: there is no `kr216_assembler.cpp` to port. `src/asm/` holds encoders for 
 - The text parser on top, which is what turns Appendix A into the 81-vector round trip.
 Order: encoder first, so the round-trip test can be written against bytes before a parser exists, then the parser.
 Not landed: no code this round. Reading the three encoders' shapes plus the ABI and descriptor documents used the round; the encoder starts next with a full budget rather than half a file.
-Next: the FP and frame escapes, then the text parser.
+Next: the text parser on top of the encoder.
+
+### 2026-11-22T21:13:19-08:00 — M2: the fp and frame escapes, and the encoder's last class
+
+Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2`
+Added: `F3` register-register with FNEG, FABS, FSQRT and FRND refusing a second register; `F4` fp memory with its optional `d8`; `F5` conversions; `F6` push and pop; `ENTER` choosing `F7`, `F8` or `FB` by frame size, refusing a frame that is not a multiple of four and a mask with bits 13-15 set; `F9`'s six-byte wide form; and `FA`'s seven-byte fp memory. Sixteen encodings and ten rejections pinned by layout.
+Ran: krcompiler's suite 2812 assertions, all passing; eleven kr232 cases.
+State: every instruction class of ISA section 3.1 now has an encoder. What is missing is not a class but the proof: the 81-vector round trip needs a parser to produce text and a disassembler to read bytes back, and that is the next task.
+Next: the text parser, then the round trip for all 81 vectors.
+
 
 ### 2026-11-22T21:12:23-08:00 — M2: the generic and long-integer escapes
 
