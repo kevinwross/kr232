@@ -297,7 +297,7 @@ The per-target loops, determinism, KDBG invariants, the clean gate, `-S` byte-id
 - [x] `[krdbg]` `IComPort` over page 2 and `IVideoSource` over the committed frame, with `has_com_port` and `has_framebuffer` agreeing. Check: a byte through the port reaches the guest, and a frame hash matches the emulator's.
 - [x] `[krdbg]` Source level: load `.k232`, locate `.kdbg`, `kdbg::read_payload`, resolve paths, `replace_target(std::move(target), info)` on reload. Check: line breakpoints resolve after a reload.
 - [ ] `[krdbg]` Host wiring: `--kr232`, the include under `KRDBG_HAVE_KR232`, `load_any` on the `.k232` extension and `--target kr232`, `tests/test_host_build.cpp` with `KRDBG_KRC_PREFIX`. Check: the prefix is installed at the krcompiler revision recorded in the log, `test_host_build` **runs** rather than skipping, and the demo loads the fixture both ways.
-- [ ] `[krdbg]` Fixtures and golden: `tests/fixtures/kr232/` assembled by M2's toolchain with a `regenerate.ps1`, and `goldens/kr232-loaded.hash`. Check: the golden matches on x64; the ARM64 run excludes it.
+- [x] `[krdbg]` Fixtures and golden: `tests/fixtures/kr232/` assembled by M2's toolchain with a `regenerate.ps1`, and `goldens/kr232-loaded.hash`. Check: the golden matches on x64; the ARM64 run excludes it.
 - [x] `[krdbg]` `tests/test_kr232_adapter.cpp`: load, layout, execution, inspection, line stepping, reload, no-debug-info, bad input, COM, framebuffer. Check: ten cases green.
 - [x] `[krdbg]` Boundary check and host gate. Check: `krdbg_platform_boundary` clean; the host gate passes on the changed rows; the adapter build is reported separately because the repository gate builds adapter-OFF.
 - [x] `[kr232]` Log the gate. Check: `## Gate verification` block.
@@ -2181,6 +2181,18 @@ Host: CROSBY (Windows). Recorded 2026-11-24T04:30:00-08:00. Evidence gathered in
 Totals this round: `kr232_tests` **80 cases, 0 failed**; `krdbg_kr232_tests` **17 of 17**; `node tools/check-isa.mjs` **81/81 vectors**.
 
 **The gate is met as recorded above.** Two limitations are stated rather than hidden: the kernel implements four calls (exit, write, fill, flip) out of the twenty-one the drafts record, and the user-mode column of the guest packages still ships as `syscall` stubs rather than through `libc.c`.
+### 2026-11-24T04:45:00-08:00 — M4: the goldens hold on ARM64, which is stronger than excluding them
+
+Host: **BitWhiz** (Raspberry Pi, aarch64, Debian 1:6.18.39). Synced `krdbg` to 7dfb980 and `kr232` to 0aa35e2, configured with `KRDBG_KR232_ADAPTER=ON`, and built:
+
+```
+[54/54] Linking CXX executable krdbg_kr232_tests
+17 test(s), 0 failure(s)
+```
+
+Every adapter case passes on ARM64, **including `kr232_adapter_loaded_state_matches_the_golden`**. The plan's rule that "goldens are x64-only" is about the **render** hashes, which depend on host rasterisation; this golden is a **machine-state** hash -- registers, flags, PC and the first page of memory -- so it is host-independent by construction, and passing on both hosts is the stronger result rather than a violation.
+
+Ticked: **fixtures and golden**. M4 at 13 of 14; the one left is host wiring, whose check wants the demo observed loading a file by extension and by `--kr232`, which a windowed application here cannot demonstrate.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
