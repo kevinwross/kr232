@@ -1306,6 +1306,14 @@ Three tests, and the first two defects they exposed are real:
 The third test stops on the **first line of `main`** through a `DebugSession`, so source-level stepping works end to end rather than only in principle.
 
 `krdbg_tests` **114 tests, 0 failures**. The adapter-cases task stays open on **no-debug-info** (a container without `.kdbg`), which needs a fixture that does not exist yet.
+### 2026-11-23T10:45:00-08:00 — M4: fixture provenance and the boundary check
+
+Host: CROSBY (Windows, `build/kr232-adapter`)
+Added `krdbg/tests/fixtures/kr232/regenerate.ps1` (**6d4387a**): it rebuilds all three containers from M2's toolchain with `crt0`, naming each source file and the runtime objects it links. The containers stay checked in so the tests need no compiler, but they are not hand-made, and the claim is now a script rather than a sentence.
+
+Ran: `ctest --test-dir build/kr232-adapter` -- **3 of 3 passed**, including `platform_boundary`, so the adapter adds no platform dependency to a boundary that is checked.
+
+Not done: the gate script's own run (`scripts/gate-windows.ps1`, which configures Debug and Release, runs CTest and checks the headless hashes) and `goldens/kr232-loaded.hash`, whose subject is undecided -- what a "loaded" hash covers for this target is a decision, not a detail, and picking it in passing would be a guess.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
