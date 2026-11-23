@@ -2929,6 +2929,26 @@ The label is the constant's **IEEE-754 bit pattern in hex**, and `materialize_fl
 Suites: `krcompiler` **35 of 35** kr232 rows; the image comparison above is the cross-host evidence.
 
 Items 13 and 14 of 25 closed.
+### 2026-11-25T06:00:00-08:00 — Item 15 closed: the package reaches all four drawing commands
+
+Host: CROSBY (Windows). `gfx_copy_rect`, `gfx_draw_line`, `gfx_draw_text` and `gfx_upload` existed as kernel calls and had **no wrapper**, so a C program could not reach them and `kr232-devices.md` §11.1's promise was half true.
+
+They take **at most four arguments**, because that is what the ABI passes in registers: the commands needing more travel as one block behind a pointer, and the ones that want a colour use the one `gfx_set_colour` recorded. The first attempt had five and six parameters and the compiler refused the call sites -- *more than four arguments needs the stack form* -- which is the same limit the header's original comment recorded.
+
+Each answers the device STATUS, and the package fixture checks every one:
+
+| call | expected | result |
+|---|---|---|
+| `gfx_draw_line(0,0,15,15)` | success | success |
+| `gfx_copy_rect(0,0,8,8)` | success | success |
+| `gfx_upload(pixels,4,4,16)` | success | success |
+| `gfx_draw_text(0,0,"packages",8)` | **refusal** | refusal |
+
+The frame moved to **`659d051c4dc232e5`** because the line and the upload now draw, and the row was re-recorded against it.
+
+Suites: `krcompiler` **35 of 35** kr232 rows, `kr232` **15 of 15** kernel rows.
+
+Item 15 of 25 closed.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
