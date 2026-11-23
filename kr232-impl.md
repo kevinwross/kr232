@@ -2638,6 +2638,24 @@ build/two-adapters-vs   windows-msvc generator, same two adapters               
 **What this does and does not establish.** The coupling is not present now, in either generator, with two adapters linked. The thirteen failures I recorded earlier were measured in a build directory whose state is not reproducible today, and the same session had already recorded render-golden failures that turned out to be build-configuration artefacts. So the honest reading is that the goldens are **not** layout-coupled and the earlier count was an artefact -- not that a defect was fixed here. The script exists so the next adapter is checked rather than assumed.
 
 Gaps 1-5 are closed.
+### 2026-11-24T17:05:00-08:00 — Item 1 closed: the label collision that ate a whole function's loop
+
+Host: CROSBY (Windows). Root cause found and fixed. Every function emitted its basic blocks as `.Lbb0`, `.Lbb1`, its compares as `.Lcmp0` and its indirect-call returns as `.Lcall0`. **Local labels are bound by name within the object**, so a branch in the second function could bind to the first function's block:
+
+```
+map, before the fix:
+  .Lbb0 0x112a4 26 local     <- main
+  .Lbb0 0x113d5 144 local    <- the package's puts
+  .Lbb0 0x114aa 19 local     <- another function
+```
+
+That is why the code could be byte-identical to a working function and still do nothing: the code was right and the branch went elsewhere. Labels now carry a function-unique prefix (`.Lf<N>_bb`, `_cmp`, `_call`).
+
+Evidence, in order: the reproduction returned **-1** before and **131** after; `krc_kr232_three_functions` pins it (three functions, two calling one extern, the third calling a sibling); **32 of 32** kr232 rows, `krc_tests` **3704** assertions, `kr232` **10 of 10** and **4 of 4** kernel rows, `krdbg` **17 of 17**.
+
+**The workaround is gone**: `cons_getc` is back in `cons_user.c`, `cons_input_user.c` is deleted, and `kr232_kernel_packages` passes with one console object.
+
+Item 1 of 8 closed. Next: the frame-size test.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
