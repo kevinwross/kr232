@@ -234,7 +234,7 @@ The 81 vectors, the protection suite, the eight device suites, the blitter rejec
 - [ ] `[kr232]` `kr232-dis`: the canonical decoder and text form, shared with the emulator. Check: a disassembly test over all 81 vectors and over the assembled fixture.
 - [x] `[kr232]` The `.k232` loader replaces the flat loader and dispatches on the container magic. Check: a bad checksum, a section outside the map and a base mismatch each fail at load.
 - [x] `[kr232]` A `.s` fixture assembles to an object, links to a `.k232`, and runs under M1. Check: exit status and screen match.
-- [ ] `[kr232]` Log the gate. Check: `## Gate verification` block with every M2 item.
+- [x] `[kr232]` Log the gate. Check: `## Gate verification` block with every M2 item.
 
 ### Tests
 
@@ -883,6 +883,11 @@ WSL: krcompiler builds with GCC under `linux-gcc-debug`; `ctest -R kr232` **2 of
 Found on WSL and not on Windows: GCC's `-Wswitch` rejected `krld`'s target switch for the missing `Kr232` case. MSVC does not raise it, so the Windows build hid a case the other host caught; it is fixed and both hosts build.
 Not run: ARM64. The M2 plan asks for Windows and WSL, and both ran; the ARM64 row remains M1's.
 Gate: plan §7 items 1-5 — **met on Windows and WSL**.
+
+### 2026-11-22T22:12:00-08:00 — M2 merged
+
+Merged: `kr232-m2` into `master` as **e441d06**, a `--no-ff` merge carrying the profile, descriptor, parser, encoder, object writer, debug bridge, container writer, the linker's target-5 path and `krc --dump-symbols`. Verified on master: `ctest -R kr232` **6 of 6**, `krc_tests` **3700 assertions**.
+The branch remains on the remote; it is the owner''s to delete.
 
 ## 14. Gate verification
 
