@@ -814,6 +814,14 @@ Ran: krcompiler's suite 3679 assertions, all passing.
 Found: two of my own expectations were wrong, not the code — a branch to the label immediately following has displacement 0, not 2, and line records are one per instruction rather than one per statement (labels are not statements). Both were caught by asserting exact bytes and exact counts.
 Next: emit the `.debug_info` bridge from these line records so `attach_kdbg` produces a `.kdbg`, then `krc --dump-symbols` on a `.k232`.
 
+### 2026-11-22T21:42:23-08:00 — M2: the debug bridge converts to a .kdbg
+
+Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2` at `20e32f0`
+Added: the conversion test the previous round left unfinished. Two instructions and a global link to a container that carries a `.kdbg` section, and `decode_kdbg` reads back target id 5, the source path `fixture.s`, exactly two line records and the `main` function.
+Ran: krcompiler's suite 3691 assertions, all passing.
+Found: the previous round's single failure was the end-of-text label emitting an `L` record as well as a symbol, so two statements produced three lines. `.Lend` is now a symbol only -- it exists so a function record has an end, not to mark a statement. The previous round committed the emission without this test and said so; this round is what closes it.
+Next: `krc --dump-symbols` on a `.k232`, `RunKr232Image.cmake` with `KRC_KR232_VM`, then `kr232-dis` and the `.s` fixture run under `kr232-emu`.
+
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
