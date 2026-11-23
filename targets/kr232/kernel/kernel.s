@@ -22,6 +22,12 @@ syscall_handler:
   ld r8, #1
   cmp r7, r8
   beq write_call
+  ld r8, #2
+  cmp r7, r8
+  beq fill_call
+  ld r8, #3
+  cmp r7, r8
+  beq flip_call
   jmp bad_call
 
 bad_call:
@@ -55,8 +61,37 @@ write_loop:
 write_done:
   ld r2, #0
   iret
+
+fill_call:
+  ; R2 x, R3 y, R4 w, R5 h, R6 colour: one FILL_RECT block on the graphics page.
+  ld r8, #gfx
+  ld r8, [r8]
+  ld r9, #3
+  st [r8], r9            ; COMMAND = FILL_RECT
+  st [r8+4], r2
+  st [r8+8], r3
+  st [r8+12], r4
+  st [r8+16], r5
+  st [r8+20], r6
+  ld r9, #1
+  st [r8+36], r9         ; DOORBELL
+  ld r2, [r8+40]         ; STATUS: the device's verdict reaches the caller
+  iret
+
+flip_call:
+  ld r8, #gfx
+  ld r8, [r8]
+  ld r9, #7
+  st [r8], r9            ; COMMAND = FLIP
+  ld r9, #1
+  st [r8+36], r9
+  ld r2, [r8+40]
+  iret
+
 .data
 user_low:
   .word 0x08000000
 console:
   .word 0xFFF02000
+gfx:
+  .word 0xFFF09000
