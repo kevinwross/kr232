@@ -223,7 +223,7 @@ The 81 vectors, the protection suite, the eight device suites, the blitter rejec
 
 ### Tasks
 
-- [ ] `[krcompiler]` `TargetId::Kr232`, the `TargetProfile` row with all nine capability flags (`has_fpu` true, `has_matrix`, `has_atomics`, `has_threads`, `has_tls`, `has_eh`, `has_rtti` false, `has_cpp` true, `backend_available` false), `to_string`, `parse_target`. Check: `test_target` pins every field; `krc --list-targets` shows `kr232 backend=no`.
+- [x] `[krcompiler]` `TargetId::Kr232`, the `TargetProfile` row with all nine capability flags (`has_fpu` true, `has_matrix`, `has_atomics`, `has_threads`, `has_tls`, `has_eh`, `has_rtti` false, `has_cpp` true, `backend_available` false), `to_string`, `parse_target`. Check: `test_target` pins every field; `krc --list-targets` shows `kr232 backend=no`.
 - [ ] `[krcompiler]` `Kr232Descriptor` with the register roles of M0. Check: a unit test reads each role back.
 - [ ] `[krcompiler]` `src/asm/kr232_assembler.cpp` and its encoder, plus `make_object` with target id 5. Check: round-trip tests, assemble → bytes → disassemble, for every Appendix A vector.
 - [ ] `[krcompiler]` `.kdbg` emission from assembly: line and function records. Check: `krc --dump-symbols` on a linked image names the fixture's lines.
@@ -636,7 +636,14 @@ Added: `tests/fixtures/kernel-draw.bin`, 295 bytes of hand-encoded instructions 
 Ran: `kr232-emu vm tests/fixtures/kernel-draw.bin --max-steps 100 --frame-hash` prints `halted status 0 after 10 steps` and `frame 1628b6c37bf7a2ad`; `ctest` 5 of 5 on Windows and 5 of 5 on WSL, with `kr232_cli_kernel` pinning that hash.
 Found: the test's first expression used `[\r\n]+`, which CMake's regex engine does not implement, so it failed while the run was correct — the same class of mistake as the previous CLI test. The pinned hash plus the exit code is the assertion that does not depend on the reporter's line endings.
 Ticked: the hand-encoded kernel image.
-Next: the M1 gate record.
+### 2026-11-22T21:05:44-08:00 — M2: the kr232 target profile
+
+Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2` in krcompiler
+Added: `TargetId::Kr232`, the twenty-seven-field `TargetProfile` row, `to_string`, `parse_target`, `kROTargetId` returning 5, and a `test_target` case that pins every field against ADR 0057. `krc --list-targets` prints `kr232  register  pointer=32  data=ilp32  backend=no`.
+Ran: krcompiler's full suite `224 of 224` passed, 2345 assertions.
+Found: adding a fifth target broke two tests that asserted a world of four — `target_profiles().size() == 4`, and the sysroot-bits test, which compared every profile against checked-in headers kr232 does not have until M3. The count is now five; the sysroot test allows a missing header only for kr232 and keeps a pinned count of four compared targets, so a missing header for any other target still fails rather than being skipped.
+Ticked: the profile task.
+Next: `Kr232Descriptor` with the register roles, then the assembler.
 
 ### 2026-11-22T20:06:19-08:00 — the BitWhiz alias now matches both spellings
 
