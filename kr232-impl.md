@@ -1068,6 +1068,16 @@ Ticked: `targets/kr232/runtime/crt0.s` -- it calls `main`, clears R7 (the SYS nu
 Added: `memcpy` and `memset` as byte loops. The blitter-backed forms are the kernel's: a user program reaches the blitter only through a `SYSCALL`, so a byte loop is what is possible before M4.
 Stay open: the `libc.c` task, because it names the `SYS` write/read/exit stubs, which need the kernel; and the ALU, aggregate, varargs/FP, C++ and krdbg tasks.
 Note on ordering: the task list says M3's final check has "M4's adapter" as a precondition, so the krdbg stop cannot run before M4 regardless of how much of the compiler exists.
+### 2026-11-23T03:45:00-08:00 — M3: the three-char record, and why its copy is wrong
+
+Host: CROSBY (Windows `windows-msvc-debug`)
+Added `tests/fixtures/c/kr232_struct.c`: `struct triple { char a, b, c; }` passed by value to `sum3`. It compiles and links, and traps after 22 steps.
+
+Diagnosis, from `--dump-ir` on kr16 and kr232 together: the IR emits `getelementptr %triple, %p, 0, <member>`, so the member index is **1 or 2**, and the backend's GEP scales it by the base element's size. `type_bytes(%triple)` returns **12** because it aligns every field to four bytes, while the ABI's record is **3 bytes, align 1** (the alloca says `align 1` and the copy is three `load i8`/`store i8` pairs). So member 1 lands at byte 12 and member 2 at byte 24 of a 3-byte object -- writes outside it.
+
+Two defects, and the second is the general one: `type_bytes` must lay a record out the way the profile says (packed, no 4-byte field padding), and a struct-member GEP must offset by the **sum of the preceding fields**, not by index times the whole record.
+
+Next: fix both, then the size-exact copy check runs.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
