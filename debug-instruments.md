@@ -154,8 +154,9 @@ statement about the machine, not a failure of the instrument.
 **What has been seen working**, as opposed to implemented:
 
 - kr232: all four, including the run that found the shift defect.
-- kr32: a break at the entry printing the registers, and a page log showing three
-  stores at the first instruction (`bios.k32`).
+- kr32: a break at the entry printing the registers (`bios.k32`), and on the
+  compiled `hello_c.k32` a watch hit and a page log of the stack stores
+  (`0x0800FFEC` taking `0x0002F538` at pc `0x0002F530`).
 - kr16: a break at the image entry, and both a watch hit (`0x2000` going from
   `0x1234` to `0x5678`) and a page log on a five-instruction program written to
   exercise them.
