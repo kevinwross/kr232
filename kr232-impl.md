@@ -1535,6 +1535,13 @@ Host: CROSBY (Windows). `kr232_adapter_line_breakpoints_survive_a_reload`: the s
 `krdbg_kr232_tests` **12 tests, 0 failures**. Ticked: **source level**.
 
 M4 at 11 of 14. Remaining: `test_host_build` with an installed `krc` prefix (which needs the prefix installed at this revision), the golden's ARM64 half, and the gate record.
+### 2026-11-23T16:25:00-08:00 — M4: the host-build case exists, the prefix install did not
+
+Host: CROSBY (Windows). `tests/test_host_build.cpp` is now compiled into `krdbg_kr232_tests` with `KRDBG_HAVE_KR232`, and carries a kr232 case: build `tests/fixtures/kr232/host_build.c` through the chain, load the image, run to line 3.
+
+`krdbg_kr232_tests` **14 tests, 0 failures** -- but the two host-build cases **return early** without `KRDBG_KRC_PREFIX`, so those 14 do not include a host build. That is the repository's existing skip behaviour and exactly the thing the task's check refuses to accept.
+
+The install did not happen: `cmake --install build/windows-msvc-debug --prefix .../dist` fails with "File exists" on a library inside the build tree, so the prefix layout the chain wants is not being produced by that command. Next: read `discover_toolchain` for the layout it expects, then produce it (either a working install rule or the documented layout), and only then claim the task.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
