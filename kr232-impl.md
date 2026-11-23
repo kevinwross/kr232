@@ -1730,6 +1730,31 @@ after:  trap 4 at 0x00000000 after 50 steps
 ```
 
 So the argument convention is fixed -- the callee now adds 1.5 and 2.5 -- and the program now dies later, **jumping to address zero**. That is a different fault: something returns through a zeroed link. The FP task stays open on it, with the argument half now correct and witnessed by the generated code.
+### 2026-11-23T20:10:00-08:00 — M3: the double at FP-4 overwrites the saved frame pointer
+
+Host: CROSBY (Windows). Two experiments isolate it:
+
+| Program | Result |
+|---|---|
+| `double r = 1.5 + 2.5; return (int)r;` | **halted status 4** -- FP arithmetic is correct |
+| `double add(double,double)` called from main | trap 4 at address 0 after 50 steps |
+
+And the trace names the corruption exactly:
+
+```
+0x00000972 leave #0x0000
+0x00000975 ret
+0x0000098d mov r8, fp          <- back in main
+0x0000098f sub r8, #12
+0x00000992 fst f0, [r8]
+fp=0x3ff80000 sp=0x07ffffcc ...
+```
+
+`0x3FF80000` is the **high word of the double 1.5**. The frame pointer was restored from a slot that holds half a double, and the reason is arithmetic: a double stored at `FP-4` occupies **FP-4 .. FP+3**, which includes `[FP]` -- the saved frame pointer. `ENTER` writes the FP there and the first FP parameter store immediately overwrites it.
+
+So the frame layout is wrong for 8-byte values, not the call convention (fixed last round) and not the frame chain (which was never at fault). A double needs its slot at `FP-8`, `FP-16`, ... so its top word stops one slot short of `[FP]`: reserve the first 4-byte slot before allocating any 8-byte value, and give doubles an even slot index.
+
+The M3 FP task stays open on this, now with the cause proven by a value rather than inferred from a symptom.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
