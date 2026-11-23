@@ -3030,6 +3030,27 @@ Before this, ARM64 had run **36** of those 955 rows.
 **Errata.** The commit `faa849d`'s subject says "ARN64"; it is pushed and history is append-only, so it stays as written.
 
 Items 1 and 2 of 7 closed.
+### 2026-11-25T10:30:00-08:00 — Items 3, 4 and 5 closed: CI, a final refusal, and documents that said "provisional"
+
+Host: CROSBY (Windows).
+
+**Item 3 -- CI.** kr232 had **no workflow at all** and krcompiler's ran presets **without the sibling VM repositories**, so the executed kr232 rows were never registered there.
+
+- `kr232/.github/workflows/ci.yml`: a lint job, and an integration job that checks out the compiler, builds it from its default branch, configures the emulator with the kernel and package rows, runs the kr232 suite, then registers the emulator with the compiler and runs its executed rows and `krc_tests`.
+- `krcompiler/.../ci.yml` gained `kr232-integration`, which builds the emulator from its repository and configures the compiler with `KRC_KR232_VM`, so the rows exist.
+
+**No GitHub run has been observed.** The equivalent steps were run locally and by `scripts/check-arm64.ps1`; both files pass a structural check (`on:`, `jobs:`, no tabs, jobs enumerated) but no workflow has executed on a runner.
+
+**Item 4 -- the atlas is a documented refusal, not done.** `kr232-devices.md` §8's row now says *not implemented, finally* and names why: the 10x20 atlas is not in this repository, the terminal page renders its cells from a font the UI layer owns, and a guest-visible atlas has to be designed there first. `DRAW_TEXT` is the one graphics command that refuses by design, and rows on both sides assert that it refuses.
+
+**Item 5 -- documents and the demo.**
+
+- `kr232-devices.md` §11 and §11.6 lose **"provisional"**: the protocol has been in use since M5.
+- `kr232-plan.md` §12's two open questions are marked **settled at M5**, with ISA §18 and devices §14 named, and the paragraph that called them open is replaced.
+- `kr232-plan.md` §13 gained the three traps this work kept hitting: **stale generated artefacts** (four in one session), **host-dependent bytes** (CRLF in a label hash, `std::hash<double>`), and **checks that cannot fail**.
+- The demo's `--kr232 <image>` was parsed and mentioned in **no usage line**; the line names it now, and a headless load prints `frame hash 70F42ABC0377DD5A`. **`--target kr232` -- a source build inside the debugger -- is not implemented**: the target selector covers kr32, kr16 and kr216 only, so that path is recorded as unreachable rather than claimed.
+
+Items 3, 4 and 5 of 7 closed; items 1 and 2 closed earlier.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
