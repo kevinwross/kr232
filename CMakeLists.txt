@@ -7,6 +7,16 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(KR232_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" ON)
 option(KR232_BUILD_TESTS "Build the unit tests" ON)
+
+# The guest runtime, sysroot and package fixture live in the compiler checkout;
+# the package row is only registered when the compiler is configured.
+set(KR232_RUNTIME_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../krcompiler/targets/kr232/runtime"
+    CACHE PATH "Guest runtime sources")
+set(KR232_SYSROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../krcompiler/sysroot/kr232/include"
+    CACHE PATH "Guest sysroot headers")
+set(KR232_PACKAGE_FIXTURE
+    "${CMAKE_CURRENT_SOURCE_DIR}/../krcompiler/tests/fixtures/c/kr232_user_packages.c"
+    CACHE FILEPATH "The package program the row builds")
 option(KR232_LAYOUT_SELFTEST
     "Add a targets/ file to a host target, so the layout guard must fail the configure" OFF)
 
@@ -135,6 +145,24 @@ if(KR232_BUILD_TESTS)
                 -DEXPECT_EXIT=0
                 -DFRAME_HASH=f6b786175f12b425
                 -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232Kernel.cmake)
+
+    # The package program names no call numbers: it prints, draws, flips and
+    # asks for the mode through <kr232/*.h>, so this row fails when a package
+    # does rather than when a test does. It needs the compiler to build.
+    if(KR232_BUILD_KERNEL AND EXISTS "${KR232_KRC}")
+        add_test(NAME kr232_kernel_packages
+            COMMAND ${CMAKE_COMMAND}
+                    -DKRC=${KR232_KRC}
+                    -DKRLD=${KR232_KRLD}
+                    -DVM=$<TARGET_FILE:kr232-emu>
+                    -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.k232
+                    -DRUNTIME=${KR232_RUNTIME_DIR}
+                    -DINCLUDE=${KR232_SYSROOT_DIR}
+                    -DFIXTURE=${KR232_PACKAGE_FIXTURE}
+                    -DWORK=${CMAKE_BINARY_DIR}/packages
+                    -DFRAME_HASH=dddcd2efdafe5925
+                    -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232UserPackages.cmake)
+    endif()
 
     add_test(NAME kr232_dis_flat
         COMMAND kr232-dis "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel-gate.bin")
