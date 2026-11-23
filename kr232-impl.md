@@ -1124,6 +1124,14 @@ Host: CROSBY (Windows `windows-msvc-debug`, `windows-msvc` emulator)
 Added: an **indirect call** -- a virtual dispatch reaches a function pointer loaded from the vtable; the ISA has no call-through-register, so the return address is pushed and `jmp rD` reaches the callee, whose `ret` pops what was pushed. Fixed on the way: the assembler read `r8` as a label because it starts with a letter, so `jmp r8` became an undefined symbol; a register operand is now excluded from the label path.
 
 State: a class, a base pointer and an override compile and link, and the program runs **75 steps** before trapping at `jmp r8` with **r8 = 0**. The trace names the cause: the vtable slot holds nothing because a `ConstantAddressArray` initialiser -- a table of addresses -- is emitted as `.word 0`. The fix is small and is next: emit one relocated word per element, which the assembler's `.word` path can already express for a symbol.
+### 2026-11-23T05:20:00-08:00 — M3: virtual dispatch works
+
+Host: CROSBY (Windows `windows-msvc-debug`, `windows-msvc` emulator)
+Fixed: a `ConstantAddressArray` -- a table of addresses, which is what a vtable is -- fell into the "no initialiser" branch and emitted `.word 0`. The backend now emits one word per element naming its target; the assembler accepts a symbol as a `.word` and carries an absolute relocation; the linker fills the slot.
+
+Ran: `Bird bird; Animal* animal = &bird; animal->legs()` returns **2**, the override, not the base class's 4. `ctest -R kr232` **25 of 25 passed**; `krc_kr232_run_virtual` pins it.
+
+Still open in the C++ task: the `[vptr - 4]` typeinfo word must be present and zero. The task is not ticked until a program reads that word and returns 0.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
