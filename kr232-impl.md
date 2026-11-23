@@ -2766,6 +2766,17 @@ Getting there found four portability defects, none of which the Windows suite co
 That third one is the interesting one: the drift row I added in item 7 is what caught it, and only because it ran somewhere else.
 
 All eight items on the priority list are closed.
+### 2026-11-24T22:20:00-08:00 — Item 1 closed: all 33 kr232 rows run on ARM64
+
+Host: BitWhiz (aarch64). The rows were never registered there because `KRC_KR232_VM` was unset, so `ctest -R kr232` matched **5** tests where Windows had 33. Configured with the emulator path:
+
+```
+krcompiler ctest -R kr232    33 of 33
+```
+
+The thirty-third needed a fix, and it is a real platform difference: **a POSIX process status keeps only its low eight bits**, so a program that exits 300 reads back as **44** on Linux while Windows reports 300. The 32-bit truth is the machine's own printed status, so the runner gained `EXPECT_STATUS` and `krc_kr232_run_exit300` checks that everywhere, keeping `EXPECT_EXIT=300` only on Windows where it means something.
+
+That also sharpens the earlier 32-bit exit-status work: the *machine* holds 32 bits, and on POSIX only the last eight reach the parent.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
