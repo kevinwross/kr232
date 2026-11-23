@@ -1423,6 +1423,14 @@ The entry stub is placed **before** `main`, so the outer frame's return address 
 `krdbg_kr232_tests` **9 tests, 0 failures**. The `unwind` task stays open on the **local's value** its check names: the fixtures carry no variables in their `.kdbg`, so there is nothing to read through a frame offset yet.
 
 Lesson, again the same one: two rounds were spent on a suspicion when one written-down measurement would have ended it immediately.
+### 2026-11-23T13:35:00-08:00 — M4: a crafted no-debug container, and where it stops
+
+Host: CROSBY (Windows).
+Built a container **without** a `.kdbg` section by renaming the section's string-table entry in `loaded.k232` (`.kdbg` -> `.kdbX`) and recomputing the header CRC at offset 48 with the standard CRC-32 the writer uses.
+
+Ran: the **emulator accepts and runs it** -- `halted status 0 after 2 steps` -- so the file is a valid container, its CRC holds, and `kr232::load_image` is satisfied. The **adapter refuses it**, and the test's `CHECK(ok)` failed without the error text, so what the adapter complained about is not yet known.
+
+Not committed: the crafted fixture and its test were removed again rather than left red. The next step is to capture the adapter's `error` string -- a probe writing it to a file is two minutes and ends the guessing, which is the lesson this session keeps re-learning.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
