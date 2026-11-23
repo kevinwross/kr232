@@ -1038,6 +1038,12 @@ Found: the payload still reports both sources' lines at the same address (now `0
 Also observed: `symbols=0` in the payload, which is consistent with the linker not carrying the assembled line symbols into `image.symbols` at all.
 Next: resolve or refuse a line record, and carry the line symbols through the link.
 
+### 2026-11-23T03:00:00-08:00 — M3: the debug payload is correct for two objects
+
+Host: CROSBY (Windows `windows-msvc-debug`)
+Fixed: every C input was assembled under the same name, so the per-source label prefix was identical for every object and both sources' lines resolved to one address. The prefix now hashes the **assembly text** instead. Also fixed: the invariants check compared hex addresses as strings and reported `0x40c` outside `0x400-0x436`; it converts with `math(EXPR)` now.
+Ran: the payload names `_start 0x400-0x407` and `main 0x408-0x436` with every line inside them; `ctest -R kr232` **21 of 21 passed**, the invariants check back in the suite.
+Next: tick the per-target-loop task, then the `-O1` measurement and the krdbg stop.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
