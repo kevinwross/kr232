@@ -359,7 +359,7 @@ The kernel's entry and return, the syscall table's validation, protection from u
 | M0 | complete — gate recorded 2026-11-22T20:07:37-08:00 | M0 |
 | M1 | complete — 11 of 11 tasks | met 2026-11-22T21:01:09-08:00 |
 | M2 | complete — 12 of 12 tasks | met 2026-11-22T22:05:00-08:00 on Windows and WSL; merged as krcompiler e441d06 |
-| M3 | 13 of 15 tasks — the code generator, runtime and freezes are in; varargs and the kernel-dependent `libc` stubs are open | recorded 2026-11-23T19:20:00-08:00; ISA 1.0 and devices 1.0 tagged |
+| M3 | 14 of 15 tasks — the code generator, runtime and freezes are in; varargs and the kernel-dependent `libc` stubs are open | recorded 2026-11-23T19:20:00-08:00; ISA 1.0 and devices 1.0 tagged |
 | M4 | 12 of 14 tasks — adapter, fixtures, golden and host build are in; the windowed demo load was not observed and the golden's ARM64 half was not run | recorded 2026-11-23T20:50:00-08:00 |
 | M5 | 7 of 7 tasks — kernel, syscall table, `--user`, the user program, protection, krdbg kernel support and both deferred questions | recorded 2026-11-24T04:30:00-08:00 |
 
@@ -2379,6 +2379,19 @@ kr232_tests: 82 cases, 0 failed
 A test pins the rule -- **a load into `R11` leaves the hardware flags as they were** -- so the next person to use it for data sees a failure that names the reason.
 
 Ticked: **`libc.c`'s console output and the SYS stubs**, witnessed by a C program printing through the kernel and exiting with the status it asked for. M3 at 14 of 15; only **varargs** remains, and it needs IR support the compiler does not have.
+### 2026-11-24T08:05:00-08:00 — All three repositories, both hosts
+
+Host: CROSBY and BitWhiz. Consolidated run after the `R11` fix, with nothing else changed:
+
+```
+kr232       ctest            8 of 8
+krcompiler  ctest -R kr232   28 of 28
+krcompiler  krc_tests        3704 assertions, 0 failed
+krdbg       krdbg_kr232_tests 17 of 17   (CROSBY)
+krdbg       krdbg_kr232_tests 17 of 17   (BitWhiz, aarch64)
+```
+
+Two tasks remain open across every milestone, and both are named by their own records: **M3's varargs and FP argument/return conventions**, which need IR support the compiler does not have, and **M4's host wiring check**, whose remaining observation is a windowed application loading a file. Neither is a defect; both are work that has not been done.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
