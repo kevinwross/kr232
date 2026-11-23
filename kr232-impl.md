@@ -650,7 +650,17 @@ Added: `src/backend/kr232_descriptor.{h,cpp}` and `tests/unit/test_kr232_descrip
 Ran: krcompiler's full suite `226 of 226` cases, 2413 assertions; the two new cases assert 68 of them.
 Found: the test first included `krc/backend/kr232_descriptor.h`, but descriptor headers live under `src/backend` and are reached as `backend/...`; the file existed and the include was wrong. A build catches that and a review does not.
 Ticked: the descriptor task.
-Next: the assembler and its encoder — the largest M2 piece, where every Appendix A vector must round-trip assemble to bytes to disassemble.
+Next: the assembler and its encoder.
+
+### 2026-11-22T21:07:46-08:00 — M2: what the assembler task actually needs
+
+Host: CROSBY (reading only)
+Found: there is no `kr216_assembler.cpp` to port. `src/asm/` holds encoders for KR32, KR16 and KR216 and assemblers only for KR32 and KR16; KR216's text form is produced by its backend and never parsed back. So M2's `kr232_assembler.cpp` is a new parser, not a copy, and the work splits cleanly:
+- `kr232_encoder.{h,cpp}` — instruction to bytes, following the codebase's `EncodedInstruction { bytes[8]; length }` with `std::optional` and an error string, exactly as `kr16_encoder.h` does.
+- The text parser on top, which is what turns Appendix A into the 81-vector round trip.
+Order: encoder first, so the round-trip test can be written against bytes before a parser exists, then the parser.
+Not landed: no code this round. Reading the three encoders' shapes plus the ABI and descriptor documents used the round; the encoder starts next with a full budget rather than half a file.
+Next: `kr232_encoder` with the Short, Register and Compact branch forms, and their part of the 81-vector round trip.
 
 ### 2026-11-22T20:06:19-08:00 — the BitWhiz alias now matches both spellings
 
