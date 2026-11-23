@@ -426,6 +426,15 @@ Found: the alias is capitalised on this client; the lowercase spelling resolves 
 Changed: §1 now states the working invocation, the machine's shape, and that the first ARM64 run must clone `kr232` there.
 Next: the M0 gate's merge clause, which is the owner's action.
 
+### 2026-11-22T20:02:26-08:00 — the ABI appendix checked against the ISA
+
+Host: CROSBY (reading only)
+Checked, claim by claim, in `docs/abi-kr232.md` against `kr232-isa.md`:
+frame offsets — `CALL` "decrements SP by 4 and stores the return address" (ISA §10.6 line 717) and `ENTER` stores FP at `SP-4` before pointing FP there (§10.7), so the return address is at `FP+4` and the first stack argument at `FP+8`, as written; `CALL addr32` exists as `F9` op 1 (§6); `FLDS`/`FSTS` widen and narrow (§7.9); `FPUSH`/`FPOP` move eight bytes (§8.7); an indirect call is the one-byte `CALL Rd`; `FLDS`/`FSTS` conversion and the vector-3 trap for a bad float↔integer conversion are as stated (§11.1); the stack-alignment sentence matches ISA §15.38 and the note at line 1070.
+Found: nothing wrong. No edit was needed.
+Failed: nothing.
+Next: the M0 gate's merge clause — the only thing between M0 and M1.
+
 ## 14. Gate verification
 
 *(One block per gate, stamped with the first build's start, never rewritten.)*
