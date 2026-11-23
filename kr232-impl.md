@@ -822,6 +822,14 @@ Ran: krcompiler's suite 3691 assertions, all passing.
 Found: the previous round's single failure was the end-of-text label emitting an `L` record as well as a symbol, so two statements produced three lines. `.Lend` is now a symbol only -- it exists so a function record has an end, not to mark a statement. The previous round committed the emission without this test and said so; this round is what closes it.
 Next: `krc --dump-symbols` on a `.k232`, `RunKr232Image.cmake` with `KRC_KR232_VM`, then `kr232-dis` and the `.s` fixture run under `kr232-emu`.
 
+### 2026-11-22T21:43:41-08:00 — M2: reading a section out of a .k232
+
+Host: CROSBY (Windows `windows-msvc-debug`) and CROSBY WSL (`linux-wsl`)
+Added: `read_k232_section` finds the section table through the header, resolves a name through the string table, and returns the payload span; a missing section and a file that is not a container are named errors. Tested against a written container with a `.kdbg` section.
+Ran: krcompiler's suite 3699 assertions, all passing; kr232's suite unaffected.
+Blocked, and named: `krc --dump-symbols` cannot yet read a `.k232`. The krc tool target does not have `src/` on its include path, so the CLI cannot see `linker/kr232_image.h`, and the right fix is a public header rather than adding a source directory to a tool's includes. That header is the next step, after which the CLI branch is three lines.
+Next: the public reader header, then `--dump-symbols` on a `.k232`, `RunKr232Image.cmake`, `kr232-dis`, and the `.s` fixture under `kr232-emu`.
+
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
