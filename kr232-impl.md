@@ -473,6 +473,18 @@ Corrected: the checklist said "text out for all 81". The appendix's operand text
 Also: the decoder rejects the shapes that must trap — `F2` and `FC`–`FF`, `0x7A`–`0x7F`, a compact unary with `Rb ≠ R0`, a `SETcc` condition of 14 or 15, and a generic form whose two operands both need an extension.
 Next: the executor.
 
+### 2026-11-22T20:20:39-08:00 — M1: executor design settled, code not yet landed
+
+Host: CROSBY (no build run)
+Done: decoded the round's scope and settled four decisions before writing `Machine`, because each one is hard to change later.
+- **Flags live in R11** at the ISA's bit positions, and `set_reg(11, x)` masks K and I back to their previous values, so no ordinary write can enter kernel mode or mask an interrupt (ISA §2.2, §15.29).
+- **A memory access the map cannot serve traps rather than returning zero.** The executor asks `region_of()` for the vector instead of guessing one, and keeps the trap vector with the trapping instruction's PC.
+- **Fetch is up to eight bytes**, stopping at the first unmapped byte, so a truncated instruction at the end of RAM is an illegal encoding (vector 2) and not a read past the map.
+- **PC is R14** in the register file rather than a separate field, so `set_pc`/`pc` and a future debugger read the same state.
+Stopped: writing `execute()` is a single coherent table — every class, every Normal op, the generic specifier modes and the frame instructions — and a partial version would have committed either a link error or, worse, legal instructions reporting vector 2. The two files written so far were removed rather than left untracked, so the tree is clean and the next session starts from the same commit as this one.
+Failed: nothing; no check was run.
+Next: `Machine` and its tests in one piece, then the per-vector state table.
+
 ### 2026-11-22T20:06:19-08:00 — the BitWhiz alias now matches both spellings
 
 Host: CROSBY and BitWhiz
