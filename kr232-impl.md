@@ -3084,6 +3084,35 @@ Frame zero now reports the running address (`adapters/kr232/kr232_adapter.cpp`),
 **The view menu's repeated entry** was the same defect from the other side: two sources both called `assembly`. With the translation unit's real name recorded (krcompiler `5923c77`) the menu lists `squares.c` and `assembly` -- two entries because there are two files, the second being the start-up.
 
 Suites: krdbg `krdbg_tests` **110 of 110**, `krdbg_kr232_tests` **17 of 17**.
+### 2026-11-23T09:55:00-08:00 — The fixtures follow the compiler, and the last four items close
+
+Host: CROSBY (Windows).
+
+**The cascade.** Recording the translation unit's name changes every image, so every checked-in fixture drifted from its source at once. Each was rebuilt from its **own drift row's output**, not by hand, because the row's rebuild is the canonical one:
+
+- `kernel.k232` from `kernel-rebuild/kernel.k232` (the row's entry differs from the target's);
+- `user-exit42`, `user-calls`, `user-echo`, `user-text`, `blank-flip` and `kernel-gate.bin` from `fixtures/`;
+- krdbg's five kr232 fixtures, and its adapter golden re-recorded as **C20CAE8151BD20AD** from the rebuilt `loaded.k232`.
+
+`regenerate.ps1` also listed `user-calls` as assembly when the drift row has compiled it as C with the user start-up and the variadic stub since the STATUS checks landed; the script compiles and links all three now.
+
+**The four items.**
+
+| Item | Evidence |
+|---|---|
+| 1 packages in the sysroot | `examples/counter.c` loads; `krc_kr232_packages` builds, links and runs a program that prints through `<kr232/cons.h>` |
+| 2 VIDEO panel | `--run 300000 --state video` shows the committed frame in the panel (screenshot `shots/video-frame.png`); `--run` added for exactly this |
+| 3 locals and call stack | `#0 spin 0000660E` with `seed = 7`, `counter = 176795` (screenshot `shots/stack-fixed.png`) |
+| 4 repeated view entry | `squares.c` and `assembly` -- two entries for two files, no duplicates |
+
+Final state, every suite after the last change:
+
+```
+krcompiler ctest -R kr232   37 of 37      krc_tests        3704 assertions
+kr232 ctest (kernel)        15 of 15      kr232 unit       87 cases
+krdbg krdbg_tests          110 of 110     krdbg kr232      17 of 17
+spec lint                   81/81 vectors
+```
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
