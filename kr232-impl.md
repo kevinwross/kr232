@@ -2017,6 +2017,22 @@ So the machine reports **user mode** and then **executes as kernel mode**: instr
 That is a single, named hypothesis for the next round: find where the dispatch decides "kernel" for the opcode and address checks, and make it read the same flag `kernel_mode()` reads.
 
 Both tests were removed rather than left red; `ctest` is 8 of 8. The protection task stays open, and it is no longer a mystery -- it is a disagreement between two reads of one flag.
+### 2026-11-24T01:15:00-08:00 — M5: the protection check lives in one switch arm
+
+Host: CROSBY (Windows). Read where the kernel-only check actually sits:
+
+```
+case OpClass::Short: {
+    if (d.opcode >= 0x73 && d.opcode <= 0x77 && !kernel_mode()) {
+        return enter_trap(8);
+    }
+```
+
+So it fires only for instructions the decoder classifies as **`OpClass::Short`**. `kernel_mode()` has a single source -- bit 6 of R11 (`machine.h:74`, `regs_[kFlags] = frame_flags` in IRET) -- so the flag itself cannot disagree with itself; the remaining explanation is that the **decoded class** for the byte at `0x1001` is not `Short`, and the SYS arm later in the switch is reached by a different route than this guard.
+
+That is testable in one line: print `d.kind` and `d.opcode` for the step, which is what the next round does before touching the machine. The alternative -- that `kernel_mode()` is true inside the step but false just before it -- would contradict the single-source flag, and I would rather see the decode than argue about it.
+
+No test is committed for protection: two were written and withdrawn this round and last, `ctest` is 8 of 8, and the task stays open until the decode is known.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
