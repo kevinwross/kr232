@@ -1553,6 +1553,15 @@ Built the prefix by hand, since `cmake --install` fails: `bin/krc.exe`, `bin/krl
 Confirmed by absence, not assumed: a search for the produced image across both build trees found nothing.
 
 Next: print the prefix the test sees, or call `discover_toolchain` directly and report its error -- one measurement, the same lesson.
+### 2026-11-23T16:55:00-08:00 — M4: the define is present, the prefix still looks empty
+
+Host: CROSBY (Windows). Measured, not guessed: a probe test writes `#if defined(KRDBG_HAVE_KR232)` to a file, and reports **`define=1`**. So the host-build file compiles with the same define as the target that passed 15 tests.
+
+And the two host cases still pass in 0.0 s with **no `build/krdbg-host` directory created**, so they return at `if (prefix.empty()) return;`. The child process does see the variable -- `cmd /c echo %KRDBG_KRC_PREFIX%` printed the path from the same shell -- so the remaining unknown is narrow: `env_value` inside the C++ process, or the block not being compiled despite the define.
+
+The probe that would have answered it was blocked twice by the same trap: `getenv` is a **warning-as-error** in this project, and my fix attempt left a dangling line referencing the removed variable, so the binary stayed stale while reporting green. That is the third time this session that a *stale binary* reported a pass.
+
+Not ticked. Next: extend the probe to print the prefix using `_dupenv_s` (the pattern the file already uses) and to report whether the kr232 block is compiled by a marker string, then read both answers before touching the test.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
