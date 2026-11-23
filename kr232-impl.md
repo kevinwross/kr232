@@ -676,7 +676,17 @@ Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2`
 Added: `src/asm/kr232_parser.{h,cpp}` with `parse_instruction` — case-insensitive mnemonic lookup, operands split on commas and trimmed, the ten zero-operand Short forms, `push`/`pop`/`inc`/`dec`/`call` with a register, the unary `neg`/`not`/`sxtb`/`sxth`, and the two-register compact operations. Every other shape — immediate, bracketed address, branch displacement, FP — is refused with an error rather than guessed at.
 Ran: krcompiler's suite 2875 assertions, all passing; two parser cases.
 Found: the first version of the file carried helpers for immediates and conditions that nothing called yet, which `/W4` treats as dead code; they were removed rather than suppressed and will come back with the shapes that use them. A brace-initialised operand also narrowed `unsigned` to `uint8_t`, which the same warning level caught.
-Next: the 81-vector fixture, which is the encoder task's check.
+Next: `make_object` with target id 5, then the disassembler direction.
+
+### 2026-11-22T21:29:13-08:00 — M2: every Appendix A vector round-trips
+
+Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2` at `986ef57`
+Added: the parser's remaining families — register-with-immediate with a wide `F9` fallback, bracketed addresses with every mode, branches and absolute or indirect transfers, floating point, and `ENTER` — plus a fixture of Appendix A's **71 canonical rows** and a test that assembles each line and compares the bytes exactly.
+Ran: krcompiler's suite 241 cases, **3578 assertions**, all passing; the round-trip case is 71 vectors.
+Found, all from the Appendix speaking rather than my reading of it: `sxtb` is the normal op 27 (`DB 40 00`), not the compact form; `call +d` is the three-byte `rel16` (`D0 06 00`), not the nine-bit compact call; and `lea r2,[pc+0x40]` is `F1` op 3 while `lea r2,[pc+0x100]` is `F9` op 4 — the same operation, both six bytes, two encodings. That last one is a documentation inconsistency, not a rule, and this build picks `F1` for a byte-range displacement and `F9` above it, which matches both rows.
+Also recorded: `ENTER`'s frame-form threshold is not fixed by the ISA. Appendix A uses `F8` for a 300-byte frame and `FB` for a 4096-byte one; this build uses `F8` up to 4095 and the choice is a convention, not compliance. Both are questions for the M2 review.
+Not ticked: the assembler task's check is `assemble to bytes to disassemble`, and the disassemble direction is `kr232-dis`'s, so the task closes with that.
+
 
 ### 2026-11-22T21:21:37-08:00 — M2: the floating-point text
 
