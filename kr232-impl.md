@@ -676,7 +676,16 @@ Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2`
 Added: `src/asm/kr232_parser.{h,cpp}` with `parse_instruction` — case-insensitive mnemonic lookup, operands split on commas and trimmed, the ten zero-operand Short forms, `push`/`pop`/`inc`/`dec`/`call` with a register, the unary `neg`/`not`/`sxtb`/`sxth`, and the two-register compact operations. Every other shape — immediate, bracketed address, branch displacement, FP — is refused with an error rather than guessed at.
 Ran: krcompiler's suite 2875 assertions, all passing; two parser cases.
 Found: the first version of the file carried helpers for immediates and conditions that nothing called yet, which `/W4` treats as dead code; they were removed rather than suppressed and will come back with the shapes that use them. A brace-initialised operand also narrowed `unsigned` to `uint8_t`, which the same warning level caught.
-Next: branches, then FP, then the 81-vector fixture.
+Next: the FP text, then the 81-vector fixture.
+
+### 2026-11-22T21:20:27-08:00 — M2: branches and control transfers
+
+Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2`
+Added: the fourteen condition names as three-letter `b` mnemonics, `bra` and `call` with relative displacements, `jmp` taking a register, a relative `rel16` or an absolute target, and `call` with an absolute target through `F9` op 1. Thirteen forms pinned, including `beq -9` = `A1 F7` and `bne -9` = `A3 F7`, which is the distinction the encoder round found.
+Ran: krcompiler's suite 3067 assertions, all passing; five parser cases.
+Found: `jmp r2` was unreachable — the single-operand register block handled the Short forms and the unary compacts but not `jmp`, so it fell through to the branch block, which only accepts a character that starts a number. The dispatch's fifth shadowing bug across this parser; each family's own case is what catches them.
+Next: the FP text — `fadd` through `fcmp`, the three memory forms, the conversions and `fpush`/`fpop` — then the fixture over all 81 Appendix A lines.
+
 
 ### 2026-11-22T21:19:17-08:00 — M2: bracketed addresses
 
