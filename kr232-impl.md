@@ -288,7 +288,7 @@ The per-target loops, determinism, KDBG invariants, the clean gate, `-S` byte-id
 
 ### Tasks
 
-- [ ] `[krdbg]` `adapters/kr232/` skeleton and CMake option `KRDBG_KR232_ADAPTER`, linked like KR216's direct-source pattern. Check: configure, build, and the adapter test target compiles.
+- [x] `[krdbg]` `adapters/kr232/` skeleton and CMake option `KRDBG_KR232_ADAPTER`, linked like KR216's direct-source pattern. Check: configure, build, and the adapter test target compiles.
 - [ ] `[krdbg]` `layout()`: one core context, the register groups, flags Z…K with **K and I non-writable**, 32 address and pointer bits, `variable_instruction_length` true with `instruction_alignment` 1, `step_unit` "instructions". Check: the layout test asserts each field, and `write_flags` cannot clear K.
 - [ ] `[krdbg]` Memory regions: kernel RAM, user RAM, aperture, device window, and both unbacked gaps marked neither readable nor writable. Check: a read in each region and in each gap.
 - [ ] `[krdbg]` Execution and state: `step_instruction`, `run`, `pc`/`set_pc`, `read_value`/`write_value` by group index, `read_flags`/`write_flags`, `reset`. Check: stepping a fixture retires the documented instructions and reports `Halted`/`Fault` truthfully.
@@ -1222,6 +1222,16 @@ Landed in `krdbg` (**a89cef9**): `adapters/kr232/kr232_adapter.h` with the loade
 Deliberately not added yet: the `KRDBG_KR232_ADAPTER` option. It goes in when the target can build, so the tree stays configurable without it -- the opposite of adding an option that fails at configure.
 
 Next: read `TargetLayout`, `ScalarValue` and `InstructionView` in `krdbg/include/krdbg/target.h`, then write `kr232_adapter.cpp` -- layout with Z..K (K and I non-writable), the 32-bit address rule, `step_instruction`/`run` over `kr232::Machine`, and `disassemble` through `kr232::decode`.
+### 2026-11-23T08:00:00-08:00 — M4: the kr232 debug target builds
+
+Host: CROSBY (Windows, `build/kr232-adapter` with `KRDBG_KR232_ADAPTER=ON`)
+Landed in `krdbg` (**d00ef89**): `adapters/kr232/kr232_adapter.cpp`, an `IDebugTarget` over `kr232::Machine` -- one core context, R0-R15 with PC/SP/EFP roles, four f64 registers, the seven flags with **K and I non-writable**, six memory regions with **both unbacked gaps marked neither readable nor writable**, `step_instruction`/`run`, memory and code reads, `disassemble` through `kr232::decode` advancing by decoded length, and `unwind` over the EFP chain. The `KRDBG_KR232_ADAPTER` option configures and builds the target; a missing tree stops configuration by name.
+
+Two contract details read rather than guessed: `kr232::Stop` has **no** `Running` member (only `Retired`, `Halted`, `Trapped`), and `Memory::read32` writes a `uint32_t&`, not a `uint64_t&`.
+
+One target-local define: `_CRT_SECURE_NO_WARNINGS`, because MSVC deprecates the portable `fopen` in favour of its own `_s` form. That is a deprecation notice about a portable call, not a correctness lint, and it is scoped to this target.
+
+Ticked: the adapter skeleton task. Next: `layout()` details are in place, so the tasks that follow are the memory-region and execution checks, `disassemble`'s one-byte `RET` case, `unwind` with two frames, and the devices.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
