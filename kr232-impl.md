@@ -436,6 +436,15 @@ Found: nothing wrong. No edit was needed.
 Failed: nothing.
 Next: the M0 gate's merge clause — the only thing between M0 and M1.
 
+### 2026-11-22T20:12:19-08:00 — M0 gate recorded: merged to master and re-run there
+
+Host: CROSBY (Windows x64, MSVC 14.52, `windows-msvc-debug`, `-j10`)
+Changed: §2 gained its one exception — a red that names its own removal condition may sit on a default branch when a gate requires it. `krcompiler` `master` received the `--no-ff` merge **7c31e3d** of `kr232-m0`.
+Ran: `git fetch`, `switch master`, `pull --ff-only` → already up to date at `f5384cf`; `git merge --no-ff kr232-m0` → 8 files, 533 insertions; `git push origin master` → `f5384cf..7c31e3d`. Then the gate on the merged tree: build start `20:07:37`, `ctest --preset windows-msvc-debug` → **919 of 920**, 268 s, the one red being `krc_kr232_no_backend`.
+Found: the `krc` binary had not been relinked by the gate build, so its modification time would have stamped the gate with a moment when nothing was built — the trap krcompiler's own `AGENTS.local.md` warns about. The build's printed start line is the stamp instead, and the block says so.
+Gate: **M0 met** — see `## Gate verification`. M1's precondition is now satisfied.
+Next: M1's build skeleton — `CMakeLists.txt`, three presets, the layout check, the path-hygiene test.
+
 ### 2026-11-22T20:06:19-08:00 — the BitWhiz alias now matches both spellings
 
 Host: CROSBY and BitWhiz
