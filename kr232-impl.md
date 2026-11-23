@@ -2702,6 +2702,17 @@ Two defects in my own new code, both caught by running it: the row failed with *
 Suites: `kr232` **13 of 13** with the kernel and **11 of 11** without, **87 unit cases**; `krcompiler` **33 of 33** and **3704** assertions; `krdbg` **17 of 17**.
 
 Item 4 of 8 closed. Next: `gfx_draw_text`, honest or working.
+### 2026-11-24T19:25:00-08:00 — Item 5 closed: DRAW_TEXT says it is not supported
+
+Host: CROSBY (Windows). The device already set `STATUS` bit 0 `ERROR` for `DRAW_TEXT` (`devices.cpp:183`), but `kr232-devices.md` §8 promised **10x20 text from guest memory** with an atlas that belongs to the terminal page. A reader would expect text, and a caller could believe the command worked.
+
+Decision, recorded in §8: **the command is accepted, answers `ERROR`, and changes no pixels**, with the atlas named as the missing piece. `kr232_kernel_text_reports_error` runs a program that sends a six-word block, reads `STATUS` back through the kernel, and **exits 0 only when bit 0 is set** -- so an implementation that draws nothing and answers success fails the row, and so does one that silently stops reporting.
+
+That is the honest branch of "honest or working": a glyph atlas is a device feature with pixels nobody could check here, and the terminal's atlas is where the draft already says it lives.
+
+Suites: `kr232` **14 of 14** with the kernel and **12 of 12** without, `krcompiler` **33 of 33**, `krdbg` **17 of 17**, lint **81/81**.
+
+Item 5 of 8 closed. Next: wiring the two-adapter check into the gate.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
