@@ -2624,6 +2624,20 @@ Host: CROSBY (Windows). `kr232_kernel_packages` builds `crt0_user.s`, the variad
 `kr232-devices.md` §14 now records calls **22 `fb_info`**, **23 `input_next`** and **24 `input_pending`**, which the packages sit on.
 
 Rows: `kr232` **10 of 10** by default and **11 of 11** with `KR232_BUILD_KERNEL=ON` (including the package row), `krcompiler` **31 of 31**, `krdbg` **17 of 17**.
+### 2026-11-24T16:10:00-08:00 — Gap 4 closed: two adapters, 109 of 109
+
+Host: CROSBY (Windows). The claim was that enabling an adapter re-lays the binary and moves **thirteen** surface and golden tests. It does not reproduce in the current tree:
+
+```
+build/two-adapters      Ninja, KRDBG_KR216_ADAPTER=ON, KRDBG_KR232_ADAPTER=ON   109 test(s), 0 failure(s)
+build/two-adapters-vs   windows-msvc generator, same two adapters                 109 test(s), 0 failure(s)
+```
+
+`scripts/check-two-adapters.ps1` is the repeatable check: it configures the two adapters, builds `krdbg_tests`, and fails unless the summary says zero failures -- run once here and it printed `109 test(s), 0 failure(s)`.
+
+**What this does and does not establish.** The coupling is not present now, in either generator, with two adapters linked. The thirteen failures I recorded earlier were measured in a build directory whose state is not reproducible today, and the same session had already recorded render-golden failures that turned out to be build-configuration artefacts. So the honest reading is that the goldens are **not** layout-coupled and the earlier count was an artefact -- not that a defect was fixed here. The script exists so the next adapter is checked rather than assumed.
+
+Gaps 1-5 are closed.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
