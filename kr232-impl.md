@@ -24,8 +24,10 @@ The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 | Host | Architecture | Role | Jobs |
 |---|---|---|---|
 | CROSBY (Windows 11, MSVC) | x64 | primary edit host; `windows-msvc*` rows; every document edit and the spec lint | `-j10` |
-| CROSBY (WSL, Ubuntu) | x64 | GCC and Clang rows; the Linux-side behaviour a Windows host hides | `-j10` |
+| CROSBY (WSL, Ubuntu 26.04) | x64 | GCC and Clang rows; the Linux-side behaviour a Windows host hides | `-j10` |
 | BitWhiz (aarch64, GCC 14.2.0) | ARM64 | the ARM64 row, reached by `ssh bitwhiz` | `-j4` |
+
+**Verified 2026-11-22.** CROSBY Windows: MSVC 14.52.37025 and CMake 4.3.1-msvc1 are reachable **only inside the Visual Studio developer environment** — `vcvarsall.bat x64` first, or `cmake` and `ctest` are not on `PATH`. WSL Ubuntu 26.04: CMake 4.2.3, Ninja 1.13.2, GCC 15.2.0; the GCC-15 internal-compiler-error trap krcompiler records applies, so build the Linux rows with `ulimit -s unlimited` and low parallelism. BitWhiz: `ssh bitwhiz` is **denied for user `kevin`** (`Permission denied (publickey,password)`), so the ARM64 row is "not run" until key access exists; the alias resolves, the credentials do not.
 
 **Per-repository commands.** These are the shapes the repositories already use; the first task of each milestone confirms them and the log records the exact line run.
 
@@ -407,6 +409,14 @@ Ran: `ctest --preset windows-msvc-debug` → **919 passed, 1 failed of 920**, 26
 Reads: the two failures krcompiler used to carry have been fixed since they were recorded, so the row is otherwise clean — the new red is the only one, and it names its own removal condition.
 Failed: nothing unexpected.
 Next: the M0 gate. Its merge clause is the owner's action, so the gate block waits for that decision.
+
+### 2026-11-22T20:00:52-08:00 — hosts verified; BitWhiz is denied
+
+Host: CROSBY (checks only, no build)
+Ran: `pwsh -File .agents/doctor.msvc.ps1` in krcompiler → `msvc 14.52.37025`, `cmake version 4.3.1-msvc1`, "only from the Visual Studio developer environment". `wsl.exe -l -v` → Ubuntu-26.04 running, version 2; inside it `cmake 4.2.3`, `ninja 1.13.2`, `git 2.53.0`, `gcc 15.2.0`. `ssh -o BatchMode=yes bitwhiz` → `kevin@bitwhiz: Permission denied (publickey,password)`.
+Found: the ARM64 row has no access. The alias resolves, the credentials do not, and the fix is the owner's — a key or an ssh config entry for this session. Until then every ARM64 row is recorded "not run", never "passed".
+Changed: §1's hosts table now carries these verified facts, so a later session does not re-derive them or, worse, assume them.
+Next: the M0 gate's merge clause, and BitWhiz access.
 
 ## 14. Gate verification
 
