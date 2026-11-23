@@ -358,7 +358,7 @@ The kernel's entry and return, the syscall table's validation, protection from u
 |---|---|---|
 | M0 | complete — gate recorded 2026-11-22T20:07:37-08:00 | M0 |
 | M1 | complete — 11 of 11 tasks | met 2026-11-22T21:01:09-08:00 |
-| M2 | not started | — |
+| M2 | complete — 12 of 12 tasks | met 2026-11-22T22:05:00-08:00 on Windows and WSL; merged as krcompiler e441d06 |
 | M3 | not started | — |
 | M4 | not started | — |
 | M5 | not started | — |
