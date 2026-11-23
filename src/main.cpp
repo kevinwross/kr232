@@ -117,6 +117,16 @@ int main(int argc, char** argv) {
         const kr232::LoadOutcome user_loaded =
             kr232::load_image(machine, user_image, 0x08000000u);
         machine.set_pc(kernel_pc);
+        if (user_loaded.ok && user_loaded.entry < 0x08000000u) {
+            // The image carries its own base, so one linked at the default base
+            // lands below user RAM and its first fetch traps. Say which mistake
+            // it is instead of letting the program fault with a bare vector 8.
+            std::fprintf(stderr,
+                         "kr232-emu: the user image is based at 0x%08X, below user RAM; "
+                         "link it with --base=0x08000000\n",
+                         static_cast<unsigned>(user_loaded.entry));
+            return 2;
+        }
         if (!user_loaded.ok) {
             std::fprintf(stderr, "kr232-emu: user image: %s\n", user_loaded.error.c_str());
             return 2;
