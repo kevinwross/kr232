@@ -1515,6 +1515,19 @@ Every one is mine, and three are real regressions rather than stale expectations
 I have been running `ctest -R kr232` and treating it as "the suite" for many rounds. It is a filter, not the suite, and `krc_tests` -- the one real unit binary -- has been red underneath it. That is the most serious process error of this session, and it is mine.
 
 Next: fix the five, in that order, then re-run `krc_tests` before any further kr232 work.
+### 2026-11-23T15:55:00-08:00 — M4: the unit suite is green, and the cause was one field's position
+
+Host: CROSBY (Windows). `krc_tests`: **3704 assertions, 3704 passed, 0 failed**; `ctest -R kr232` **27 of 27**.
+
+The failures had three causes, in order of how long they hid:
+
+1. **A struct field's position.** Adding `size` to `Symbol` before `global` silently turned every positional initialiser -- `Symbol{"main", 0, 0, true}` -- into a *local* symbol of size 1. That one layout change produced the object test's binding failure **and** the image test's link failure, because the linker could not find an entry. Moving `size` last fixed both. The test was right; my change broke it.
+2. **Hand-written generated files.** `sysroot/kr232/include/bits/{types,stdint}.h` were written by hand and the test compares them against `krc_gen_sysroot_bits`. They now come from that generator, and because every target ships a sysroot the test's absence allowance for kr232 and its count of four are gone -- five targets are required.
+3. **Two encoding expectations** that my rel16 branch work deliberately changed: a conditional label branch is `bne +3` over a three-byte `jmp`, verified by disassembling the same source rather than by guessing bytes, and `backend_available` has been true since M3.
+
+Also committed: the two C fixtures (`kr232_nested_frames.c`, `kr232_session.c`) that the tests and containers reference but which were untracked, so a clone could not rebuild them.
+
+Lesson: `ctest -R kr232` is a filter, not the suite. `krc_tests` was red for many rounds while every filter run was green, and the failures were mine.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
