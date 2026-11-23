@@ -1000,6 +1000,15 @@ Found last round: a spill-everything backend -- every alloca, parameter and valu
 Why the current backend is wrong rather than slow: materialising an address is `ld`, which overwrites its register, and the two-register pool (R6/R7) is shared with values; `gfx_set_colour` therefore stored the address into `current_colour` instead of the colour, every pixel was zero, and the drawing program's frame equalled a flip-only frame.
 Next: re-apply the spill model on top of the rel16 branch.
 
+### 2026-11-23T01:45:00-08:00 — M3: the spill model makes the backend correct, and the drawing lands
+
+Host: CROSBY (Windows `windows-msvc-debug` compiler, `windows-msvc` emulator)
+Changed: the backend now spills **everything** -- each alloca, parameter and instruction result owns a frame slot; registers are used only at the point of use; addresses go in R8. That removes the aliasing class that produced four separate defects, because no value lives in a register across an instruction.
+Ran: the drawing program halts with status 0 after **8289 steps** and `frame b93590ec9d504765` -- **different** from the flip-only `2bf050200a5e1325` and from the empty basis `cbf29ce484222325`, so the pixels land. Repeated runs give the same hash. Eighteen kr232 CTests pass, including a drawing test with the pinned hash.
+Prerequisite: last round's rel16 label branch. The spill model's first build failed with `'.Lbb1' is out of the nine-bit branch range`; with the trampoline form the same source assembles.
+Not ticked: the guest-package task names four packages (`fb`, `gfx`, `cons`, `input`); `fb.h` and `gfx.h` exist and the drawing runs, `cons.h` and `input.h` do not. Ticking on the drawing alone would claim two packages that are not there.
+Next: `cons.h` and `input.h`, then the per-target loops and the `-O1` measurement.
+
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
