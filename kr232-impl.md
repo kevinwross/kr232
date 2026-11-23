@@ -231,7 +231,7 @@ The 81 vectors, the protection suite, the eight device suites, the blitter rejec
 - [x] `[krcompiler]` `toolchain::link_impl` selects the writer for target 5, with 4-byte heap alignment and the kr232 stack bounds. Check: a linked image's header and entry agree with the ADR.
 - [x] `[krcompiler]` `krc --dump-symbols` reads a `.k232`. Check: the gate's decode assertion passes on a fixture.
 - [x] `[krcompiler]` `cmake/RunKr232Image.cmake` and the `KRC_KR232_VM` cache variable in `CMakeLists.txt`, with the sibling fallback. Check: a deliberate wrong exit status fails with `expected exit N, got M`.
-- [ ] `[kr232]` `kr232-dis`: the canonical decoder and text form, shared with the emulator. Check: a disassembly test over all 81 vectors and over the assembled fixture.
+- [x] `[kr232]` `kr232-dis`: the canonical decoder and text form, shared with the emulator. Check: a disassembly test over all 81 vectors and over the assembled fixture.
 - [x] `[kr232]` The `.k232` loader replaces the flat loader and dispatches on the container magic. Check: a bad checksum, a section outside the map and a base mismatch each fail at load.
 - [x] `[kr232]` A `.s` fixture assembles to an object, links to a `.k232`, and runs under M1. Check: exit status and screen match.
 - [x] `[kr232]` Log the gate. Check: `## Gate verification` block with every M2 item.
@@ -359,8 +359,8 @@ The kernel's entry and return, the syscall table's validation, protection from u
 | M0 | complete — gate recorded 2026-11-22T20:07:37-08:00 | M0 |
 | M1 | complete — 11 of 11 tasks | met 2026-11-22T21:01:09-08:00 |
 | M2 | complete — 12 of 12 tasks | met 2026-11-22T22:05:00-08:00 on Windows and WSL; merged as krcompiler e441d06 |
-| M3 | 14 of 15 tasks — the code generator, runtime and freezes are in; varargs and the kernel-dependent `libc` stubs are open | recorded 2026-11-23T19:20:00-08:00; ISA 1.0 and devices 1.0 tagged |
-| M4 | 12 of 14 tasks — adapter, fixtures, golden and host build are in; the windowed demo load was not observed and the golden's ARM64 half was not run | recorded 2026-11-23T20:50:00-08:00 |
+| M3 | 14 of 15 tasks — varargs is deferred, its four parts named in §14; `libc`'s console path and SYS stubs are in | recorded 2026-11-23T19:20:00-08:00; ISA 1.0 and devices 1.0 tagged |
+| M4 | 14 of 14 tasks — the ARM64 row passes rather than excluding, and the demo loads by both paths | recorded 2026-11-23T20:50:00-08:00 |
 | M5 | 7 of 7 tasks — kernel, syscall table, `--user`, the user program, protection, krdbg kernel support and both deferred questions | recorded 2026-11-24T04:30:00-08:00 |
 
 ## 13. Log
@@ -2423,6 +2423,16 @@ krdbg_demo --headless --kr232 loaded.k232   frame hash D5B8D6A158DE3E16 1440x900
 **Both paths load the fixture and agree on the frame hash.** Ticked: **host wiring**. M4 at 14 of 14.
 
 M4's gate record is now complete against plan §9, with the ARM64 row passing rather than excluded and every task ticked.
+### 2026-11-24T08:50:00-08:00 — M2: `kr232-dis` has both halves of its check
+
+Host: CROSBY (Windows). The task asks for "a disassembly test over all 81 vectors and over the assembled fixture". Both exist and pass:
+
+- `disassembly_names_every_appendix_vector` walks Appendix A and requires each vector to decode in full, with the right length and the right leading mnemonic;
+- the CTest rows `kr232-dis tests/fixtures/kernel-gate.bin` and `kr232-dis tests/fixtures/compiled-draw.k232` run the disassembler over an assembled fixture and a compiled image.
+
+Ticked: **`kr232-dis`**. M2 is now 13 of 13.
+
+Two tasks remain unticked in the whole plan, and only one of them is work: **M3's varargs**, deferred with its parts named. The other was this one, and it was already done -- the checklist had not been read against the suite since M2.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
