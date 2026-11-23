@@ -2148,6 +2148,22 @@ Host: CROSBY (Windows). The two sections the freeze left as "Deferred to 2.0" ar
 `node tools/check-isa.mjs`: **ok: 81/81 vectors; Appendix B covers 0x00-0xFF; Appendix C tiles 4 GiB; 13 device page rows tile the window**.
 
 Ticked: **the two deferred questions**. M5 at 7 of 7 tasks. The kernel still answers 2 and 3 for fill and flip; moving it to the recorded numbers 16 and 17 and splitting -1 from -2 is the next change, and the gate record follows it.
+### 2026-11-24T04:10:00-08:00 — M5: the kernel answers the recorded numbers
+
+Host: CROSBY (Windows). The implementation moved to what the drafts now say:
+
+```
+kernel.k232   dispatch 16 fill_rect, 17 flip; -2 unknown, -1 refused argument
+userdraw      halted status 0    frame 2bf050200a5e1325   (unchanged)
+userprint     halted status 3    console: hello           (unchanged)
+krdbg_kr232_tests  17 of 17, including the syscall-stepping case
+```
+
+Both programs behave exactly as before, which is the point of changing numbers behind a fixed API: the frame hash and the transcript are identical, and only the call numbers moved.
+
+The krdbg kernel fixture was refreshed in the same change, so the debugger loads the kernel that is in the tree rather than the one it was recorded against.
+
+M5 at 7 of 7 tasks. What remains is the **gate record**: the plan's §10 criteria against the evidence gathered in these rounds.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
