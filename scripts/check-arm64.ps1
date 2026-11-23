@@ -1,11 +1,11 @@
-# Runs the kr232 checks on the ARM64 host over ssh.
+# Runs the kr232 checks on the ARM64 host over ssh, including the compiler's whole
 #
 # The Linux host is the only place the ARM64 toolchain exists, so every check
 # there has been run by hand and its result pasted into kr232-impl.md. This does
-# the same steps in one command and fails loudly: pull the three checkouts, build
-# the compiler and the emulator, then run the four suites.
+# suite and krdbg's own gate. The steps are the same in one command and it fails
+# loudly: pull the three checkouts, build the compiler and the emulator, then run
 #
-# Usage: pwsh -File scripts/check-arm64.ps1 [-Target bitwhiz] [-Root ~/repos]
+# every suite the repositories have. Usage: scripts/check-arm64.ps1 [-Target bitwhiz] [-Root ~/repos]
 param(
     [string]$Target = 'bitwhiz',
     [string]$Root = '~/repos'
@@ -17,7 +17,7 @@ set -e
 ROOT="__ROOT__"
 BUILD="$ROOT/kr232/build/arm64"
 git -C "$ROOT/kr232" fetch origin -q && git -C "$ROOT/kr232" checkout -B main origin/main -q
-git -C "$ROOT/krcompiler" fetch origin -q && git -C "$ROOT/krcompiler" checkout -B kr232-m3 origin/kr232-m3 -q
+git -C "$ROOT/krcompiler" fetch origin -q && git -C "$ROOT/krcompiler" checkout -B master origin/master -q
 git -C "$ROOT/krdbg" fetch origin -q && git -C "$ROOT/krdbg" checkout -B main origin/main -q
 
 KRC="$ROOT/krcompiler/build/linux-clang-debug/host/bin/Debug"
@@ -50,13 +50,16 @@ echo "== kr232 (kernel rows)"
 ctest --test-dir "$BUILD" --output-on-failure >/tmp/kr232-rows.log 2>&1 || true
 report /tmp/kr232-rows.log
 
-echo "== krcompiler (kr232 rows)"
-ctest --test-dir "$ROOT/krcompiler/build/linux-clang-debug" -R kr232 >/tmp/krc-rows.log 2>&1 || true
+echo "== krcompiler (whole suite)"
+ctest --test-dir "$ROOT/krcompiler/build/linux-clang-debug" >/tmp/krc-rows.log 2>&1 || true
 report /tmp/krc-rows.log
 
 echo "== krc_tests"
 "$ROOT/krcompiler/build/linux-clang-debug/host/bin/Debug/krc_tests" >/tmp/krc-tests.log 2>&1 || failed=1
 grep -E "assertions:" /tmp/krc-tests.log
+
+echo "== krdbg gate"
+bash "$ROOT/krdbg/scripts/gate-linux.sh" --arch arm64 >/tmp/krdbg-gate.log 2>&1 && grep -E "GATE LINUX" /tmp/krdbg-gate.log || { tail -20 /tmp/krdbg-gate.log; failed=1; }
 
 echo "== krdbg fixture drift"
 cmake -S "$ROOT/krdbg" -B "$ROOT/krdbg/build/fixtures" \
