@@ -264,7 +264,7 @@ Round-trip for all 81 vectors; a hand-written `.s` linked and run; the `.kdbg` d
 - [ ] `[krcompiler]` `targets/kr232/runtime/crt0.s`: frame, call `main`, pass the status to `SYS exit`; no stack setup, since reset SP is `0x08000000`. Check: a linked image exits with `main`'s status.
 - [ ] `[krcompiler]` `targets/kr232/runtime/libc.c`: console output, the `SYS` write/read/exit stubs, blitter-backed `memcpy`/`memset`. Check: output appears on the terminal transcript.
 - [x] `[krcompiler]` `sysroot/kr232/include/bits/` generated from the profile: `bits/types.h`, `bits/stdint.h`. Check: `stdint.h` widths round-trip in a unit test.
-- [ ] `[krcompiler]` The four guest packages: `<kr232/fb.h>`, `<kr232/gfx.h>`, `<kr232/cons.h>`, `<kr232/input.h>`, with kernel-mode implementations. Check: the drawing program fills, draws and flips through `gfx`.
+- [x] `[krcompiler]` The four guest packages: `<kr232/fb.h>`, `<kr232/gfx.h>`, `<kr232/cons.h>`, `<kr232/input.h>`, with kernel-mode implementations. Check: the drawing program fills, draws and flips through `gfx`.
 - [ ] `[krcompiler]` Per-target link/run loops at `-O0`, a determinism test, a KDBG-invariants test at `-O0`, and the clean gate. Check: the executed rows exist because `KRC_KR232_VM` resolved.
 - [ ] `[krcompiler]` The `-O1` measurement ADR 0049 requires, recorded whether it lands or not. Check: the measurement is in the log; the `_o1` twins appear only if it does.
 - [ ] `[krcompiler]` The compiled program loads in krdbg at source level and stops on a line breakpoint. Check: the session stops at the expected line with locals visible.
@@ -1008,6 +1008,14 @@ Ran: the drawing program halts with status 0 after **8289 steps** and `frame b93
 Prerequisite: last round's rel16 label branch. The spill model's first build failed with `'.Lbb1' is out of the nine-bit branch range`; with the trampoline form the same source assembles.
 Not ticked: the guest-package task names four packages (`fb`, `gfx`, `cons`, `input`); `fb.h` and `gfx.h` exist and the drawing runs, `cons.h` and `input.h` do not. Ticking on the drawing alone would claim two packages that are not there.
 Next: `cons.h` and `input.h`, then the per-target loops and the `-O1` measurement.
+
+### 2026-11-23T02:00:00-08:00 — M3: the four guest packages exist
+
+Host: CROSBY (Windows `windows-msvc-debug` compiler, `windows-msvc` emulator)
+Added: `<kr232/cons.h>` with `cons_putc`/`cons_puts`/`cons_getc` writing the console page, and `<kr232/input.h>` with `input_next`/`input_pending` reading the keyboard's event queue. `kr232-emu --transcript` now prints the console page's bytes before the terminal grid, because those bytes are what a program wrote whether or not a renderer saw them. Twenty kr232 CTests pass, including a console program whose output reads `cons!` and the drawing program's pinned frame.
+Ticked: the guest-package task -- `fb.h`, `gfx.h`, `cons.h` and `input.h` all exist with kernel-mode implementations, and the drawing program fills, draws and flips through `gfx`.
+Honest limit: the keyboard package cannot be exercised -- the emulator has no input injection -- so its test asserts that it compiles against the profile's headers, a narrower check than the other three get. The kernel (M4) is what will make input observable.
+Next: the per-target loops at `-O0`, the `-O1` measurement, the krdbg source-level stop, and the gate.
 
 ## 14. Gate verification
 
