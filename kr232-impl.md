@@ -224,7 +224,7 @@ The 81 vectors, the protection suite, the eight device suites, the blitter rejec
 ### Tasks
 
 - [x] `[krcompiler]` `TargetId::Kr232`, the `TargetProfile` row with all nine capability flags (`has_fpu` true, `has_matrix`, `has_atomics`, `has_threads`, `has_tls`, `has_eh`, `has_rtti` false, `has_cpp` true, `backend_available` false), `to_string`, `parse_target`. Check: `test_target` pins every field; `krc --list-targets` shows `kr232 backend=no`.
-- [ ] `[krcompiler]` `Kr232Descriptor` with the register roles of M0. Check: a unit test reads each role back.
+- [x] `[krcompiler]` `Kr232Descriptor` with the register roles of M0. Check: a unit test reads each role back.
 - [ ] `[krcompiler]` `src/asm/kr232_assembler.cpp` and its encoder, plus `make_object` with target id 5. Check: round-trip tests, assemble → bytes → disassemble, for every Appendix A vector.
 - [ ] `[krcompiler]` `.kdbg` emission from assembly: line and function records. Check: `krc --dump-symbols` on a linked image names the fixture's lines.
 - [ ] `[krcompiler]` `src/linker/kr232_image.cpp` — the `.k232` writer the M0 ADR specifies: header, section records, the `.reset` section at `0x0100`, CRC, `image_base = 0`. Check: a unit test reads back every header field, and the writer rejects an entry outside executable text, a section outside the map and overlapping sections.
@@ -643,7 +643,14 @@ Added: `TargetId::Kr232`, the twenty-seven-field `TargetProfile` row, `to_string
 Ran: krcompiler's full suite `224 of 224` passed, 2345 assertions.
 Found: adding a fifth target broke two tests that asserted a world of four — `target_profiles().size() == 4`, and the sysroot-bits test, which compared every profile against checked-in headers kr232 does not have until M3. The count is now five; the sysroot test allows a missing header only for kr232 and keeps a pinned count of four compared targets, so a missing header for any other target still fails rather than being skipped.
 Ticked: the profile task.
-Next: `Kr232Descriptor` with the register roles, then the assembler.
+### 2026-11-22T21:07:18-08:00 — M2: the kr232 register descriptor
+
+Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2` in krcompiler
+Added: `src/backend/kr232_descriptor.{h,cpp}` and `tests/unit/test_kr232_descriptor.cpp`. Sixteen registers with their roles from `docs/abi-kr232.md`: R0 and R1 constants, R2-R5 the four arguments, R6 the sret destination loaded just before `CALL`, R7 the indirect-call target and the `SYS` number, R8 and R9 the only callee-saved registers, R10 `this`, R11 flags, R12-R15 the exception frame, frame pointer, program counter and stack pointer. The descriptor carries `pointer_bits` 32 and 4-byte stack and call alignment.
+Ran: krcompiler's full suite `226 of 226` cases, 2413 assertions; the two new cases assert 68 of them.
+Found: the test first included `krc/backend/kr232_descriptor.h`, but descriptor headers live under `src/backend` and are reached as `backend/...`; the file existed and the include was wrong. A build catches that and a review does not.
+Ticked: the descriptor task.
+Next: the assembler and its encoder — the largest M2 piece, where every Appendix A vector must round-trip assemble to bytes to disassemble.
 
 ### 2026-11-22T20:06:19-08:00 — the BitWhiz alias now matches both spellings
 
