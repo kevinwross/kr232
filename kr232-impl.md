@@ -1086,6 +1086,24 @@ Fixed: `type_bytes` aligns a record's fields naturally and pads nothing in a pac
 Still failing: `kr232_struct.c` traps with vector 4 at PC 0 after **22 steps**. The copies' addresses are right in the assembly, so the next step is to find which instruction faults rather than to guess: a step trace or a disassembly of the address the trap names.
 
 Next: the faulting instruction, then struct return through R6, then C++.
+### 2026-11-23T04:20:00-08:00 — M3: the trace tool, and an alloca's address
+
+Host: CROSBY (Windows `windows-msvc-debug`, `windows-msvc` emulator)
+Added: **`--trace`** in the emulator -- it decodes the twelve instructions before a stop and prints them, so a fault names its cause instead of only its effect. This is the tool every later fault diagnosis needed.
+Fixed: a cast or member `getelementptr` built on an alloca reaches the emitter as an *instruction*, and reading its slot handed the caller the alloca's **contents** instead of its address. The address is FP-relative and is computed now.
+
+The trace after the fix:
+
+```
+0x1494 ld r6, [fp]
+0x1496 sub r6, #4      <-- the alloca's address, correct
+0x14ab ld r8, [fp-28]  <-- the same address, via a slot
+0x14ae stb [r8], r6    <-- still faults
+```
+
+The address computation is right and the store still faults, so the suspect is no longer the address: it is the **frame pointer** the store's offset is relative to. Next: print R13, R8 and SP at the trap, which is a few lines in the emulator and turns this into a fact.
+
+Suite: 21 kr232 CTests pass.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
