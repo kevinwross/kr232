@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | **Approved 0.4** — the 32-bit baseline, approved as the implementation basis for M0–M3. Every deviation from kr216 1.0 is listed in §17. It freezes as **ISA 1.0** at M3's gate, so until then a change costs a §15 decision and a §17 row |
+| Status | **Frozen 1.0** — the 32-bit baseline, frozen at M3's gate on 2026-11-23. Every deviation from kr216 1.0 is listed in §17. It is frozen as **ISA 1.0**; a change now costs a §15 decision, a §17 row and a 2.0 version |
 | Date | 2026-11-22T19:10:04-08:00 |
 | Basis | `..\kr216\kr216-isa.md` version 1.0 (frozen 2026-11-22), widened to 32-bit registers and a 4 GiB address space; the device region's shape follows `..\kr32\docs\display.md`, `devices.md`, `terminal.md` and `graphics.md` |
 | Authority | `kr232-plan.md` 0.17 owns milestone scope, order and gates; this document owns the machine. §18 lists the two questions deferred to 2.0 |
@@ -1225,7 +1225,7 @@ instruction encoding at all; they are address-map and device work. Rows 46–50 
 encoding — `SYSCALL` at `0x79` — and otherwise change the flag set, the trap frame and the map,
 which is where the protection work shows up in the ISA.
 
-## 18. Open questions for the kr232 plan
+## 18. Deferred to 2.0
 
 Roughly ordered by how much the rest depends on them. Answered questions move to §15; this list
 holds what is still open, and none of it blocks M1.

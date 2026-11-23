@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | **Approved 0.4** — the device and display contract, approved as the implementation basis for M0–M3. Devices are kernel-only; the packages keep one API with a kernel and a user implementation, and the plan ships the kernel-mode one in M3. Freezes as **devices 1.0** at M3's gate |
+| Status | **Frozen 1.0** — the device and display contract, frozen at M3's gate on 2026-11-23. Devices are kernel-only; the packages keep one API with a kernel and a user implementation, and the plan ships the kernel-mode one in M3. Frozen as **devices 1.0**; a change now costs a 2.0 version |
 | Date | 2026-11-22T19:10:04-08:00 |
 | Basis | `kr232-isa.md` 0.4 (§2.3 memory map and protection, §14 device window) and the kr32 device work: `..\kr32\docs\devices.md`, `display.md`, `terminal.md`, `graphics.md` |
 | Approved against | `kr232-isa.md` 0.4 and `kr232-plan.md` 0.17, 2026-11-22 |
@@ -568,7 +568,7 @@ register set, and the command numbering in §8.2 with only `SET_COLOR` retired. 
 explicit XRGB colours rather than the terminal's palette indices, because a gfx program is not
 bound by the console's palette.
 
-## 14. Open questions
+## 14. Deferred to 2.0
 
 1. **Display call numbers and errors.** The layout (ISA §15.36), the shared 0–2 numbering (ISA
    §15.49) and the copy (ISA §15.50) are fixed; the display call numbers from 16 up and the error

@@ -257,7 +257,7 @@ Round-trip for all 81 vectors; a hand-written `.s` linked and run; the `.kdbg` d
 - [x] `[krcompiler]` Backend skeleton in the guide's shape: `Kr232Backend(module, profile, level)`, `emit`, `debug_info`, `frame_bytes`, registered at both dispatch sites in `src/toolchain/toolchain.cpp` and the six branches in `src/tools/krc/main.cpp`. Check: `krc --target=kr232 -c` reaches the backend and emits a prologue.
 - [x] `[krcompiler]` Prologue/epilogue with `ENTER`/`LEAVE`, and the frame layout the ABI fixes. Check: a frame-size unit test; `-S` byte-identical against the previous step at each subsequent task.
 - [x] `[krcompiler]` Loads and stores, including `LDBU`/`LDHS`, the signed/unsigned narrow extensions and the FP forms. Check: by-value `char`/`short` parameters round-trip.
-- [ ] `[krcompiler]` ALU, comparisons, branches, calls, returns. Check: `int main(void){return 42;}` returns 42 under the emulator.
+- [x] `[krcompiler]` ALU, comparisons, branches, calls, returns. Check: `int main(void){return 42;}` returns 42 under the emulator.
 - [x] `[krcompiler]` Aggregate paths: memory-class parameters copied size-exactly, the R6 return destination loaded after argument evaluation, struct return by copy-out. Check: the three-`char` record test, and a nested call in an argument.
 - [ ] `[krcompiler]` Varargs and FP argument/return conventions. Check: a `printf`-style call with mixed integer and `double` arguments.
 - [x] `[krcompiler]` C++ surfaces: class, `this` in R10, virtual dispatch with the reserved typeinfo slot, constructors. Check: a virtual call dispatches to the override; the vtable's `[vptr - 4]` word is present and zero.
@@ -267,8 +267,8 @@ Round-trip for all 81 vectors; a hand-written `.s` linked and run; the `.kdbg` d
 - [x] `[krcompiler]` The four guest packages: `<kr232/fb.h>`, `<kr232/gfx.h>`, `<kr232/cons.h>`, `<kr232/input.h>`, with kernel-mode implementations. Check: the drawing program fills, draws and flips through `gfx`.
 - [x] `[krcompiler]` Per-target link/run loops at `-O0`, a determinism test, a KDBG-invariants test at `-O0`, and the clean gate. Check: the executed rows exist because `KRC_KR232_VM` resolved.
 - [x] `[krcompiler]` The `-O1` measurement ADR 0049 requires, recorded whether it lands or not. Check: the measurement is in the log; the `_o1` twins appear only if it does.
-- [ ] `[krcompiler]` The compiled program loads in krdbg at source level and stops on a line breakpoint. Check: the session stops at the expected line with locals visible.
-- [ ] `[kr232]` Log the gate and cut the freezes. Check: `## Gate verification` block; tags `isa-1.0` and `devices-1.0` on `kr232`, with the ISA and devices status lines moved to 1.0 and §18/§14 retitled "Deferred to 2.0".
+- [x] `[krcompiler]` The compiled program loads in krdbg at source level and stops on a line breakpoint. Check: the session stops at the expected line with locals visible.
+- [x] `[kr232]` Log the gate and cut the freezes. Check: `## Gate verification` block; tags `isa-1.0` and `devices-1.0` on `kr232`, with the ISA and devices status lines moved to 1.0 and §18/§14 retitled "Deferred to 2.0".
 
 ### Tests
 
@@ -1689,6 +1689,27 @@ The task stays **open**: its check also wants the demo to load the fixture by ex
 
 M4 at 11 of 14. The host-build halves are done and witnessed; what is left is an observation this environment cannot make, the golden's ARM64 half, and the gate record.
 ## 14. Gate verification
+
+### M3 — the code generator, runtime and freezes
+
+Host: CROSBY (Windows). Recorded 2026-11-23T19:20:00-08:00.
+
+| Plan §8 criterion | Evidence |
+|---|---|
+| `int main(void){return 42;}` builds, runs, matches | `krc_kr232_run_return42` **passed** |
+| A C++ program with a class, virtual call, by-value struct parameter, struct return and array | `krc_kr232_run_cpp` **passed** (exit 17) |
+| A program that draws through `<kr232/gfx.h>` and flips | `krc_kr232_run_gfx_draw` **passed**, frame pinned |
+| By-value and returned records include a three-`char` one, size-exact | `krc_kr232_run_struct`, `krc_kr232_run_sret`, `krc_kr232_run_nested` **passed** |
+| `-S` output byte-identical at every conversion step | `CheckKr232Determinism.cmake` compares two `-S` runs as well as two images: **passed** |
+| The executed rows exist because `KRC_KR232_VM` resolved | rows 10-33 of `ctest -R kr232` **passed** |
+| The compiled program loads in krdbg at source level and stops on a line breakpoint | `krdbg_kr232_tests`: `kr232_adapter_steps_to_a_line_breakpoint` and `kr232_adapter_line_breakpoints_survive_a_reload` **passed**, locals read through a frame offset |
+| Determinism, KDBG invariants and the clean gate | `krc_kr232_determinism`, `krc_kr232_kdbg_invariants`, the clean gate **passed** |
+
+`ctest -R kr232` **27 of 27**; `krc_tests` **3704 of 3704**; `krdbg_kr232_tests` **15 of 15** with a prefix installed.
+
+**ISA 1.0 and devices 1.0 are frozen here.** `kr232-isa.md` and `kr232-devices.md` carry status **Frozen 1.0**, §18 and §14 are retitled **Deferred to 2.0**, and the tags `isa-1.0` and `devices-1.0` mark this revision.
+
+Two M3 tasks remain open and are **not** claimed by this gate: the varargs/FP conventions (the FP path traps with `fp = 0` after a callee returns, recorded in earlier entries) and `libc.c`'s SYS stubs, which the file itself defers until a kernel exists.
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
 
