@@ -2173,7 +2173,7 @@ Host: CROSBY (Windows). Recorded 2026-11-24T04:30:00-08:00. Evidence gathered in
 | A kernel loads a user image with `--user` | `kr232-emu vm kernel.k232 --user userprint.k232` runs the program; `--user` refuses an image based below user RAM with a message naming `--base=0x08000000` |
 | Enters it through a constructed frame with `IRET` and K = 0 | the kernel writes four words and executes `IRET`; the trace shows user execution at `0x08000100`+ with `k=0` |
 | The program writes to the console and exits with a status the kernel returns | `console: hello`, `halted status 3` |
-| The program draws | `userdraw.k232`: `halted status 0`, `frame 2bf050200a5e1325` -- the same hash the kernel-mode drawing fixture produces |
+| The program draws | **corrected 2026-11-24T11:40**: the original evidence, `frame 2bf050200a5e1325`, was a *blank flipped frame* -- the graphics clip started at zero and clipped every commanded draw. After the clip fix: `user-calls.k232` commits `f6b786175f12b425` and `kernel-gate.bin` `dddcd2efdafe5925` |
 | A user access below `0x08000000` and a kernel-only instruction both reach the handler | `user_mode_cannot_load_or_call_into_kernel_memory`: vector 8 for a load at `0x10` and vector 8 for `sys`, both after `IRET` with `!kernel_mode()` asserted before the step |
 | The same program is stepped in krdbg at source level | `kr232_adapter_steps_a_kernel_program_through_a_syscall`: kernel and program in one machine, program halts after printing |
 | The two §12 questions answered in the drafts | ISA §18 and devices §14 are titled **Settled at M5**: -1 refused argument, -2 unknown call, display calls 16-21 |
@@ -2528,6 +2528,25 @@ Host: CROSBY (Windows). The kernel was guest code that only `krc` can build, and
 The drift row was **proved to bite** by inserting a `nop` after `_start`: it failed with *"the kernel in the tree does not match the source: rebuild tests/fixtures/kernel.k232 with krc and commit it"*, and reverting restored it.
 
 Next: gap 1, the kernel's missing calls.
+### 2026-11-24T11:40:00-08:00 — The clip started at zero, so no commanded draw ever landed
+
+Host: CROSBY (Windows). Closing the kernel-call gap exposed something larger. `FILL_RECT`, `DRAW_LINE`, `COPY_RECT` and `UPLOAD` all reported success and painted **nothing**, because `clip_x_`/`clip_w_` initialised to zero and only `SET_SURFACE` ever set them -- every pixel write failed the clip test at `devices.cpp:78` and was silently dropped.
+
+So the frame hashes recorded as drawing evidence were **blank flipped frames**:
+
+| Image | Before | After |
+|---|---|---|
+| `kernel-gate.bin` golden | `2bf050200a5e1325` | `dddcd2efdafe5925` |
+| `user-calls.k232` | (did not exist) | `f6b786175f12b425` |
+
+`devices.cpp` now starts with the clip set to the target and resets it when the mode changes, per `kr232-devices.md` §8.1. **M5's gate row for drawing is corrected in place** with a pointer to this entry; the old hash was never a drawing.
+
+Two more things this round found:
+
+- **Frame goldens gave the program 200 steps.** `CheckFrameHash.cmake` now allows 100000, because a golden recorded mid-run pins a frame the program never meant to commit.
+- **The kernel serves the whole table**: 0 exit, 1 write, 2 read, 16 fill_rect, 17 flip, 18 copy_rect, 19 draw_line, 20 draw_text, 21 upload -- the drawing calls take a validated block pointer, which is what §11.1 means by "one command block through SYSCALL". `DRAW_TEXT` reaches the device and the device draws nothing yet: its glyph set arrives with the terminal page, which is a device gap recorded here rather than hidden.
+
+New rows: `kr232_kernel_user` (42), `kr232_kernel_calls` (`f6b786175f12b425`), and `kr232_kernel_matches_source` when `KR232_BUILD_KERNEL=ON`. **10 of 10** by default, **11 of 11** with the option, all green; `krc_tests` **3704**, `ctest -R kr232` **31 of 31**, `krdbg` **17 of 17**.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
