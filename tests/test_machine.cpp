@@ -121,12 +121,50 @@ TEST_CASE(enter_and_leave_leave_the_stack_where_they_found_it) {
     CHECK(program.machine.reg(13) == 0);
 }
 
-TEST_CASE(syscall_traps_with_pc_after_the_instruction) {
+TEST_CASE(syscall_vectors_to_the_handler_and_the_frame_saves_the_next_pc) {
     Program program{0x79};
+    (void)program.machine.memory().write32(0x100 + 4 * 9, 0x3000);  // vector 9 handler
     const auto result = program.machine.step();
     CHECK(result.stop == Stop::Trapped);
     CHECK(result.vector == 9);
-    CHECK(program.machine.pc() == 0x1001);
+    CHECK(program.machine.pc() == 0x3000);
+    std::uint32_t saved_pc = 0;
+    CHECK(program.machine.memory().read32(program.machine.reg(12) + 4, saved_pc) ==
+          kr232::Access::Ok);
+    CHECK(saved_pc == 0x1001);
+}
+
+TEST_CASE(a_trap_from_user_mode_lands_on_the_kernel_stack) {
+    // 128 MiB of RAM, because a trap taken with K = 0 moves SP to 0x08000000.
+    kr232::Machine machine(0x08000200);
+    (void)machine.memory().write32(0x6000, 0x00000000);  // saved EFP
+    (void)machine.memory().write32(0x6004, 0x00002000);  // user PC
+    (void)machine.memory().write32(0x6008, 0x00000000);  // K = 0
+    (void)machine.memory().write32(0x600C, 0x00000100);  // user SP
+    (void)machine.memory().write8(0x1000, 0x77);         // IRET into user mode
+    (void)machine.memory().write8(0x2000, 0x72);         // BRK in user mode
+
+    machine.set_reg(12, 0x6000);
+    machine.set_pc(0x1000);
+    CHECK(machine.step().stop == Stop::Retired);
+    CHECK(!machine.kernel_mode());
+
+    machine.set_pc(0x2000);
+    const auto result = machine.step();
+    CHECK(result.stop == Stop::Trapped);
+    CHECK(result.vector == 1);
+    CHECK(machine.kernel_mode());
+    const std::uint32_t efp = machine.reg(12);
+    CHECK(efp == 0x08000000u - 16u);
+    std::uint32_t frame_pc = 0;
+    std::uint32_t frame_flags = 0;
+    std::uint32_t frame_sp = 0;
+    CHECK(machine.memory().read32(efp + 4, frame_pc) == kr232::Access::Ok);
+    CHECK(machine.memory().read32(efp + 8, frame_flags) == kr232::Access::Ok);
+    CHECK(machine.memory().read32(efp + 12, frame_sp) == kr232::Access::Ok);
+    CHECK(frame_pc == 0x2000);
+    CHECK((frame_flags & 0x40u) == 0);  // K as it was: user
+    CHECK(frame_sp == 0x00000100);
 }
 
 TEST_CASE(sys_exit_halts_with_the_status_in_r2) {

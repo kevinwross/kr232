@@ -67,12 +67,17 @@ public:
     [[nodiscard]] std::uint8_t exit_status() const noexcept { return exit_status_; }
     [[nodiscard]] std::uint64_t cycles() const noexcept { return cycles_; }
 
+    // K = 1. Trap entry sets it and only IRET clears it (ISA §2.2).
+    [[nodiscard]] bool kernel_mode() const noexcept { return flag(6); }
+
     // Executes the instruction at PC.
     StepResult step();
 
 private:
     StepResult execute(const Decoded& decoded);
-    [[nodiscard]] StepResult trap(unsigned vector) const;
+    // Builds the 16-byte frame of ISA §11.3 and vectors to the handler. A frame
+    // that cannot be pushed halts the machine: there is no double-fault path.
+    StepResult enter_trap(unsigned vector);
     [[nodiscard]] unsigned fetch(std::uint8_t* out, std::uint32_t address) const;
     void set_nz(std::uint32_t value) noexcept;
 

@@ -527,6 +527,16 @@ Also: three PowerShell string replacements wrote literal backtick-n into the tes
 Ticked: the executor task, whose check this table is.
 Next: protection and traps.
 
+### 2026-11-22T20:35:50-08:00 — M1: trap entry builds the frame; IRET restores it
+
+Host: CROSBY (Windows `windows-msvc`) and CROSBY WSL (`linux-wsl`)
+Added: `Machine::enter_trap()` writes the 16-byte frame of ISA §11.3 — saved EFP, faulting PC, the flags as they were, and the interrupted SP — then sets `EFP`, `K = 1`, `I = 0` and vectors to the handler at `[0x100 + 4·vector]`. A trap taken with K = 0 moves SP to `0x08000000` first, so the frame never lands on the user's stack. A frame that cannot be pushed halts: there is no double-fault path. Every trap site now goes through it, and `SYSCALL` advances PC before entry so the frame records the next instruction.
+Ran: Windows 29 cases and 0 failed checks; WSL build and `ctest` 3 of 3.
+Tests: `syscall_vectors_to_the_handler_and_the_frame_saves_the_next_pc`, and `a_trap_from_user_mode_lands_on_the_kernel_stack`, which runs on a 128 MiB machine because the kernel stack top is inside RAM — the fixture that broke the previous attempt.
+Split, and this is the correction to three thin rounds: protection lands in four commits — the frame and `IRET` (this one), protection on fetch and data access, kernel-only instructions, and the vector-table tests. Each fits a round and each is verified before the next.
+Not ticked: the protection task itself, which is the fourth piece plus its vector cases.
+Next: protection on fetch and data access.
+
 ### 2026-11-22T20:06:19-08:00 — the BitWhiz alias now matches both spellings
 
 Host: CROSBY and BitWhiz
