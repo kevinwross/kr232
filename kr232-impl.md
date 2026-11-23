@@ -1334,6 +1334,16 @@ Host: CROSBY (Windows, `build/kr232-adapter`)
 The open decision is made and written down: a **loaded hash** for this target covers the adapter's view of a loaded program -- the **PC, the sixteen general registers, the four FP registers, the flags, and the first 256 bytes of memory** (the vectors and the code a debugger will disassemble). `goldens/kr232-loaded.hash` records **`C10445505D870F1D`**.
 
 The test records the value when the goldens file is absent and asserts it afterwards, so the number is a recorded fact a reader can review rather than a check that accepts whatever the code produced. `krdbg_tests` **116 tests, 0 failures**.
+### 2026-11-23T11:50:00-08:00 — M4: an intermittent crash in the adapter's own test binary
+
+Host: CROSBY (Windows, `build/kr232-adapter`)
+**Blocking, and not yet explained.** Running `krdbg_tests.exe` directly now dies after the surface tests with exit code **-2147483645** (0x80000003), its output truncated mid-line, while `ctest --test-dir build/kr232-adapter` reported **3 of 3 passed** in the same minute. Three earlier direct runs had passed with 116 tests.
+
+That combination -- green under ctest, dying under a direct run, and the earlier green runs having been made against a **stale binary** whose build had failed -- points at the suite's newest code rather than at test order: the adapter's source-path resolution is the last change that compiled into the binary.
+
+What I did *not* do: remove the adapter code to get a green number, or blame the test framework. The crash appeared only after a build that actually succeeded, which is exactly the signal that the previous "green" runs were meaningless.
+
+Next: bisect on the adapter's recent commits with the binary run directly three times at each step, and treat any step that is green-once as unverified. A flaky suite is a bug in the test or in the code, and the frame view's `span` over vram is the first suspect on bounds grounds.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
