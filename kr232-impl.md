@@ -260,7 +260,7 @@ Round-trip for all 81 vectors; a hand-written `.s` linked and run; the `.kdbg` d
 - [ ] `[krcompiler]` ALU, comparisons, branches, calls, returns. Check: `int main(void){return 42;}` returns 42 under the emulator.
 - [x] `[krcompiler]` Aggregate paths: memory-class parameters copied size-exactly, the R6 return destination loaded after argument evaluation, struct return by copy-out. Check: the three-`char` record test, and a nested call in an argument.
 - [ ] `[krcompiler]` Varargs and FP argument/return conventions. Check: a `printf`-style call with mixed integer and `double` arguments.
-- [ ] `[krcompiler]` C++ surfaces: class, `this` in R10, virtual dispatch with the reserved typeinfo slot, constructors. Check: a virtual call dispatches to the override; the vtable's `[vptr - 4]` word is present and zero.
+- [x] `[krcompiler]` C++ surfaces: class, `this` in R10, virtual dispatch with the reserved typeinfo slot, constructors. Check: a virtual call dispatches to the override; the vtable's `[vptr - 4]` word is present and zero.
 - [x] `[krcompiler]` `targets/kr232/runtime/crt0.s`: frame, call `main`, pass the status to `SYS exit`; no stack setup, since reset SP is `0x08000000`. Check: a linked image exits with `main`'s status.
 - [ ] `[krcompiler]` `targets/kr232/runtime/libc.c`: console output, the `SYS` write/read/exit stubs, blitter-backed `memcpy`/`memset`. Check: output appears on the terminal transcript.
 - [x] `[krcompiler]` `sysroot/kr232/include/bits/` generated from the profile: `bits/types.h`, `bits/stdint.h`. Check: `stdint.h` widths round-trip in a unit test.
@@ -1132,6 +1132,18 @@ Fixed: a `ConstantAddressArray` -- a table of addresses, which is what a vtable 
 Ran: `Bird bird; Animal* animal = &bird; animal->legs()` returns **2**, the override, not the base class's 4. `ctest -R kr232` **25 of 25 passed**; `krc_kr232_run_virtual` pins it.
 
 Still open in the C++ task: the `[vptr - 4]` typeinfo word must be present and zero. The task is not ticked until a program reads that word and returns 0.
+### 2026-11-23T05:35:00-08:00 — M3: the C++ surfaces
+
+Host: CROSBY (Windows `windows-msvc-debug`, `windows-msvc` emulator)
+The vtable now carries `_ZTI` slots as **zero words**, because kr232 reserves the word below the vptr for type information and fixes its value at 0 -- unlike the Itanium ABI, whose slot points at a typeinfo object.
+
+Ran, both with tests:
+- a virtual call through `Animal*` reaches `Bird::legs` -> **2**, not the base's 4
+- a program that reads `*(unsigned*)(vptr - 4)` -> **0**, so the reserved word exists, is the right word, and holds the value the ABI fixes
+
+`ctest -R kr232` **26 of 26 passed**. Ticked: the C++ surfaces task.
+
+Remaining in M3: the FP/varargs task, the `libc` SYS stubs (needs the kernel), the krdbg stop (needs M4's adapter), and the gate with its freezes.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
