@@ -262,7 +262,7 @@ Round-trip for all 81 vectors; a hand-written `.s` linked and run; the `.kdbg` d
 - [ ] `[krcompiler]` Varargs and FP argument/return conventions. Check: a `printf`-style call with mixed integer and `double` arguments.
 - [x] `[krcompiler]` C++ surfaces: class, `this` in R10, virtual dispatch with the reserved typeinfo slot, constructors. Check: a virtual call dispatches to the override; the vtable's `[vptr - 4]` word is present and zero.
 - [x] `[krcompiler]` `targets/kr232/runtime/crt0.s`: frame, call `main`, pass the status to `SYS exit`; no stack setup, since reset SP is `0x08000000`. Check: a linked image exits with `main`'s status.
-- [ ] `[krcompiler]` `targets/kr232/runtime/libc.c`: console output, the `SYS` write/read/exit stubs, blitter-backed `memcpy`/`memset`. Check: output appears on the terminal transcript.
+- [x] `[krcompiler]` `targets/kr232/runtime/libc.c`: console output, the `SYS` write/read/exit stubs, blitter-backed `memcpy`/`memset`. Check: output appears on the terminal transcript.
 - [x] `[krcompiler]` `sysroot/kr232/include/bits/` generated from the profile: `bits/types.h`, `bits/stdint.h`. Check: `stdint.h` widths round-trip in a unit test.
 - [x] `[krcompiler]` The four guest packages: `<kr232/fb.h>`, `<kr232/gfx.h>`, `<kr232/cons.h>`, `<kr232/input.h>`, with kernel-mode implementations. Check: the drawing program fills, draws and flips through `gfx`.
 - [x] `[krcompiler]` Per-target link/run loops at `-O0`, a determinism test, a KDBG-invariants test at `-O0`, and the clean gate. Check: the executed rows exist because `KRC_KR232_VM` resolved.
@@ -2354,6 +2354,31 @@ So the instruction executes with the correct operands, does not disturb the base
 That points at the decode of the two 4-bit register fields when either is 8 or above, and it is testable without another guess: the next round adds an env-gated print of `d.a`, `d.b`, the address and the value inside the machine's compact memory path, the same instrument that settled the trap-policy question.
 
 The test was withdrawn; `ctest` is 8 of 8.
+### 2026-11-24T07:55:00-08:00 — M3: the byte was in the flags register
+
+Host: CROSBY (Windows). The corruption is fixed and its cause is a rule of the machine that I broke while writing kernel code:
+
+**`R11` is the flags word.** A write to it keeps `K` and `I` as the hardware has them (ISA §2.2), so **bit 4 is `I` and cannot be set by data**. The kernel held each console byte in `R11`, so every byte with bit 4 set arrived 0x10 low -- and the same held for bit 6, `K`.
+
+The instrument that found it was the one that had worked twice before: an env-gated print of the decoded fields in the compact memory path, which showed
+
+```
+MEM op=0 a=11 b=10 size=4 load=1 addr=00002000
+```
+
+-- **a correct load whose destination was the flags register.** The disassembly was right, the store was right, and every theory about the compiler, the runtime, `STB` and the device was chasing a write that never failed.
+
+Fixed: the kernel uses `R5` for the byte. Evidence:
+
+```
+console: user mode speaking      (was "eceb`mode`c`eaking")
+console: hello
+kr232_tests: 82 cases, 0 failed
+```
+
+A test pins the rule -- **a load into `R11` leaves the hardware flags as they were** -- so the next person to use it for data sees a failure that names the reason.
+
+Ticked: **`libc.c`'s console output and the SYS stubs**, witnessed by a C program printing through the kernel and exiting with the status it asked for. M3 at 14 of 15; only **varargs** remains, and it needs IR support the compiler does not have.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
