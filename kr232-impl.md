@@ -2320,6 +2320,23 @@ Host: CROSBY (Windows). Four programs, all assembled and disassembled rather tha
 The machine's own `stb` passes all 256 values in a unit test where the register is set directly, and the device writes both `0x50` and `0x75` exactly. So the one datum missing is **what `r6` holds *after* the store** -- every probe so far read it before. If the store clobbers a register, the Compact store path's auto-increment step is the place to look: it writes the base register back, and if the decoded fields are swapped it would write the *source*.
 
 That is the next single program: print `r6` after the store and before the load, and the question is answered either way.
+### 2026-11-24T07:25:00-08:00 — M3: memory holds the right byte; the load reads the wrong one
+
+Host: CROSBY (Windows). The guest sequence, run in the unit harness with the operands set directly:
+
+```
+ld r6,#0x4F ; add r6,#1 ; stb [r10],r6 ; ld r11,[r10]
+
+memory[0x2000] == 0x50     PASS   the store is correct
+r6             == 0x50     PASS   the increment is correct
+r11 & 0xFF     == 0x50     FAIL   the load returned something else
+```
+
+**The store is right and the load is wrong**, which is the opposite of what the last three rounds assumed. Every theory about `stb`, about the assembler and about the kernel's loop was chasing a write that was always correct; the byte was being mis-read on the way *out* of memory, by the `ld` that follows.
+
+The program's console output, `0x40` for a stored `0x50`, is the loaded value rather than the stored one -- so `ld r11, [r10]` returns a word whose low byte has bit 4 clear, which is exactly the kind of near-miss that looks like a bit-drop in the store.
+
+The failing test was withdrawn to keep the suite green; the finding is here. Next: the Compact load's address computation -- `address = regs_[b]` -- with a debug print of the address the load actually uses, compared with the address the store used.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
