@@ -1914,6 +1914,25 @@ Also fixed this round: `--user` loading **pointed PC at the user image's entry**
 Current state with `[r15]` written explicitly: `trap 8 at 0x00000000 after 13 steps` -- the kernel gets further, and the IRET frame's PC is still zero, so the entry in R2 is not reaching the frame. Two candidates remain and both are visible in one trace.
 
 `[sp]` is a **silent** mis-encoding: it assembles, links, and runs, and only a register dump shows it. That deserves a test of its own -- an assemble-and-disassemble round trip for every base-register spelling the ISA allows.
+### 2026-11-23T23:15:00-08:00 — M5: two address-encoding defects, both silent
+
+Host: CROSBY (Windows). Traced a program that only writes and reads its own stack:
+
+```
+0x0000030e lea r10, [sp+0]      <- from `st [sp], r10`
+0x00000326 ld r9, [r0+8]        <- from `ld r9, [sp+8]`
+```
+
+Both are wrong and neither errors:
+
+- a **store** through `[sp+N]` comes back from the disassembler as `lea r10, [sp+0]`, so the store-to-SP encoding is not what the disassembler thinks it is -- one of the two is mislabelled;
+- a **load** through `[sp+8]` encodes **base register 0**, so it reads from address 8. The load path has an `address.sp` branch, but the address reaching it still carries base 0 for a non-zero displacement.
+
+Earlier the kernel's frame stores showed the same signature as `st [r0], r10`.
+
+An attempted fix in the store path changed the emitted instruction without changing the behaviour and was **reverted**; `ctest -R kr232` is back to green. These two belong together in one round with a round-trip test: assemble `ld`/`st` through `[sp]`, `[sp+0]`, `[sp+4]`, `[sp-4]`, disassemble, and compare against the source spellings.
+
+The kernel task stays open on this: its frame cannot be built until the base register of an SP-relative access is encoded at all.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
