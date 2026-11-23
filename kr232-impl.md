@@ -2547,6 +2547,25 @@ Two more things this round found:
 - **The kernel serves the whole table**: 0 exit, 1 write, 2 read, 16 fill_rect, 17 flip, 18 copy_rect, 19 draw_line, 20 draw_text, 21 upload -- the drawing calls take a validated block pointer, which is what §11.1 means by "one command block through SYSCALL". `DRAW_TEXT` reaches the device and the device draws nothing yet: its glyph set arrives with the terminal page, which is a device gap recorded here rather than hidden.
 
 New rows: `kr232_kernel_user` (42), `kr232_kernel_calls` (`f6b786175f12b425`), and `kr232_kernel_matches_source` when `KR232_BUILD_KERNEL=ON`. **10 of 10** by default, **11 of 11** with the option, all green; `krc_tests` **3704**, `ctest -R kr232` **31 of 31**, `krdbg` **17 of 17**.
+### 2026-11-24T12:20:00-08:00 — Gap 3 in progress: the packages are written, the program traps
+
+Host: CROSBY (Windows). Landed and committed (krcompiler `e9581ea`):
+
+- **`cons_user.c`, `gfx_user.c`, `fb_user.c`, `input_user.c`** -- each package's user-mode implementation, reaching the kernel through `SYSCALL` instead of touching device registers;
+- **`syscall6.s`** -- one variadic stub that reads up to five arguments from the stack slots ADR 0057 defines and fills `R2`-`R6` before the trap;
+- **`crt0_user.s`** -- the exit status goes back through `SYSCALL`, because the kernel enters a program with `K` clear where the kernel-only `sys` faults;
+- **the compiler's four-register limit no longer applies to a variadic callee** (31 of 31 rows still green);
+- the kernel now serves **22 `fb_info`**, **23 `input_next`** and **24 `input_pending`**, so the packages have calls to sit on.
+
+The program that drives them still fails:
+
+```
+trap 8 at 0x00000000 after 476 steps
+```
+
+The trace puts the fault inside `fb_height()`: it loads the cached value, stores it to `[fp-12]`, and **`fp` is `0x258`** -- a value, not an address -- so the store lands below user RAM and raises vector 8. The generated call sequence for the stub was read and is correct: five arguments pushed last-first in eight-byte slots, `call`, `add r15, #48`. So the frame pointer is being restored from the wrong slot somewhere between the package call and the next function entry, and the next round starts by printing `r13` at each `enter` and `leave` rather than reading more assembly.
+
+Gap 3 stays open; gaps 1 and 2 are closed.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
