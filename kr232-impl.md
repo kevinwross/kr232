@@ -254,7 +254,7 @@ Round-trip for all 81 vectors; a hand-written `.s` linked and run; the `.kdbg` d
 
 ### Tasks
 
-- [ ] `[krcompiler]` Backend skeleton in the guide's shape: `Kr232Backend(module, profile, level)`, `emit`, `debug_info`, `frame_bytes`, registered at both dispatch sites in `src/toolchain/toolchain.cpp` and the six branches in `src/tools/krc/main.cpp`. Check: `krc --target=kr232 -c` reaches the backend and emits a prologue.
+- [x] `[krcompiler]` Backend skeleton in the guide's shape: `Kr232Backend(module, profile, level)`, `emit`, `debug_info`, `frame_bytes`, registered at both dispatch sites in `src/toolchain/toolchain.cpp` and the six branches in `src/tools/krc/main.cpp`. Check: `krc --target=kr232 -c` reaches the backend and emits a prologue.
 - [ ] `[krcompiler]` Prologue/epilogue with `ENTER`/`LEAVE`, and the frame layout the ABI fixes. Check: a frame-size unit test; `-S` byte-identical against the previous step at each subsequent task.
 - [ ] `[krcompiler]` Loads and stores, including `LDBU`/`LDHS`, the signed/unsigned narrow extensions and the FP forms. Check: by-value `char`/`short` parameters round-trip.
 - [ ] `[krcompiler]` ALU, comparisons, branches, calls, returns. Check: `int main(void){return 42;}` returns 42 under the emulator.
@@ -888,6 +888,14 @@ Gate: plan §7 items 1-5 — **met on Windows and WSL**.
 
 Merged: `kr232-m2` into `master` as **e441d06**, a `--no-ff` merge carrying the profile, descriptor, parser, encoder, object writer, debug bridge, container writer, the linker's target-5 path and `krc --dump-symbols`. Verified on master: `ctest -R kr232` **6 of 6**, `krc_tests` **3700 assertions**.
 The branch remains on the remote; it is the owner''s to delete.
+
+### 2026-11-22T22:10:00-08:00 — M3: the backend is reached and emits a prologue
+
+Host: CROSBY (Windows `windows-msvc-debug`)
+Added: `Kr232Backend` with `emit`, `debug_info` and `frame_bytes`; the toolchain dispatches target 5 to it; the profile reports `backend_available` true; `krc -S --target=kr232` emits `enter #0, #0` / `leave #0` / `ret` per function from a target-neutral C fixture. Seven kr232 CTests pass.
+Found: last round''s failure was a wrong-profile edit -- the pattern `true, false, AggregateRules::MemoryOnly` matched **KR16**''s row, not kr232''s, so the flip never reached the target under test. Reading the row instead of pattern-matching found it in one call, which is the rule this session adopted after five silent `Replace` no-ops.
+Process: this commit (`fdb44aa`) landed on `master` before the branch existed; M3''s remaining work is on `kr232-m3` and the branch is pushed. The M0/M2 pattern of one branch per milestone was the intent.
+Next: prologue/epilogue and the ABI frame layout, then loads and stores.
 
 ## 14. Gate verification
 
