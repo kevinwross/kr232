@@ -2748,6 +2748,24 @@ One defect in my own script, caught by running it: `krld` wants `--base=0x080000
 Suites: `kr232` **15 of 15** with the kernel, **87 unit cases**; `krcompiler` **33 of 33**; `krdbg` **17 of 17**.
 
 Item 7 of 8 closed. Next: the ARM64 run.
+### 2026-11-24T21:40:00-08:00 — Item 8 closed: the same suite runs on ARM64
+
+Host: BitWhiz (aarch64, Debian). With the checked-in images and the ARM64-built `krc`/`krld`:
+
+```
+kr232 ctest       15 of 15    machine tests, kernel rows, package row, fixture drift
+krcompiler ctest   5 of 5     the kr232 rows that host registers
+```
+
+Getting there found four portability defects, none of which the Windows suite could see:
+
+- **The compiler did not build on Linux at all.** `clang` on aarch64 rejects an unused lambda capture under `-Werror`, in `kr216_encoder.cpp` — two dead captures. Then an unused constant, an unused private field, and **a lambda of mine** left behind when the alloca address moved to its own helper. Removing the dead weight fixed all four sites.
+- **An empty list element is dropped by the newer CMake policy**, so the fixture row worked on Windows and failed on Linux with `list index: 2 out of range`; the field is `none` now.
+- **Images were not reproducible across hosts.** `--source-root` now records relative source paths, and the per-file label prefix is an **FNV-1a hash of the source text with carriage returns skipped**: a Windows checkout carries CRLF, so the same file assembled to different label names (`Lb6aaeb23_` against `L8d45b21a_`) and the drift row failed on ARM64 while passing on Windows.
+
+That third one is the interesting one: the drift row I added in item 7 is what caught it, and only because it ran somewhere else.
+
+All eight items on the priority list are closed.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
