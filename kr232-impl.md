@@ -782,6 +782,14 @@ Ran: `ssh bitwhiz "hostname; whoami; uname -m"` → `BitWhiz`, `kevinro`, `aarch
 Found: the earlier failure was pattern case-sensitivity, not a missing key — the key was always right, the block simply did not match the lowercase name.
 Next: the M0 gate's merge clause, which is the owner's action.
 
+### 2026-11-22T21:32:57-08:00 — M2: the .k232 loader replaces the flat loader
+
+Host: CROSBY (Windows `windows-msvc`) and CROSBY WSL (`linux-wsl`)
+Added: `load_k232` validates the ADR 0058 container before writing a byte -- magic, versions, kind, header size, target id 5, ABI, file size, CRC32 with its field zeroed first, the image base, the entry inside the image's half of the map, and every section's address and payload. A kernel image's header entry is written into the reset word at `0x0100`. `load_image` dispatches on the magic and the CLI calls it.
+Ran: kr232's suite 78 cases, 0 failed checks; WSL `ctest` 4 of 4.
+Found: the kr232 harness has `CHECK` but no `REQUIRE`; the appended tests did not compile until the macro was corrected -- the two repositories' harnesses are not interchangeable.
+Next: `link_impl` wiring for target 5, `.kdbg` emission, then `kr232-dis` and the end-to-end `.s` fixture.
+
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
