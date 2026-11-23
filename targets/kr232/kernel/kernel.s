@@ -241,11 +241,11 @@ fb_info_call:
   bcc bad_argument
   ld r8, #fb
   ld r8, [r8]
-  ld r5, [r8]
+  ld r5, [r8+4]          ; WIDTH: +0 is CONTROL
   st [r2], r5
-  ld r5, [r8+4]
+  ld r5, [r8+8]          ; HEIGHT
   st [r2+4], r5
-  ld r5, [r8+8]
+  ld r5, [r8+12]         ; STRIDE
   st [r2+8], r5
   ld r2, #0
   iret
