@@ -1,9 +1,13 @@
 #include <kr232/frame.h>
 #include <kr232/loader.h>
+#include <kr232/decoder.h>
+#include <span>
 #include <kr232/machine.h>
 #include <kr232/version.h>
 
 #include <cstdio>
+#include <deque>
+#include <utility>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
@@ -62,10 +66,14 @@ int main(int argc, char** argv) {
     std::uint32_t base = 0;
     std::uint64_t max_steps = 1000000;
     bool want_frame_hash = false;
+    bool want_trace = false;
+    std::deque<std::pair<std::uint32_t, std::string>> trace;
     bool want_transcript = false;
     for (int i = 3; i < argc; ++i) {
         if (std::strcmp(argv[i], "--frame-hash") == 0) {
             want_frame_hash = true;
+        } else if (std::strcmp(argv[i], "--trace") == 0) {
+            want_trace = true;
         } else if (std::strcmp(argv[i], "--transcript") == 0) {
             want_transcript = true;
         } else if (std::strcmp(argv[i], "--base") == 0 && i + 1 < argc) {
@@ -93,6 +101,24 @@ int main(int argc, char** argv) {
 
     std::uint64_t steps = 0;
     while (steps < max_steps) {
+        const std::uint32_t step_pc = machine.pc();
+        if (want_trace) {
+            // The instruction about to run, so a trap names its cause. Decoded here
+            // because the machine has already moved on after the step.
+            std::uint8_t bytes[8] = {};
+            for (std::size_t i = 0; i < sizeof bytes; ++i) {
+                std::uint8_t byte = 0;
+                if (machine.memory().read8(step_pc + static_cast<std::uint32_t>(i), byte) ==
+                    kr232::Access::Ok) {
+                    bytes[i] = byte;
+                }
+            }
+            const kr232::Decoded decoded = kr232::decode(std::span<const std::uint8_t>(bytes));
+            trace.emplace_back(step_pc, decoded.ok ? decoded.text : std::string("(data)"));
+            if (trace.size() > 12) {
+                trace.pop_front();
+            }
+        }
         const kr232::StepResult result = machine.step();
         ++steps;
         if (result.stop == kr232::Stop::Halted) {
@@ -103,6 +129,14 @@ int main(int argc, char** argv) {
         if (result.stop == kr232::Stop::Trapped) {
             std::fprintf(stderr, "trap %u at 0x%08x after %llu steps\n", result.vector, machine.pc(),
                          static_cast<unsigned long long>(steps));
+            // The last few instructions before the fault, so a trap names its cause
+            // instead of only its effect. Kept in a ring so a long run costs nothing.
+            if (want_trace) {
+                std::fprintf(stderr, "trace:\n");
+                for (const auto& entry : trace) {
+                    std::fprintf(stderr, "  0x%08x %s\n", entry.first, entry.second.c_str());
+                }
+            }
             return 1;
         }
     }
