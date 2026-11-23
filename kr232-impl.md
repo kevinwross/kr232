@@ -1625,6 +1625,29 @@ That is the first evidence of any kind about a kr232 host build, and it names th
 The block was then reverted so the suite stays green; the finding is recorded instead of a red test.
 
 This took four rounds because I kept inferring instead of measuring: the block was nested in a guard (source, visible all along), the probes each time answered a smaller question, and one repair attempt with index arithmetic scattered the file and had to be reverted. The rule that finally worked is the one now written into the log twice: **add a marker, rebuild, and `findstr` the binary before interpreting any run.**
+### 2026-11-23T18:20:00-08:00 — M4: narrowing the overflow
+
+Host: CROSBY (Windows). Reproduced outside the harness with the tools directly:
+
+```
+krc -c --target kr232 host_build.c -o hb.kro          (ok)
+krld --entry=main hb.kro -o c.k232                    (ok, entry 732)
+krld --entry=_start hb.kro crt0.kro -o d.k232         (link relocation overflows its width)
+krld --base=0 ... / --base=0x08000000 ...             (same, so it is not the base)
+```
+
+`--print-size` on the object alone shows pre-assigned section addresses:
+
+```
+.data        0x200  size=0
+.debug_info  0x200  size=219
+.text        0x2dc  size=23
+.kdbg        0x0    size=639
+```
+
+Each object links alone; the **pair** fails. The distance `call main` needs is a few hundred bytes, far inside rel16, so the overflowing relocation is not the obvious one -- and `krld`'s message names the width but **not the symbol**, which is why this is still unknown.
+
+The next step is therefore in the tool, not the harness: make `krld`'s overflow message name the relocation's symbol and offset. One line of diagnostic ends what three rounds of inference could not, and it is a permanent improvement to every future link failure.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
