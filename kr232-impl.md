@@ -2255,6 +2255,19 @@ So the corruption is **on the way into memory**, not on the way out: `stb` store
 That makes `STB` (or the memory write path it uses) the defect, and it is a **machine** bug, not a kernel one: the kernel's loop was faithfully reproducing what memory held.
 
 Next: store two different bytes into one word (`0x75` at offset 0, `0x41` at offset 1) and read the word back; the layout it shows identifies whether a bit is dropped or the byte is misplaced.
+### 2026-11-24T06:10:00-08:00 — M3: two bytes in one word, one exact and one not
+
+Host: CROSBY (Windows). Stored `0x75` at byte 0 and `0x41` at byte 1 of one word, then printed the word byte by byte:
+
+```
+console: eA
+```
+
+**`0x41` survived exactly and `0x75` did not.** The layout is right -- both bytes are in their places -- so this is not a shift, a byte order or an address problem: the *value* written by `stb` was already `0x65`.
+
+`Memory::write8` truncates with `static_cast<std::uint8_t>(value)` (`src/machine.cpp:350`), so the store is faithful; the register must hold the wrong byte before it. And yet the same `ld r9, #0x75` followed by a direct store to the console printed `u` in the probe before this one.
+
+So the difference lies between two programs that appear to differ only in which register the address was loaded into, which is worth one systematic probe rather than another hypothesis: store every byte from `0x00` to `0x7F` in turn, print each as it is stored, and read the mapping off in one run.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
