@@ -2164,6 +2164,23 @@ Both programs behave exactly as before, which is the point of changing numbers b
 The krdbg kernel fixture was refreshed in the same change, so the debugger loads the kernel that is in the tree rather than the one it was recorded against.
 
 M5 at 7 of 7 tasks. What remains is the **gate record**: the plan's §10 criteria against the evidence gathered in these rounds.
+### M5 — kernel and user mode
+
+Host: CROSBY (Windows). Recorded 2026-11-24T04:30:00-08:00. Evidence gathered in this round, not recalled from earlier ones.
+
+| Plan §10 criterion | Evidence |
+|---|---|
+| A kernel loads a user image with `--user` | `kr232-emu vm kernel.k232 --user userprint.k232` runs the program; `--user` refuses an image based below user RAM with a message naming `--base=0x08000000` |
+| Enters it through a constructed frame with `IRET` and K = 0 | the kernel writes four words and executes `IRET`; the trace shows user execution at `0x08000100`+ with `k=0` |
+| The program writes to the console and exits with a status the kernel returns | `console: hello`, `halted status 3` |
+| The program draws | `userdraw.k232`: `halted status 0`, `frame 2bf050200a5e1325` -- the same hash the kernel-mode drawing fixture produces |
+| A user access below `0x08000000` and a kernel-only instruction both reach the handler | `user_mode_cannot_load_or_call_into_kernel_memory`: vector 8 for a load at `0x10` and vector 8 for `sys`, both after `IRET` with `!kernel_mode()` asserted before the step |
+| The same program is stepped in krdbg at source level | `kr232_adapter_steps_a_kernel_program_through_a_syscall`: kernel and program in one machine, program halts after printing |
+| The two §12 questions answered in the drafts | ISA §18 and devices §14 are titled **Settled at M5**: -1 refused argument, -2 unknown call, display calls 16-21 |
+
+Totals this round: `kr232_tests` **80 cases, 0 failed**; `krdbg_kr232_tests` **17 of 17**; `node tools/check-isa.mjs` **81/81 vectors**.
+
+**The gate is met as recorded above.** Two limitations are stated rather than hidden: the kernel implements four calls (exit, write, fill, flip) out of the twenty-one the drafts record, and the user-mode column of the guest packages still ships as `syscall` stubs rather than through `libc.c`.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
