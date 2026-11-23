@@ -1897,6 +1897,23 @@ So the install is correct in isolation and the vector is empty when the trap arr
 Also established this round: **user mode must use `syscall` (0x79)**, not `sys` (0x73) -- `SYS` is the kernel's hypercall into the emulator and its numbers are 0-4 with 5+ trapping vector 3, while `syscall` is the only instruction that enters the kernel from user mode. My first user program used `sys` and was answered by vector 3 for exactly that reason.
 
 Not ticked. Next: dump the word at `0x0124` after the `--user` load, which separates the two candidates in one run.
+### 2026-11-23T22:55:00-08:00 — M5: `[sp]` assembles as `[r0]`, silently
+
+Host: CROSBY (Windows). The trace of the kernel's entry named a defect that no amount of reading the kernel would have found:
+
+```
+0x000004e9 sub sp, #16
+0x000004ec ld r10, #0x0
+0x000004ef st [r0], r10        <- written as `st [sp], r10`
+```
+
+**The assembler encodes `[sp]` as base register 0.** The kernel stored its frame at address 0, faulted with an address error, and the fault was recorded at PC 0 -- which is why the earlier entries showed a trap at `0x00000000` and why the vector looked empty when it was not.
+
+Also fixed this round: `--user` loading **pointed PC at the user image's entry**, overriding the kernel's, because `load_image` sets PC. The kernel's PC is now preserved across that load.
+
+Current state with `[r15]` written explicitly: `trap 8 at 0x00000000 after 13 steps` -- the kernel gets further, and the IRET frame's PC is still zero, so the entry in R2 is not reaching the frame. Two candidates remain and both are visible in one trace.
+
+`[sp]` is a **silent** mis-encoding: it assembles, links, and runs, and only a register dump shows it. That deserves a test of its own -- an assemble-and-disassemble round trip for every base-register spelling the ISA allows.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes

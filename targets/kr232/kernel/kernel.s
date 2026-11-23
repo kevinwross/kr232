@@ -5,14 +5,14 @@ _start:
   ld r8, #0x0100
   ld r9, #syscall_handler
   st [r8+36], r9         ; vector 9, system call
-  sub sp, #16
+  sub r15, #16
   ld r10, #0
-  st [sp], r10
-  st [sp+4], r2          ; user entry from --user
-  st [sp+8], r10         ; flags: K clear
+  st [r15], r10
+  st [r15+4], r2          ; user entry from --user
+  st [r15+8], r10         ; flags: K clear
   ld r10, #0x0FFFFFF0
-  st [sp+12], r10
-  mov r12, sp
+  st [r15+12], r10
+  mov r12, r15
   iret
 
 syscall_handler:

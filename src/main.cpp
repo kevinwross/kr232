@@ -110,8 +110,13 @@ int main(int argc, char** argv) {
             std::fprintf(stderr, "kr232-emu: cannot read '%s'\n", user_path.c_str());
             return 2;
         }
+        // Loading a user image points PC at its entry, which is not where the
+        // machine should start: the kernel runs first and enters the program
+        // itself. Keep the kernel's PC across the load.
+        const std::uint32_t kernel_pc = machine.pc();
         const kr232::LoadOutcome user_loaded =
             kr232::load_image(machine, user_image, 0x08000000u);
+        machine.set_pc(kernel_pc);
         if (!user_loaded.ok) {
             std::fprintf(stderr, "kr232-emu: user image: %s\n", user_loaded.error.c_str());
             return 2;
