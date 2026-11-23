@@ -2713,6 +2713,19 @@ That is the honest branch of "honest or working": a glyph atlas is a device feat
 Suites: `kr232` **14 of 14** with the kernel and **12 of 12** without, `krcompiler` **33 of 33**, `krdbg` **17 of 17**, lint **81/81**.
 
 Item 5 of 8 closed. Next: wiring the two-adapter check into the gate.
+### 2026-11-24T19:55:00-08:00 — Item 6 closed: the gate runs the two-adapter suite
+
+Host: CROSBY (Windows). `gate-windows.ps1` now calls `check-two-adapters.ps1` before it reports PASS. A full run:
+
+```
+== two adapters
+109 test(s), 0 failure(s)
+GATE WINDOWS: PASS
+```
+
+and the wiring was **proved to bite**: with the child's success test changed to something impossible, the gate stopped at `== two adapters` and never printed PASS.
+
+Item 6 of 8 closed. Next: the user-mode fixtures' drift rows.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
