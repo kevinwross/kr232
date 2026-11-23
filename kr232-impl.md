@@ -830,6 +830,14 @@ Ran: krcompiler's suite 3699 assertions, all passing; kr232's suite unaffected.
 Blocked, and named: `krc --dump-symbols` cannot yet read a `.k232`. The krc tool target does not have `src/` on its include path, so the CLI cannot see `linker/kr232_image.h`, and the right fix is a public header rather than adding a source directory to a tool's includes. That header is the next step, after which the CLI branch is three lines.
 Next: the public reader header, then `--dump-symbols` on a `.k232`, `RunKr232Image.cmake`, `kr232-dis`, and the `.s` fixture under `kr232-emu`.
 
+### 2026-11-22T21:44:42-08:00 — M2: the container reader is public, and krc can reach it
+
+Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2` at `12963c0`
+Added: `include/krc/image/k232.h` and `src/image/k232.cpp` hold `read_k232_section`, moved out of the linker implementation so a tool can include it without reaching into `src/`. `krc --dump-symbols` now decodes a `.k232` by reading its `.kdbg` section and falls back to `decode_kdbg_image` for `.k32` and `.kex`.
+Ran: krcompiler's suite 3699 assertions, all passing.
+Not verified end to end: the CLI branch has no fixture. There is no checked-in `.k232` to run `--dump-symbols` against, so the code path exists and compiles but its first real invocation is still ahead. That is the next round's first task, and it needs a generated fixture rather than a hand-built one.
+Next: generate a `.k232` fixture from a `.s` file, run `krc --dump-symbols` on it, then `RunKr232Image.cmake` and the `.s` fixture under `kr232-emu`.
+
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
