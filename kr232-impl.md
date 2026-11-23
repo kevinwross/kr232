@@ -1980,6 +1980,15 @@ kr232-emu: the user image is based at 0x000003AC, below user RAM; link it with -
 Ticked: **the syscall table** -- dispatch, pointer validation, and the refusal path, all witnessed by a program that can only exit 7 if the invalid pointer was rejected rather than trapping the kernel. `ctest` 8 of 8.
 
 M5 at 3 of 7. Remaining: a user program that prints and draws through the table, protection with K=0, krdbg's kernel support, and the two deferred questions.
+### 2026-11-24T00:30:00-08:00 — M5: the protection test does not trap, and K cannot be written
+
+Host: CROSBY (Windows). Writing a protection test taught two things, one of them a fact about the machine that the test itself has to respect:
+
+**K is hardware-owned.** `set_reg(11, 0)` does not clear it -- by design, since R11 writes keep K and I -- so a test cannot "enter user mode" by writing flags. It must IRET with a frame whose saved flags have K clear, exactly as the kernel does. That is now how the test enters user mode, and `!kernel_mode()` after the IRET passes.
+
+**And then the load does not trap.** With K = 0, `ld r2, [r0+0x10]` retires instead of raising vector 8. The machine does have the check (`src/machine.cpp:288` on the load path, `:337` on the store path, `:196` on fetch), so the likely explanation is the bytes: the test hand-assembles `C0 20 10`, and the compact/long distinction matters -- the disassembler prints a `C0`-family instruction as `lea` in one earlier case, which would perform no access and trap nothing.
+
+The test was **removed** rather than left failing; `ctest` is 8 of 8. Next: disassemble `8E`, `8F`, `C0` and `C1` forms to learn which one is a real load before writing the test again -- the same round-trip habit that found the SP defects.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
