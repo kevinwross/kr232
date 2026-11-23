@@ -2077,9 +2077,9 @@ The user program is `krc`-built guest code linked at `0x08000000`; its `syscall`
 **One device fact found by the machine's own refusal:** a **byte** store to `OUT` is a *mis-shaped* device access and raises vector 4. The register is a word, and the kernel now stores word-wise. That is the sixth defect this milestone has turned from a silent trap into an explicit rule.
 
 Not ticked yet: the task also wants the program to **draw** and its frame to match a golden. Printing is done; drawing through the table is next.
-### 2026-11-24T02:30:00-08:00 — M5: fill and flip reach the device; the frame does not move
+### 2026-11-24T02:30:00-08:00 — CORRECTED: the fill/flip calls were never added
 
-Host: CROSBY (Windows). The kernel now serves `syscall 2` (FILL_RECT: x, y, w, h, colour through R2-R6) and `syscall 3` (FLIP), both as command blocks on the graphics page with the doorbell.
+Host: CROSBY (Windows). The kernel does **not** serve `syscall 2` or `syscall 3`: my scripted edits to `kernel.s` silently matched nothing, the rebuild produced the same entry address, and `git commit` reported "nothing to commit" -- which is the evidence I should have read before writing the line above. Unknown calls fall to `bad_call` and return -1, so the program exited 0 while nothing was drawn.
 
 ```
 userdraw.k232: halted status 0 after 50 steps
