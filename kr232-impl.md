@@ -197,7 +197,7 @@ The gate block under `## Gate verification`, quoting the failing test's output, 
 - [x] `[kr232]` `memory`: the 4 GiB space with the eight rows of ISA §2.3, load/store of 1/2/4 bytes, and the unbacked-gap behaviour. Check: unit tests per region boundary.
 - [x] `[kr232]` `decoder`: every class of ISA §3.1, including `F0`/`F4` lengths resolved from the bytes after the prefix. Check: a decode of all 81 Appendix A vectors, bytes in, mnemonic and length out, matching the appendix.
 - [x] `[kr232]` `executor`: ALU, shifts, branches, loads/stores, `ENTER`/`LEAVE`, `CALL`/`RET`, `PUSH`/`POP`, halfword and byte forms, `SYS`, `IRET`, `BRK`, `RDCYCLE`. Check: one test per vector from bytes to architectural state — the 81-vector effect harness, plus the twelve value cases.
-- [ ] `[kr232]` Protection and traps: the 16-byte frame, vector 4 for the gaps and null page, vector 8 for the two user ranges and kernel-only instructions, vector 9 for `SYSCALL`, `IRET`'s restore of K, I and SP, and the K/I write rules. Check: the M1 gate's protection list, case by case.
+- [x] `[kr232]` Protection and traps: the 16-byte frame, vector 4 for the gaps and null page, vector 8 for the two user ranges and kernel-only instructions, vector 9 for `SYSCALL`, `IRET`'s restore of K, I and SP, and the K/I write rules. Check: the M1 gate's protection list, case by case.
 - [ ] `[kr232]` Devices: timer, console, framebuffer, keyboard, terminal, graphics commands, system, blitter — registers, `ID` at `0x3C`, reset values, and the trap rules for undefined offsets and reserved pages. Check: per-page tests, and the `ID` word of all eight.
 - [ ] `[kr232]` Blitter: `COPY`, `FILL`, `UPLOAD`, range validation before any byte moves. Check: a rejected range leaves memory unchanged.
 - [ ] `[kr232]` Frame commit and `--frame-hash`: the committed surface's hash, with a checked-in golden. Check: the golden matches on x64 and the ARM64 row records "excluded".
@@ -357,7 +357,7 @@ The kernel's entry and return, the syscall table's validation, protection from u
 | Milestone | State | Gate recorded |
 |---|---|---|
 | M0 | complete — gate recorded 2026-11-22T20:07:37-08:00 | M0 |
-| M1 | in progress — 4 of 11 tasks | — |
+| M1 | in progress — 5 of 11 tasks | — |
 | M2 | not started | — |
 | M3 | not started | — |
 | M4 | not started | — |
@@ -546,6 +546,14 @@ Tests: user load from kernel RAM → 8; user load from the gap → 4, which pins
 Found, because the machine was right and the test was wrong: the earlier user-mode BRK test placed user code at `0x2000`, inside kernel RAM. Once fetch is protected that is vector 8, not the BRK's vector 1 — so the fixture moved to `0x08000100`, where user code actually lives. A test that only passes because the machine does not yet check something is the kind of green this project keeps having to distrust.
 Piece 2 of 4 in the protection split. Still to come: kernel-only instructions, then the vector-table tests.
 Next: kernel-only instructions.
+
+### 2026-11-22T20:39:08-08:00 — M1: the protection list is covered case by case
+
+Host: CROSBY (Windows `windows-msvc`) and CROSBY WSL (`linux-wsl`)
+Added: `EI`, `DI`, `HALT`, `SYS` and `IRET` raise vector 8 in user mode; `SYSCALL` stays legal there and raises 9. Tests now cover the M1 gate's protection list one case at a time: user access below `0x08000000` and at or above `0xFC000000` → 8; the low gap → 4 in both modes; the high gap → 4 in kernel mode and 8 in user mode; the null page in kernel mode → 4; each kernel-only instruction in user mode → 8 with a frame naming the instruction; `SYSCALL` from user mode → 9; and `IRET` restoring I, K and SP from the frame.
+Ran: Windows 37 cases and 0 failed checks; WSL build and `ctest` 3 of 3.
+Closed: the protection task, in four commits across three rounds — the frame, access protection, kernel-only instructions, and the vector matrix. The split that made it land is the same one the earlier attempts lacked.
+Next: the device model — eight pages, `ID` at `0x3C`, the trap rules for undefined offsets and reserved pages.
 
 ### 2026-11-22T20:06:19-08:00 — the BitWhiz alias now matches both spellings
 

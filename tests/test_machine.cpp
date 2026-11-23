@@ -225,6 +225,74 @@ TEST_CASE(a_user_mode_fetch_outside_user_ram_traps_8) {
     CHECK(result.vector == 8);
 }
 
+TEST_CASE(kernel_only_instructions_trap_in_user_mode) {
+    kr232::Machine machine(0x08000200);
+    const std::uint8_t kernel_only[] = {0x73, 0x74, 0x75, 0x76, 0x77};  // SYS, EI, DI, HALT, IRET
+    for (const std::uint8_t opcode : kernel_only) {
+        enter_user_mode(machine, 0x08000100);
+        CHECK(!machine.kernel_mode());
+        (void)machine.memory().write8(0x08000100, opcode);
+        machine.set_pc(0x08000100);
+        const auto result = machine.step();
+        CHECK(result.stop == Stop::Trapped);
+        CHECK(result.vector == 8);
+        CHECK(machine.kernel_mode());
+        std::uint32_t frame_pc = 0;
+        CHECK(machine.memory().read32(machine.reg(12) + 4, frame_pc) == kr232::Access::Ok);
+        CHECK(frame_pc == 0x08000100);
+    }
+}
+
+TEST_CASE(syscall_is_the_one_system_instruction_user_mode_may_execute) {
+    kr232::Machine machine(0x08000200);
+    enter_user_mode(machine, 0x08000100);
+    (void)machine.memory().write8(0x08000100, 0x79);  // SYSCALL
+    machine.set_pc(0x08000100);
+    const auto result = machine.step();
+    CHECK(result.stop == Stop::Trapped);
+    CHECK(result.vector == 9);
+    CHECK(machine.kernel_mode());
+}
+
+TEST_CASE(iret_restores_the_interrupt_flag_from_the_frame) {
+    Program program{0x77};  // IRET
+    (void)program.machine.memory().write32(0x6000, 0x00000000);
+    (void)program.machine.memory().write32(0x6004, 0x00003000);
+    (void)program.machine.memory().write32(0x6008, 0x00000010);  // I set, K clear
+    (void)program.machine.memory().write32(0x600C, 0x00008000);
+    program.machine.set_reg(12, 0x6000);
+    program.run(1);
+    CHECK(program.machine.flag(4));       // I restored
+    CHECK(!program.machine.kernel_mode());  // K restored
+    CHECK(program.machine.sp() == 0x8000);
+}
+
+TEST_CASE(the_gaps_are_address_errors_in_kernel_mode_and_protection_above_fc_in_user) {
+    // Kernel mode: both unbacked gaps are address errors.
+    Program low_gap{0x90, 0x23};
+    low_gap.machine.set_reg(3, 0x10000000);
+    const auto low = low_gap.machine.step();
+    CHECK(low.stop == Stop::Trapped);
+    CHECK(low.vector == 4);
+
+    Program high_gap{0x90, 0x23};
+    high_gap.machine.set_reg(3, 0xFE000000);
+    const auto high = high_gap.machine.step();
+    CHECK(high.stop == Stop::Trapped);
+    CHECK(high.vector == 4);
+
+    // User mode at or above 0xFC000000 is protection, not an address error.
+    kr232::Machine machine(0x08000200);
+    enter_user_mode(machine, 0x08000100);
+    (void)machine.memory().write8(0x08000100, 0x90);
+    (void)machine.memory().write8(0x08000101, 0x23);
+    machine.set_reg(3, 0xFE000000);
+    machine.set_pc(0x08000100);
+    const auto result = machine.step();
+    CHECK(result.stop == Stop::Trapped);
+    CHECK(result.vector == 8);
+}
+
 TEST_CASE(sys_exit_halts_with_the_status_in_r2) {
     Program program{0x73};
     program.machine.set_reg(7, 0);

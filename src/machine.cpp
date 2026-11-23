@@ -328,6 +328,11 @@ StepResult Machine::execute(const Decoded& d) {
 
     switch (d.kind) {
         case OpClass::Short: {
+            // EI, DI, HALT, SYS and IRET are kernel mode only (ISA §11.1);
+            // SYSCALL at 0x79 is how user mode enters the kernel.
+            if (d.opcode >= 0x73 && d.opcode <= 0x77 && !kernel_mode()) {
+                return enter_trap(8);
+            }
             const unsigned index = d.opcode & 0xFu;
             if (d.opcode <= 0x0F) {
                 if (!push(regs_[index])) {
