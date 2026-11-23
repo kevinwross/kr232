@@ -291,7 +291,7 @@ The per-target loops, determinism, KDBG invariants, the clean gate, `-S` byte-id
 - [x] `[krdbg]` `adapters/kr232/` skeleton and CMake option `KRDBG_KR232_ADAPTER`, linked like KR216's direct-source pattern. Check: configure, build, and the adapter test target compiles.
 - [x] `[krdbg]` `layout()`: one core context, the register groups, flags Z…K with **K and I non-writable**, 32 address and pointer bits, `variable_instruction_length` true with `instruction_alignment` 1, `step_unit` "instructions". Check: the layout test asserts each field, and `write_flags` cannot clear K.
 - [x] `[krdbg]` Memory regions: kernel RAM, user RAM, aperture, device window, and both unbacked gaps marked neither readable nor writable. Check: a read in each region and in each gap.
-- [ ] `[krdbg]` Execution and state: `step_instruction`, `run`, `pc`/`set_pc`, `read_value`/`write_value` by group index, `read_flags`/`write_flags`, `reset`. Check: stepping a fixture retires the documented instructions and reports `Halted`/`Fault` truthfully.
+- [x] `[krdbg]` Execution and state: `step_instruction`, `run`, `pc`/`set_pc`, `read_value`/`write_value` by group index, `read_flags`/`write_flags`, `reset`. Check: stepping a fixture retires the documented instructions and reports `Halted`/`Fault` truthfully.
 - [ ] `[krdbg]` `disassemble` through `kr232-dis`, advancing by decoded length. Check: a one-byte `RET` is followed by the next instruction, not by a four-byte gap.
 - [ ] `[krdbg]` `unwind()` through the EFP chain, `FunctionInfo::frame` 0, and `Location::FrameOffset` negated. Check: two frames and a local's value at each.
 - [ ] `[krdbg]` `IComPort` over page 2 and `IVideoSource` over the committed frame, with `has_com_port` and `has_framebuffer` agreeing. Check: a byte through the port reaches the guest, and a frame hash matches the emulator's.
@@ -1248,6 +1248,12 @@ Host: CROSBY (Windows, `build/kr232-adapter` with `KRDBG_KR232_ADAPTER=ON`)
 Ran: `krdbg_tests` **109 tests, 0 failures** with the adapter enabled, so the existing suite is unaffected by the new target.
 
 Ticked: the layout task and the memory-regions task. Not ticked: execution/state (step, run, pc/set_pc, flags are implemented but only register reads are asserted) and the loader's source-level task (path resolution and `replace_target` on reload are missing).
+### 2026-11-23T08:45:00-08:00 — M4: execution and state are tested
+
+Host: CROSBY (Windows, `build/kr232-adapter`)
+`kr232_adapter_steps_runs_and_keeps_k_and_i` asserts: one step retires one instruction, the instruction count rises, running to the end reports **Halted** and `halted()` agrees, a register write reads back, `set_pc` moves the PC, and a flag write **cannot change K or I** -- the machine starts in kernel mode and the debugger must not alter the privilege it runs at. `krdbg_tests` **110 tests, 0 failures**.
+
+Ticked: the execution-and-state task. Next: the one-byte `RET` case in disassembly, `unwind` with two frames, the two device views, host wiring, fixtures and golden, the adapter's remaining cases, and the boundary gate.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
