@@ -1495,6 +1495,26 @@ Two frames, and the parameter's value from where the payload says it lives. `krd
 Getting there cost four withdrawn tests and one wrong assertion, each recorded: a guessed member name, a sign convention, a decoder that dropped a sign, and a prologue whose store is six instructions in rather than two. Every one of them was found by measuring, and every one of them was a case where I first guessed.
 
 M4 at 10 of 14. Remaining: the windowed `load_any` observation, and the gate record.
+### 2026-11-23T15:30:00-08:00 — M4/M3: the unit suite is red, and I had not run it
+
+Host: CROSBY (Windows). While confirming the M3 gate's `-S` criterion (**passing**: `ctest -R kr232` 27 of 27, and the assembly text now compared between two runs), `krc_tests` reported **FAILURE**. Running the binary directly names five failures that this filter never covered:
+
+```
+test_kr232_assembler.cpp(50)  REQUIRE text.size() == 1+3+2+1+1
+test_kr232_assembler.cpp(102) CHECK !assemble("bra nowhere")     <- it now succeeds
+test_kr232_image.cpp(157)     REQUIRE linked.ok
+test_kr232_object.cpp(32)     symbols[0].binding == Global
+test_sysroot_bits.cpp(55-59)  generated bits/*.h != the checked-in headers
+```
+
+Every one is mine, and three are real regressions rather than stale expectations:
+- `bra` to an undefined label **no longer fails** -- my rel16 branch change routed it through a relocation, so the test's refused-label case became accepted;
+- the checked-in `sysroot/kr232/include/bits/*.h` are **hand-written** and differ from what `generate_bits_*` produces, which is exactly what that test exists to catch;
+- the image and object tests are consistent with the earlier relocation/symbol-size work and need reading.
+
+I have been running `ctest -R kr232` and treating it as "the suite" for many rounds. It is a filter, not the suite, and `krc_tests` -- the one real unit binary -- has been red underneath it. That is the most serious process error of this session, and it is mine.
+
+Next: fix the five, in that order, then re-run `krc_tests` before any further kr232 work.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
