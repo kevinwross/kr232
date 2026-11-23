@@ -1776,6 +1776,17 @@ Hoisting the prologue's three direct `[r13-N]` stores through R8 was not enough 
 **Reverted**, so the tree is green again: `ctest -R kr232` **27 of 27**, `krc_tests` **3704 of 3704**. The FP task stays open with its cause proven and its fix half-written and reverted rather than half-applied.
 
 Next: enumerate every direct `[r13-` emitter in the backend, route them all through one hoisting helper, then re-apply the 8-byte slot layout. That is a bounded change with a known finish line, which is why reverting it now costs nothing.
+### 2026-11-23T20:40:00-08:00 — M3: the FP frame is fixed, and the task's varargs half is not
+
+Host: CROSBY (Windows). Commit **2b3b166**: a function holding any eight-byte value leaves slot 0 unused, so its first slot is `FP-8` and a double spans `FP-8..FP-1` instead of overwriting the saved frame pointer at `[FP]`. Functions with only four-byte values still get frame 0, so the pinned prologue rows stayed green.
+
+```
+krc_kr232_run_fp   halted status 4 after 72 steps   (1.5 + 2.5 truncated)
+ctest -R kr232     28 of 28
+krc_tests          3704 of 3704
+```
+
+The FP **argument and return conventions** work and are pinned by a new row. The M3 task stays open because its check names a **`printf`-style call with mixed integer and `double` arguments** -- that is **varargs**, which the backend does not implement: there is no register save area and no `va_list`. Naming that difference is the point; the tick would claim a feature that is not there.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
