@@ -2962,6 +2962,27 @@ Getting the row to pass needed a **reconfigure**: CMake had generated the row be
 Suites: `kr232` **15 of 15** kernel rows, `krcompiler` **35 of 35** kr232 rows.
 
 Items 16 and 17 of 25 closed.
+### 2026-11-25T07:30:00-08:00 — Items 18, 19 and 20 closed, and the write range was a real hole
+
+Host: CROSBY (Windows).
+
+**Item 20 found something.** The kernel's `write` copied until an access faulted: a length that ran past the mapped memory **trapped halfway** instead of answering. It now refuses, with nothing copied:
+
+- an address below `0x08000000`,
+- a length whose sum with the address **wraps** (`cmp r5, r2; bcc`),
+- a sum above `0xFC000000`.
+
+A probe with `write(0xFFFFFFF0, 0x20)` answers **-1**; before the fix it trapped at `0x00000000`.
+
+`kr232-devices.md` §14 records the rule and the absence of any other cap, including the honest limit: the kernel cannot see a machine whose RAM is smaller than the ISA's maximum, so a range inside the limit but beyond installed memory still traps.
+
+**Item 18 -- descriptor 1.** The ISA §13 already said descriptor 1 is the console and 0 its input, with any other number refused; the unit test now names **descriptor 2** explicitly, which is the one a caller would most likely try next.
+
+**Item 19 -- the clock's top half.** `time` answers 64-bit seconds in R2:R3 and the high word is zero until **2106**, so no test can reach the carry. That is now written in the test rather than left as an untested path pretending to be covered.
+
+Suites: `kr232` **87** unit cases, `kr232` kernel rows re-run after the kernel change.
+
+Items 18, 19 and 20 of 25 closed.
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
