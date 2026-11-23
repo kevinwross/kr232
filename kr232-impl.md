@@ -1024,6 +1024,13 @@ Found by a new invariants check (built, then withdrawn from the suite): a compil
 Suite: twenty kr232 CTests pass.
 Next: fix the debug bridge's addresses and spans, then restore the invariants check.
 
+### 2026-11-23T02:30:00-08:00 — M3: why the debug payload's spans are wrong
+
+Host: CROSBY (Windows `windows-msvc-debug`)`Diagnosis: the merged `.debug_info` from two objects carries two records for the same synthetic line label (`.L0` and friends, one per object), and `attach_kdbg` resolves a label by name against one global symbol map. So both sources' lines resolve to whichever `.L0` the linker kept, the addresses repeat, and a function's span comes out empty -- `line 0x344` outside `0x34c-0x34b`. The M2 gate did not see this because its fixture was a single object.
+The fix belongs in one of two places, and the choice is a design one: make the assembler's synthetic line labels unique per source (`.L<file>_<n>`), or have the linker scope bridge references to the object they came from. The first is local and cheap; the second is correct in general and belongs to the KDBG contract.
+`cmake/CheckKr232Kdbg.cmake` is committed as a tool and stays out of the suite until the payload passes it.
+Suite: twenty kr232 CTests pass.
+
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
