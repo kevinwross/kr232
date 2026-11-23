@@ -2,9 +2,10 @@
 
 | | |
 |---|---|
-| Status | **Draft 0.2** — the device and display contract for the kr232 plan. Devices are kernel-only and the packages have a kernel and a user path; both are open to change |
-| Date | 2026-11-22T08:55:00-08:00 |
-| Basis | `kr232-isa.md` 0.3 (§2.3 memory map and protection, §14 device window) and the kr32 device work: `..\kr32\docs\devices.md`, `display.md`, `terminal.md`, `graphics.md` |
+| Status | **Approved 0.4** — the device and display contract, approved as the implementation basis for M0–M3. Devices are kernel-only; the packages keep one API with a kernel and a user implementation, and the plan ships the kernel-mode one in M3. Freezes as **devices 1.0** at M3's gate |
+| Date | 2026-11-22T19:10:04-08:00 |
+| Basis | `kr232-isa.md` 0.4 (§2.3 memory map and protection, §14 device window) and the kr32 device work: `..\kr32\docs\devices.md`, `display.md`, `terminal.md`, `graphics.md` |
+| Approved against | `kr232-isa.md` 0.4 and `kr232-plan.md` 0.17, 2026-11-22 |
 | Applies to | the planned `kr232-emu` device model, the host display window, and the guest `fb`, `gfx`, `cons` and `input` packages |
 | Normative | §2–§10 are device contracts the ISA points at. §11 is a *package* contract, not ISA: it describes a guest library the plan will build |
 | Access | every device register and the framebuffer aperture are kernel-only (ISA §2.3); a user-mode access raises a protection fault, and user code reaches a device only through `SYSCALL` |
@@ -30,20 +31,24 @@ this document fills in the registers.
 | Page | Base | Device | Section |
 |---|---|---|---|
 | 0 | `0xFFF00000` | timer | §3 |
-| 1 | `0xFFF01000` | reserved: block device planned | §10 |
+| 1 | `0xFFF01000` | reserved: block device planned | §10.1 |
 | 2 | `0xFFF02000` | console: polled byte stream | §4 |
-| 3 | `0xFFF03000` | reserved: interrupt router planned | §10 |
+| 3 | `0xFFF03000` | reserved: interrupt router planned | §10.1 |
 | 4 | `0xFFF04000` | framebuffer control | §5 |
-| 5 | `0xFFF05000` | reserved: serial tty planned | §10 |
+| 5 | `0xFFF05000` | reserved: serial tty planned | §10.1 |
 | 6 | `0xFFF06000` | keyboard | §6 |
-| 7 | `0xFFF07000` | reserved: pointer planned | §10 |
+| 7 | `0xFFF07000` | reserved: pointer planned | §10.1 |
 | 8 | `0xFFF08000` | terminal: host-rendered text console | §7 |
 | 9 | `0xFFF09000` | graphics commands: host-rasterised drawing | §8 |
 | 10 | `0xFFF0A000` | system control: halt, reset, cycle counter | §9 |
-| 11–239 | `0xFFF0B000`–`0xFFFEFFFF` | reserved: any access traps | §10 |
+| 11 | `0xFFF0B000` | blitter: host-side copy and fill | §10 |
+| 12–239 | `0xFFF0C000`–`0xFFFEFFFF` | reserved: any access traps | §10.1 |
 
 Within a page, `base + 0x3C` is always the `ID` word. Nothing else about a page is shared between
 devices.
+
+Every populated page is mandatory (ISA §15.40): a headless build still answers its `ID` and status
+reads rather than trapping, and omits no device.
 
 ## 2. Access rules
 
@@ -59,7 +64,7 @@ devices.
 - A read of an offset the device does not define traps. There are no "harmless" holes in a device
   page, which is what makes a typo in a register offset visible.
 - Bits a register does not define read 0 and ignore writes.
-- Nothing in this draft raises an interrupt. Interrupt-enable bits are reserved and read 0.
+- Nothing raises an interrupt in 1.x (ISA §15.37). Interrupt-enable bits are reserved and read 0.
 
 ## 3. Timer — page 0 (`0xFFF00000`)
 
@@ -89,7 +94,8 @@ Behaviour:
 
 The console is the polled byte stream: the host's standard output and standard input, which is the
 same pair the `SYS` `write`/`read` calls use (ISA §13). It is the debug transport; the *screen*
-console is the terminal in §7.
+console is the terminal in §7. The terminal mirrors what it accepts onto this stream (ISA §15.55),
+so a transcript of a run contains the screen text as well as the program's own writes.
 
 | Offset | Name | Access | Reset | Meaning |
 |---|---|---|---|---|
@@ -251,6 +257,9 @@ were current when it was written; changing `COLOR` does not recolour existing ce
   `con_present()` is one `FLIP`.
 - With no framebuffer enabled the terminal still accepts writes and maintains its grid; nothing is
   rendered.
+- Each accepted character is also written to the console page's `OUT` (ISA §15.55), so a run's
+  transcript carries the screen text. The mirror is a development aid and retires when the terminal
+  and the COM port separate.
 
 ## 8. Graphics commands — page 9 (`0xFFF09000`)
 
@@ -288,7 +297,8 @@ Commands draw into a target surface inside the aperture:
 | 7 | `FLIP` | — | the framebuffer `FLIP` of §5.3 |
 | 8 | `SET_SURFACE` | offset, width, height, stride | select the target |
 | 9 | `COPY_RECT_STRIDED` | source offset, source stride, x, y, w, h | copy from another surface |
-| 10–`0xFFFFFFFF` | — | — | reserved; `ERROR` is set and nothing is drawn |
+| 10 | `UPLOAD` | source address, surface offset, width, height, source stride | copy rows from guest RAM into the target surface |
+| 11–`0xFFFFFFFF` | — | — | reserved; `ERROR` is set and nothing is drawn |
 
 ### 8.3 Validation
 
@@ -299,11 +309,14 @@ Commands draw into a target surface inside the aperture:
   a multiple of 4, or `offset + height*stride` leaves the 32 MiB aperture.
 - `DRAW_TEXT` is rejected when the source range `[pointer, pointer+length)` leaves RAM (the device
   region is not readable as text). Length is clamped to 4096 bytes.
+- `UPLOAD` is rejected when the source rows do not fit in RAM, when the source stride is below
+  `width*4` or not a multiple of 4, or when the destination rectangle leaves the target surface. It
+  copies `height` rows of `width*4` bytes from RAM into the surface at the surface's own stride.
 - An unknown opcode sets `ERROR` and draws nothing.
 - `ERROR` is sticky until written as 1; a successful command leaves it alone.
 
-`DRAW_TEXT` is the only command that reads guest memory, and the host is the trust boundary: it
-validates the range before reading. There is no DMA in this draft.
+`DRAW_TEXT` and `UPLOAD` are the commands that read guest memory, and the host is the trust
+boundary: it validates every range before reading it.
 
 ## 9. System control — page 10 (`0xFFF0A000`)
 
@@ -318,9 +331,48 @@ validates the range before reading. There is no DMA in this draft.
 `CYCLE_LO` returns the same low word `RDCYCLE` writes to R2. `HALT` is the same stop as the
 instruction of the same name; `SYS exit` (number 0) is the way to stop with a status.
 
-## 10. Reserved pages
+## 10. Blitter — page 11 (`0xFFF0B000`)
 
-Pages 1 (block), 3 (interrupt router), 5 (serial tty), 7 (pointer) and 11–239 have no device: any
+The blitter is the host's byte mover. The guest writes a descriptor and starts it; the host performs
+the copy or fill at native speed. A guest loop over bytes is never the right way to move a buffer:
+an 800x600 surface is 1.9 MB, which is about four million instructions as `LDBU`/`STB` pairs and
+about a millisecond as a host `memmove`.
+
+| Offset | Name | Access | Reset | Meaning |
+|---|---|---|---|---|
+| `0x00` | `SRC` | RW | 0 | source address in RAM or the aperture; ignored by a fill |
+| `0x04` | `DST` | RW | 0 | destination address in RAM or the aperture |
+| `0x08` | `LEN` | RW | 0 | byte count |
+| `0x0C` | `VALUE` | RW | 0 | fill pattern: bits 0–7, 0–15 or 0–31 by `SIZE` |
+| `0x10` | `CONTROL` | WO | — | bit 0 start, bit 1 mode (0 copy, 1 fill), bits 2–3 size (0 = 1, 1 = 2, 2 = 4 bytes; 3 reserved) |
+| `0x14` | `STATUS` | RO/W1C | 0 | bit 0 `DONE`, bit 1 `ERROR` |
+| `0x3C` | `ID` | RO | `0x424C5431` | `BLT1` |
+
+Writing `CONTROL` with bit 0 performs the operation before the store completes. There is no busy
+state and no interrupt: starting clears both status bits, success sets `DONE`, a rejected descriptor
+sets `ERROR` and moves nothing, and either bit is write-1-to-clear.
+
+**Copy** has `memmove` semantics: overlapping ranges are defined, and the result is as if the source
+were read before any byte was overwritten.
+
+**Fill** writes `LEN` bytes of the `VALUE` pattern. The unit is 1, 2 or 4 bytes as `SIZE` selects,
+written little-endian; a trailing partial unit takes the low bytes of `VALUE` in order. `SIZE` = 1 is
+`memset`, and zeroing a buffer, a page or a bitmap is `VALUE` = 0. A rectangle-shaped clear of the
+framebuffer is `FILL_RECT` (§8.2), not a fill, because the graphics page owns geometry.
+
+Both ranges must lie wholly inside RAM — the `0x00000100`–`0xFBFFFFFF` range of ISA §2.3, which
+excludes the null page — or wholly inside the aperture; a descriptor that crosses into the unbacked
+gap, the device window or the reserved ranges is rejected. Validation happens before the first byte
+moves, so a rejected command has no partial effect, and `LEN` = 0 is a successful no-op.
+
+The blitter is kernel-only like every other device. A user-mode copy or fill is a `SYSCALL` that the
+kernel validates and submits (§11.6), and the kernel may also use the blitter for its own buffer
+work. Small copies stay inline in the library: below a threshold of a few dozen bytes a trap costs
+more than the copy.
+
+### 10.1 Reserved pages
+
+Pages 1 (block), 3 (interrupt router), 5 (serial tty), 7 (pointer) and 12–239 have no device: any
 access raises an address-error trap. They are reserved so that the map does not move when those
 devices land, and the `ID` read at `0x3C` traps too, which distinguishes "not implemented" from
 "implemented and broken".
@@ -341,9 +393,12 @@ That splits the implementation of each package, not its API:
 | `fb_back()` / `fb_front()` | real VRAM pointers | not available |
 | VRAM allocation | the package's bump allocator | the kernel's allocator, offset returned |
 | Drawing | one command to page 9 | one command block through `SYSCALL` |
+| Bulk copy or fill | one blitter command on page 11 | one `SYSCALL` per block |
 
 Nothing above the package sees the difference: `gfx_fill_rect` is one call in both modes, and the
-arguments are the same.
+arguments are the same. The plan ships the kernel-mode column in M3 and the user-mode column with
+M5's kernel, so the API and its arguments freeze before either mode is complete and a program
+written against `<kr232/gfx.h>` moves to user mode without changing a call.
 
 ### 11.2 `<kr232/fb.h>` — the device (kernel only)
 
@@ -462,12 +517,15 @@ display call becomes a `SYSCALL`. The shape:
   error return, not a trap in the kernel.
 - `gfx_create` becomes an allocation call: the kernel owns the VRAM bump allocator and returns an
   offset the program cannot dereference, only pass back.
+- A bulk copy or fill is a `SYSCALL` that submits a blitter command; the kernel validates both
+  ranges before it starts, so a bad pointer is an error return, not a partial move.
 - There is no `fb_back()` in user mode. A program that wants pixels back asks for a
   kernel-mediated read, which v0.1 does not provide.
 
-The exact numbers, the error returns and whether the command block is copied or read in place are
-`kr232-plan.md`'s to fix; this section only says that the boundary is a syscall and that the kernel
-validates everything.
+The register layout is fixed (ISA §15.36) and the numbering reuses the `SYS` meanings for 0–2 (ISA
+§15.49); the kernel copies the block (ISA §15.50). The display call numbers from 16 up and the error
+values are `kr232-plan.md`'s to fix; this section only says that the boundary is a syscall and that
+the kernel copies and validates everything.
 
 ## 12. Reset state
 
@@ -479,6 +537,7 @@ validates everything.
 | Keyboard | FIFO empty, no overrun |
 | Terminal | grid cleared, cursor at home and visible, 80x30, colour 7 |
 | Graphics | command 0, arguments 0, clip full target, no error |
+| Blitter | registers 0, no `DONE` or `ERROR` status |
 | System | nothing to reset; the cycle counter starts at 0 |
 
 "VRAM cleared" is 32 MiB of zero. An emulator MAY back the aperture sparsely and return zero for
@@ -500,6 +559,7 @@ untouched pages; the architectural result is the same.
 | System control | halt/shutdown syscalls | page 10 registers plus `SYS exit` | kr232 already had MMIO halt/reset |
 | Palette | defined in the kernel palette table | device contract, 16 VGA colours | screenshots are comparable across hosts |
 | Text drawing | `DRAW_TEXT` reads a VRAM staging buffer | `DRAW_TEXT` reads guest RAM, range-checked; user text is copied by the kernel | the kernel, not the device, owns the user-memory read |
+| Bulk copy and fill | kernel `memcpy` loops; the block device does storage DMA | blitter page 11 with host `memmove` and `memset` | the guest never loops over bytes |
 | Privilege | every program builds page tables and sets `MCTL` | one `K` bit; devices are kernel-only | two range checks instead of paging |
 
 The parts kept identical on purpose: pixel format and byte order, the `FLIP` bundle and its
@@ -510,29 +570,6 @@ bound by the console's palette.
 
 ## 14. Open questions
 
-1. **Escape sequences.** v0.1 has none. Is ANSI SGR the next step, and does `COLOR` then become a
-   per-cell pen with a colour stack?
-2. **Command transport.** Immediate registers plus a doorbell are one command in flight. Is a FIFO
-   in VRAM worth it before a program draws thousands of primitives per frame?
-3. **Font.** 10x20 gives 80x30 and readable text; 8x16 gives 100x37 and more lines. One atlas, a
-   mode bit, or a guest-supplied font?
-4. **Dirty rectangles.** Presenting the whole frame is simple; a partial upload needs the device to
-   own rectangle bookkeeping. Worth it for animation?
-5. **Pointer device.** Page 7 is reserved. Mouse or tablet, and does it share the event FIFO with
-   the keyboard?
-6. **VRAM allocation.** The bump allocator is package-level and leaks by design. Does allocation
-   become a device service (a `GFX_ALLOC` command) or stay a library concern?
-7. **Multiple surfaces on screen.** One committed full-screen surface per flip; a compositor is out
-   of scope. Is that acceptable for the whole 1.x line?
-8. **Console and terminal together.** The console page is the debug stream and the terminal is the
-   screen. Should `con_*` also mirror to the console page the way kr32 mirrors to serial?
-9. **Timer tick.** One tick per cycle is simple but makes periods microarchitectural. Should the
-   timer instead count a fixed instruction count or a host-time-derived rate?
-10. **Framebuffer without a host.** A headless emulator still has to answer `ID` and `MODE_OK`. Is
-    the framebuffer optional, or must a headless build fake it?
-11. **Syscall ABI for the display.** The kernel now owns VRAM allocation and command submission. The
-    numbers, the command-block layout, the error convention, and whether the block is copied or read
-    in place are all still open, and so is how a program reads pixels back.
-12. **Direct user access to VRAM.** Paging would allow a surface to be mapped into a user address
-    space, which makes `fb_back()` meaningful in user mode and removes a syscall per primitive. Is
-    that worth the MMU, or does the command model stay for good?
+1. **Display call numbers and errors.** The layout (ISA §15.36), the shared 0–2 numbering (ISA
+   §15.49) and the copy (ISA §15.50) are fixed; the display call numbers from 16 up and the error
+   values are still open. They settle with the kernel's syscall table in M5.

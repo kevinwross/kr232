@@ -2,10 +2,11 @@
 
 | | |
 |---|---|
-| Status | **Draft 0.3** — the 32-bit baseline for the kr232 plan, now with a protected kernel mode. Every deviation from kr216 1.0 is listed in §17 and is still open to change; nothing here is frozen |
-| Date | 2026-11-22T08:55:00-08:00 |
+| Status | **Approved 0.4** — the 32-bit baseline, approved as the implementation basis for M0–M3. Every deviation from kr216 1.0 is listed in §17. It freezes as **ISA 1.0** at M3's gate, so until then a change costs a §15 decision and a §17 row |
+| Date | 2026-11-22T19:10:04-08:00 |
 | Basis | `..\kr216\kr216-isa.md` version 1.0 (frozen 2026-11-22), widened to 32-bit registers and a 4 GiB address space; the device region's shape follows `..\kr32\docs\display.md`, `devices.md`, `terminal.md` and `graphics.md` |
-| Authority | none yet — `kr232-plan.md` does not exist. This document proposes the shape the plan will fix; §18 lists what planning still has to settle |
+| Authority | `kr232-plan.md` 0.17 owns milestone scope, order and gates; this document owns the machine. §18 lists the two questions deferred to 2.0 |
+| Approved against | `kr232-devices.md` 0.4 and `kr232-plan.md` 0.17, 2026-11-22 |
 | Applies to | the planned `kr232-emu`, `kr232-dis`, the krcompiler assembler/encoder and the kr232 image loader. `kr232-devices.md` owns the device register contracts; no implementation exists yet, so no conformance suite pins anything |
 | Open items | §15 records the decisions this draft makes, §17 every change from kr216, §18 every question left to planning, Appendix C the map in one table |
 
@@ -31,6 +32,7 @@ and the `fb`/`gfx`/`cons`/`input` guest packages that sit on them.
 | 0.1 | 2026-11-22 | First draft: kr216 1.0 widened to 32-bit registers and a 4 GiB address space; deviations catalogued in §17. |
 | 0.2 | 2026-11-22 | Device region: 32 MiB framebuffer aperture at `0xFC000000`, a 960 KiB page-per-device window at `0xFFF00000`, and the console, framebuffer, keyboard, terminal, graphics and system pages. Reset SP moves to the top of RAM. Device contracts split into `kr232-devices.md`. |
 | 0.3 | 2026-11-22 | Protection: `K` in R11, 256 MiB of RAM split 128 MiB kernel / 128 MiB user, a two-range protection fault (vector 8), `SYSCALL` at `0x79` (vector 9), and a 16-byte trap frame that switches to the kernel stack. Devices become kernel-only. |
+| 0.4 | 2026-11-22 | Approved as the implementation basis for M0–M3, against `kr232-devices.md` 0.4 and `kr232-plan.md` 0.17; the Authority row names the plan. No encoding changed. |
 
 ## 1. Notation
 
@@ -119,9 +121,9 @@ next (section 11.3). The flag exists for guest code and for a trap-flag debugger
 
 4 GiB, byte-addressable, little-endian, with 32-bit addresses. All address arithmetic wraps
 modulo 2^32; a multi-byte access that runs past `0xFFFFFFFF` continues at `0x00000000`. Byte,
-halfword and word accesses are architectural; unaligned accesses execute correctly. The ISA
+halfword, word and 8-byte FP accesses are architectural; unaligned accesses execute correctly. The ISA
 promises no atomicity or ordering beyond instruction boundaries; multi-hart ordering is out of
-scope for this draft (§16). Instructions may cross any byte boundary and there is no
+scope for 1.x (§15.44). Instructions may cross any byte boundary and there is no
 instruction-alignment requirement.
 
 RAM is 256 MiB, split in two halves: the bottom 128 MiB is kernel space and the top 128 MiB is
@@ -614,7 +616,7 @@ for R0–R7. Auto-increment and auto-decrement step by the operand size: 1 for b
 for halfword, 4 for word, 8 for `FLD`/`FST`, 4 for `FLDS`/`FSTS`.
 
 Mode 7 was reserved in kr216 and is `[Rb+d32]` here. That leaves the indexed form `[Rb+Ri]`
-without a mode number, which is a planning question (§18), not a reservation.
+without a mode number; 1.x does not add one (§15.53).
 
 Two PC-relative rules, deliberately different:
 
@@ -942,7 +944,8 @@ asking the kernel, and the kernel is the only thing that writes a register.
 | 8 | `0xFFF08000` | terminal: host-rendered text console |
 | 9 | `0xFFF09000` | graphics commands: host-rasterised drawing |
 | 10 | `0xFFF0A000` | system control: halt, reset, cycle counter |
-| 11–239 | `0xFFF0B000`–`0xFFFEFFFF` | reserved; any access traps |
+| 11 | `0xFFF0B000` | blitter: host-side copy and fill |
+| 12–239 | `0xFFF0C000`–`0xFFFEFFFF` | reserved; any access traps |
 
 Access rules:
 
@@ -972,7 +975,7 @@ The control page (`kr232-devices.md` §5) selects the visible surface: `FRONT` a
 offsets into the aperture and `STRIDE` is in bytes. Two 1920x1080 surfaces need 16.6 MiB, so double
 buffering, off-screen composition and scratch surfaces all fit in the one 32 MiB window.
 
-Polled I/O: no device raises an interrupt in this draft (§11.1, vectors 5–7).
+Polled I/O: no device raises an interrupt in 1.x (§15.37; §11.1, vectors 5–7).
 
 ## 15. Decisions recorded here
 
@@ -1015,7 +1018,7 @@ choices this draft makes that the plan may reverse; the rest follow from §17.
     rel16`. A 16-bit absolute target is not representable in a 4 GiB space, and keeping the
     opcode numbers would have produced a jump that silently wrapped into the low 64 KiB. *(C.)*
 19. **Halfword access is architectural:** `LDHU`, `LDHS`, `STH` at Normal 29–31 and `F0` 0x1C–0x1E,
-    `SXTH` at `F0` 0x1B, and the `F1` absolute forms 5–7. *(C; see §18.)*
+    `SXTH` at `F0` 0x1B, and the `F1` absolute forms 5–7. *(C.)*
 20. **`F9` ops 0xA–0xF are long-immediate ALU operations**, so a 32-bit constant can be combined
     with a register in one six-byte instruction. *(C.)*
 21. **Every Normal-class instruction is three bytes**, which gives `DIV`/`DIVS` a reserved zero
@@ -1054,34 +1057,101 @@ choices this draft makes that the plan may reverse; the rest follow from §17.
 34. **Kernel-only instructions** are `EI`, `DI`, `HALT`, `SYS` and `IRET`; each raises vector 8 in
     user mode. `SYSCALL`, `BRK`, `RDCYCLE` and the frame instructions are legal in both modes.
     *(C.)*
+35. **No paging in 1.x, and the encoding for it stays reserved.** Protection is the two range checks
+    of §2.3. Vector 10 and `F0` opcodes 0x1F–0x20 remain unallocated, so a later MMU can add a
+    translation fault and a `RDCR`/`WRCR` control-register pair without renumbering anything; the
+    rest of `F0` stays free. *(C.)*
+36. **`SYSCALL` uses the `SYS` register layout.** R7 carries the call number, R2–R5 the arguments,
+    R2 the result, and a failed call returns a negative value. The numbers and the error values are
+    the kernel's ABI and belong to the plan. *(C.)*
+37. **I/O is polled for all of 1.x.** No device asserts an interrupt; vectors 5–7 stay reserved and
+    every per-device interrupt-enable register stays inert. *(C.)*
+38. **Stack alignment is 4 bytes, and 8 is recommended.** 8-byte FP accesses are unaligned-legal
+    (§2.3), so `FPUSH` on a 4-byte-aligned stack is defined; the ABI asks callers to keep SP 8-byte
+    aligned for speed, not for correctness. *(C.)*
+39. **The register file stays at sixteen registers.** No prefix byte, escape slot or wider field is
+    reserved for more; an encoding that needs a fifth register bit is out of scope for 1.x. *(C.)*
+40. **Every device in the map is mandatory.** A build that omits a populated page is non-conformant,
+    and a headless emulator must still answer that page's `ID` and status reads rather than trap.
+    *(C.)*
+41. **The timer counts machine cycles** — the same free-running counter `RDCYCLE` and the system page
+    expose. A period is a cycle budget, and the ISA still does not fix cycles per instruction. *(C.)*
+42. **The default framebuffer mode is 800x600**, stride 3200, which gives the terminal 80x30 cells;
+    a mode change resets the grid (§7.1 of `kr232-devices.md`). *(C.)*
+43. **User mode has no pixel readback in 1.x.** A user program draws through `SYSCALL` command blocks
+    and cannot read VRAM back; reading remains a kernel capability. *(C.)*
+44. **kr232 is a uniprocessor.** No `LL`/`SC`, no fences and no memory-ordering model; a second hart
+    is out of scope for 1.x. *(C.)*
+45. **No kr216 compatibility.** There is no kr216 ISA mode and no image translator; kr216 programs are
+    reassembled for kr232. *(C.)*
+46. **The heap follows the image.** The kernel heap starts after the kernel image and the user heap
+    after the user image, each described by its own linker script; the stack tops stay fixed at
+    `0x08000000` and `0x10000000`. *(C.)*
+47. **One whole-frame `FLIP` per present.** There is no dirty-rectangle upload channel and no command
+    FIFO in 1.x; the rectangle argument of `gfx_present` stays a hint. *(C.)*
+48. **The halfword forms stay**: `LDHU`/`LDHS`/`STH` at Normal 29–31, `F0` 0x1C–0x1E, `SXTH` at `F0`
+    0x1B, and the `F1` absolute forms 5–7. *(C.)*
+49. **`SYSCALL` numbers reuse the `SYS` meanings** for 0 `exit`, 1 `write` and 2 `read`; kernel-only
+    calls start at 16. `time` (3) and `debug_write` (4) stay host calls of the kernel, and a user
+    `SYSCALL` to them fails. *(C.)*
+50. **The kernel copies a user command block before validating it.** It copies the block into a
+    kernel buffer, checks every field, and only then writes the device registers; the graphics device
+    never reads user memory. *(C.)*
+51. **The calling convention is C-style.** R2–R5 carry the first four arguments, further arguments
+    are pushed on the stack, a struct return uses a hidden pointer in R2, and R2 carries the result.
+    *(C.)*
+52. **The kernel owns the screen.** A user program draws only through syscalls; the kernel can take
+    the screen back, kill the program and restore the console. *(C.)*
+53. **1.x gains no ISA extensions.** The drafted instruction set is what 1.x implements: no bit
+    operations, no 64-bit integer instructions, no `rel32` branch form and no indexed addressing;
+    `F2` and `F0` 0x21 and above stay unallocated. *(C.)*
+54. **Bulk movement is host work.** Page 11 is a blitter that copies or fills RAM or VRAM on the
+    host, and page 9 gains `UPLOAD` for a strided copy from RAM into a surface. Guest code does not
+    loop over bytes to move a buffer; small copies stay inline in the library. *(C.)*
+55. **The terminal mirrors each accepted character to the console page.** Every byte the terminal
+    takes is also written to page 2's `OUT`, so a host transcript of a run contains what the screen
+    shows, in kernel and user mode alike; the device mirrors, so a caller cannot opt out. It is a
+    development aid: a later revision separates the terminal (screen and framebuffer) from a
+    COM-port tty, and the mirror retires with the split. *(C.)*
+56. **The kernel owns VRAM allocation.** A program asks the kernel for a surface through `SYSCALL`;
+    the kernel's bump allocator returns an offset, validates it on every later call, and can reclaim
+    it. The graphics page keeps no allocator. *(C.)*
+57. **The terminal has no escape sequences in 1.x.** It switches on control characters only and
+    `COLOR` sets the pen; SGR is a later revision. *(C.)*
+58. **The blitter is synchronous: one command at a time.** The `CONTROL` write completes the move;
+    there is no queue, no busy state and no ordering rule. *(C.)*
+59. **There is no pointer device in 1.x.** Page 7 stays reserved and traps; the keyboard is the only
+    input device. A pointer arrives with the kernel that would use it. *(C.)*
 
 ## 16. Deferred
 
 - **64- and 128-bit integer operations** — the `F2` escape. Until it exists, 64-bit arithmetic
   is an `ADDC`/`SUBB` pair chain on the 32-bit datapath.
-- **Atomics** — there is no `LL`/`SC`, no `AMO`, and no memory-ordering instruction; a
-  multi-hart machine is out of scope for this draft.
+- **Atomics** — 1.x is a uniprocessor with no `LL`/`SC`, no `AMO`, no fences and no ordering model
+  (§15.44); a multi-hart machine is out of scope.
 - **Paging, per-process isolation and virtual memory** — the protection model is two range checks:
   no page table, no translation, no separate address space per process. The kernel is protected
   from user code but user programs are not protected from each other. This is the largest gap for
-  running more than one program at a time.
+  running more than one program at a time, and §15.35 keeps the encoding it will need.
 - **More privilege structure and a relocatable trap stack** — `K` is one bit and the kernel stack
   top is the top of kernel RAM; per-hart stacks and a kernel-configurable boundary are later work.
 - **Bit operations** (`BTST`/`BSET`/`BCLR`/`CLZ`/`CTZ`/`POPCNT`).
-- **Block move/fill** — post-increment loops are the mechanism.
+- **Blitter queues** — one command completes before the next starts; chaining and completion interrupts
+  are later work.
 - **Indexed addressing** `[Rb+Ri]` — mode 7 is now `[Rb+d32]`.
 - **An unsigned high-word multiply (`MULHU`)** — the correction sequence in 10.2 is the portable
   way to get it.
 - **Remainder instruction** — see §15 item 12.
 - **Interrupt sources** — vectors 5–7 exist but nothing raises them, and no device can interrupt
   the CPU: the timer, keyboard and graphics pages are polled, and their interrupt-enable bits are
-  reserved.
+  reserved. 1.x is polled by decision (§15.37); delivery is a later milestone.
 - **Far conditional branches** — `Bcc` reaches ±256 bytes and `rel16` covers ±32 KiB; anything
   farther needs a `JMP addr32` trampoline.
 - **Device DMA** — no device reads or writes memory on its own. The block device on page 1 would
   need it, and its page is reserved until then.
-- **Pointer, serial and block devices** — pages 7, 5 and 1 are reserved and trap; only the timer,
-  console, framebuffer, keyboard, terminal, graphics and system pages exist.
+- **Pointer, serial and block devices** — pages 7, 5 and 1 are reserved and trap; the populated
+  pages are the timer, console, framebuffer, keyboard, terminal, graphics, system and blitter
+  (§15.54, §15.59).
 - **Partial presents** — the host sees the whole committed frame after a `FLIP`; there is no
   dirty-rectangle upload channel, and `gfx_present`'s rectangle is a hint the device ignores.
 - **A guest-side text renderer** — the terminal and `DRAW_TEXT` render text in the host from its
@@ -1146,6 +1216,7 @@ Type: **F** forced by the 32-bit widening, **C** chosen in this draft, **O** lef
 | 48 | Kernel/user split | none | 128 MiB kernel space below, 128 MiB user space above | C |
 | 49 | User-to-kernel entry | none | `SYSCALL` at `0x79`, vector 9, saved PC after the instruction | C |
 | 50 | Kernel-only instructions | none | `EI`, `DI`, `HALT`, `SYS` and `IRET` fault in user mode | C |
+| 51 | Block move and fill | post-increment loops | blitter page 11 (`COPY`/`FILL`) and a graphics `UPLOAD` op | C |
 
 The vectors that did *not* change are the ones whose fields are all 8-bit or smaller: the short
 class, both Compact forms, the `d8`/`imm8` Normal forms, and `F3`–`F7`. That is why the port is
@@ -1156,69 +1227,12 @@ which is where the protection work shows up in the ISA.
 
 ## 18. Open questions for the kr232 plan
 
-Ordered by how much of the rest depends on them.
+Roughly ordered by how much the rest depends on them. Answered questions move to §15; this list
+holds what is still open, and none of it blocks M1.
 
-1. **Register file.** Sixteen 32-bit registers, or more? Anything above sixteen needs five-bit
-   register fields, which no class currently has: it would take a prefix byte or a re-drawn class
-   map, and that decision must precede every encoding discussion.
-2. **Protection.** One `K` bit and two range checks are what this draft describes. Do we ever need
-   per-page permissions or a second kernel level? That is the paging question, and it decides
-   whether kr232 can host more than one user program at a time.
-3. **Interrupts.** Vectors 5–7 are placeholders with no source. Does kr232 get a timer interrupt,
-   an external interrupt line, and a defined priority and masking model?
-4. **Atomics.** Multi-hart, single-hart-multi-thread, or strictly uniprocessor? `LL`/`SC` and
-   fences are the usual answer, and they want an encoding family of their own.
-5. **64-bit integers.** `F2` is reserved for them. Is synthesised `ADDC` chains enough, or does the
-   ISA need `ADD64`/`MUL64`/shift-64?
-6. **Branch reach.** `rel9` plus `rel16` plus `JMP addr32` is enough for most code, but a large
-   function needs a trampoline for a far conditional branch. Add a `rel32` conditional form (and
-   where)?
-7. **Halfword support.** Keep `LDHU`/`LDHS`/`STH`/`SXTH`, or drop them and let the compiler use byte
-   pairs? Keeping them costs three Normal opcodes and one `F0` op.
-8. **Long-immediate ALU.** Keep `F9` 0xA–0xF, or force `LD Rt,#imm32` plus a register-form ALU op?
-9. **Indexed addressing.** `[Rb+Ri]` lost its reserved mode to `[Rb+d32]`. Is it worth an `F0`
-   opcode family or a new prefix?
-10. **Bit operations.** `CLZ`/`CTZ`/`POPCNT`/`BTST`/`BSET`/`BCLR` are free `F0` bytes 0x1F+.
-11. **Memory-ordering and unaligned guarantees.** Unaligned accesses "execute correctly" here; are
-    they also atomic for sizes up to a word, and is there any ordering rule at all?
-12. **ABI.** Four argument registers, `R10` as `this`, stack slots of 4 bytes — is that the right
-    32-bit convention, and what is the required SP alignment (4, 8 or 16)?
-13. **Image layout.** Kernel image at `0x00000200`, user programs at `0x08000000`, user stack at
-    `0x10000000`. Where do the kernel heap and the user heap start, and does the plan need a second
-    linker script for user images?
-14. **Framebuffer default mode.** 800x600 keeps the terminal at 80x30 cells and makes a surface
-    1.9 MB; 1024x768 or 1280x720 would look better and cost more. Does a mode change re-grid the
-    terminal and invalidate guest surfaces?
-15. **Device optionality.** Every listed device is mandatory in this draft, so a minimal emulator
-    without a framebuffer is non-conformant. Should a platform be allowed to omit a device by
-    trapping its page, and how would a guest tell the difference from a bug?
-16. **Who owns the screen.** The kernel is now the only writer. Does a user program get a VRAM
-    surface of its own from the syscall allocator, or draw into the kernel's back buffer? Killing a
-    graphics program and restoring the console afterwards is part of the same question.
-17. **Present model.** One whole-frame `FLIP` per present, or a dirty-rectangle upload path? The
-    terminal and the graphics device both paint the same back surface, so a partial-present
-    channel needs an owner for the rectangle bookkeeping.
-18. **Text.** The terminal renders text in the host from its own atlas, and `DRAW_TEXT` renders
-    into any surface. Is a guest-side font needed at all, or does that pair cover every case?
-19. **Input beyond the keyboard.** Pointer, serial and gamepad pages are reserved. Does the
-    keyboard ever need an interrupt (vector 7), or is polling enough for the whole life of the ISA?
-20. **kr216 compatibility.** Should kr232 be able to run kr216 images (an ISA mode, a translation
-    layer, or nothing at all)?
-21. **Debug and tracing.** Keep the `T` flag, `RDCYCLE` and the system page's cycle counter as the
-    debugging surface, or add a debug port?
-22. **`F0` leftovers.** 0x1F–0xFF of the generic form are free; is the generic form worth keeping at
-    all now that `F9` covers the wide cases?
-23. **User-mode graphics.** Devices are kernel-only, so a user-mode `gfx` submits command blocks
-    through `SYSCALL` and the kernel owns VRAM allocation. Who validates the block and the user
-    pointers, who owns the bump allocator, and can a program read pixels back?
-24. **`SYSCALL` ABI.** The ISA defines the entry and nothing else. Do call numbers, argument
-    registers and results reuse `SYS`'s layout (R7 number, R2–R5 arguments, R2 result), and does the
-    kernel keep the same numbers where the two overlap?
-25. **The `0x08000000` boundary.** Fixed while RAM may grow. Does the kernel ever need more than
-    128 MiB, and should the boundary become a control register instead of a constant?
-26. **The trap stack.** Fixed at the top of kernel RAM. Per-hart or per-thread kernel stacks, and a
-    double-fault path, are later work.
-
+1. **`SYSCALL` error values.** The register layout and the numbering are fixed (§15.36, §15.49);
+   which negative values a failed call returns is still open. It settles with the kernel's syscall
+   table in M5.
 ## Appendix A — Encoding vectors
 
 `asm -> bytes`, all little-endian. Branch vectors are given as explicit displacements because a

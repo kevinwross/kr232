@@ -10,11 +10,11 @@ Add entries here rather than editing the managed blocks in `AGENTS.md`; an edit 
 
 ## Plan
 
-**Status.** No plan exists. `kr232-plan.md` is not written; do not implement anything until it exists and is approved.
+**Status.** Approved 0.17: thirteen scope decisions are accepted (eight in §2, five in §12), every section has been reviewed, and the owner approved the set on 2026-11-22 as the basis for M0–M3. M0 is the first work.
 
-**Authoritative for.** Nothing yet. The two drafts are `kr232-isa.md` 0.3 and `kr232-devices.md` 0.2; their §17–§18 and §13–§14 hold the decisions and the open questions a plan has to settle.
+**Authoritative for.** `kr232-plan.md` — milestone scope, order and exit criteria for 1.x. Read §1–§4 and the milestone covering the work at hand; §12 maps every open ISA and device question to the milestone that settles it.
 
-**Standing constraints.** None until the plan exists.
+**Standing constraints.** The 1.x decisions in `kr232-isa.md` §15.29–§15.59 are not reopened by the plan; encodings stay in the two drafts; the compiler's profile, descriptor, ABI and target id are frozen contracts that move only by ADR (plan §3). KRO and KDBG share that one id, and kr232's is `5` — 1–4 are KR32, KR16, KR64 and KR216.
 
 ## Definition of done
 
@@ -49,7 +49,7 @@ Target-specific notes:
 
 ## Architecture boundaries
 
-- The two drafts are the authority for the machine. `tools/check-isa.mjs` reads them and depends on nothing else; no code exists, and none may be added before `kr232-plan.md` is approved.
+- The two drafts are the authority for the machine. `tools/check-isa.mjs` reads them and depends on nothing else; they freeze as 1.0 at M3's gate, and implementation starts at M0 (plan §5).
 - `..\kr216` and `..\kr32` are reference only. Nothing here builds, imports, or copies from them; their documents are read, not depended on.
 
 ## Environment
