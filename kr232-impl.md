@@ -1360,6 +1360,23 @@ The experiment that settles the rest, each in a fresh build directory:
 So **any adapter linked into `krdbg_tests` shifts the thirteen surface/golden render hashes**. The same thirteen, with an adapter that predates this milestone. This is a fragility in krdbg's golden scheme, not a defect kr232 introduced, and the fix is a repo decision: either the render hash must stop depending on the linked layout, or every adapter's tests move to their own binary so the UI goldens are measured without them.
 
 For M4's gate this is a **FIX-BEFORE**: the milestone's own check wires the adapter into the suite, and the suite's goldens cannot survive that until the scheme is decided.
+### 2026-11-23T12:25:00-08:00 — M4: correction — the baseline fails too
+
+Host: CROSBY (Windows).
+My previous entry said the pristine baseline passed 107 tests and only adapter-enabled builds failed. **That was wrong.** Re-running the baseline worktree binary (`build/base/out/krdbg_tests.exe`, built from `939b544` with no adapter at all) dies at the same place:
+
+```
+build/base/tests/test_surface.cpp:198: FAIL: breakpoints.size() == 1U
+exit -2147483645
+```
+
+So `surface_source_gutter_controls_switch_and_pin` fails on **main, before any kr232 work**: the click does not create a breakpoint, the assertion fails, and the debug STL's bounds check kills the process before the twelve golden comparisons can run. My earlier "0 failures" run of that binary was not reproducible, and I reported it as fact -- it was one run, and a single green run of a suite is not evidence.
+
+What is reproducible: the same failing test and the same thirteen golden mismatches in **every** build I have made, with and without adapters, including the pristine baseline. The golden mismatches are hidden behind the crash in builds without the guard, and visible with it.
+
+This makes krdbg's suite **red on main independently of M4**. For M4's gate that is a **FIX-BEFORE** that is not mine to fix blind: whether the goldens should be regenerated or the surface click behaviour restored is a decision about the owner's UI, and regenerating committed goldens to make a suite green is exactly the move the rules forbid.
+
+Landed this round: the adapter's tests are their own binary (`krdbg_kr232_tests`, **green**), so the UI goldens no longer depend on whether an adapter is linked. That part is a genuine improvement and it stands whatever the goldens decide.
 ## 14. Gate verification
 
 ### 2026-11-22T20:07:37-08:00 — M0 gate (Windows x64)
