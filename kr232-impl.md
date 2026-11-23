@@ -676,7 +676,16 @@ Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2`
 Added: `src/asm/kr232_parser.{h,cpp}` with `parse_instruction` — case-insensitive mnemonic lookup, operands split on commas and trimmed, the ten zero-operand Short forms, `push`/`pop`/`inc`/`dec`/`call` with a register, the unary `neg`/`not`/`sxtb`/`sxth`, and the two-register compact operations. Every other shape — immediate, bracketed address, branch displacement, FP — is refused with an error rather than guessed at.
 Ran: krcompiler's suite 2875 assertions, all passing; two parser cases.
 Found: the first version of the file carried helpers for immediates and conditions that nothing called yet, which `/W4` treats as dead code; they were removed rather than suppressed and will come back with the shapes that use them. A brace-initialised operand also narrowed `unsigned` to `uint8_t`, which the same warning level caught.
-Next: the FP text, then the 81-vector fixture.
+Next: the 81-vector fixture, which is the encoder task's check.
+
+### 2026-11-22T21:21:37-08:00 — M2: the floating-point text
+
+Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2`
+Added: the FP family — binary `fadd`/`fsub`/`fmul`/`fdiv`/`fmov`/`fcmp`, unary `fneg`/`fabs`/`fsqrt`/`frnd`; `fld`/`fst`/`flds`/`fsts` with `[Rb]`, a `d8`, post-increment, pre-decrement, a word displacement and PC-relative addressing through `F4` or `FA`; the four conversions with the FP register on the side each one takes it; and `fpush`/`fpop`. Sixteen forms pinned.
+Ran: krcompiler's suite 3148 assertions, all passing; six parser cases.
+Found: two of the three failures were my *test* expectations, not the parser — `FA` mode 0 is `[Rb+d32]` and mode 1 is `[PC+d32]`, and the PC form carries no base register, so its third byte is zero. The parser had it right and the test had it wrong, which is the direction that a round trip over the Appendix would settle for good.
+Next: the fixture that assembles all 81 Appendix A lines and compares the bytes, which closes the encoder task and is the check the task named.
+
 
 ### 2026-11-22T21:20:27-08:00 — M2: branches and control transfers
 
