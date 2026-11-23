@@ -27,7 +27,7 @@ The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 | CROSBY (WSL, Ubuntu 26.04) | x64 | GCC and Clang rows; the Linux-side behaviour a Windows host hides | `-j10` |
 | BitWhiz (aarch64, GCC 14.2.0) | ARM64 | the ARM64 row, reached by `ssh bitwhiz` | `-j4` |
 
-**Verified 2026-11-22.** CROSBY Windows: MSVC 14.52.37025 and CMake 4.3.1-msvc1 are reachable **only inside the Visual Studio developer environment** — `vcvarsall.bat x64` first, or `cmake` and `ctest` are not on `PATH`. WSL Ubuntu 26.04: CMake 4.2.3, Ninja 1.13.2, GCC 15.2.0; the GCC-15 internal-compiler-error trap krcompiler records applies, so build the Linux rows with `ulimit -s unlimited` and low parallelism. BitWhiz: reach it as **`ssh BitWhiz`** — the configured alias is capitalised, and the lowercase spelling resolves to user `kevin` and is refused. It is a Raspberry Pi 5 on Debian 13 (kernel 6.18, aarch64) with 4 cores, GCC 14.2.0, CMake 3.31.6, Ninja 1.12.1, git 2.47.3 and 15 GB free, so `-j4` is the whole machine. It holds clones of `krcompiler` and `krdbg` but **not of `kr232`**, so the first ARM64 run clones it there.
+**Verified 2026-11-22.** CROSBY Windows: MSVC 14.52.37025 and CMake 4.3.1-msvc1 are reachable **only inside the Visual Studio developer environment** — `vcvarsall.bat x64` first, or `cmake` and `ctest` are not on `PATH`. WSL Ubuntu 26.04: CMake 4.2.3, Ninja 1.13.2, GCC 15.2.0; the GCC-15 internal-compiler-error trap krcompiler records applies, so build the Linux rows with `ulimit -s unlimited` and low parallelism. BitWhiz: `ssh bitwhiz` and `ssh BitWhiz` both work, because the client matches `Host` patterns case-sensitively and the config block names both spellings (`Host bitwhiz BitWhiz`, user `kevinro`). Before that line existed, the lowercase spelling matched no block, fell back to the Windows user `kevin`, and was refused. It is a Raspberry Pi 5 on Debian 13 (kernel 6.18, aarch64) with 4 cores, GCC 14.2.0, CMake 3.31.6, Ninja 1.12.1, git 2.47.3 and 15 GB free, so `-j4` is the whole machine. It holds clones of `krcompiler` and `krdbg` but **not of `kr232`**, so the first ARM64 run clones it there.
 
 **Per-repository commands.** These are the shapes the repositories already use; the first task of each milestone confirms them and the log records the exact line run.
 
@@ -434,6 +434,14 @@ frame offsets — `CALL` "decrements SP by 4 and stores the return address" (ISA
 Found: nothing wrong. No edit was needed.
 Failed: nothing.
 Next: the M0 gate's merge clause — the only thing between M0 and M1.
+
+### 2026-11-22T20:06:19-08:00 — the BitWhiz alias now matches both spellings
+
+Host: CROSBY and BitWhiz
+Changed: `C:\Users\kevin\.ssh\config` line 1, `Host BitWhiz` → `Host bitwhiz BitWhiz`; nothing else in the file. It is outside every repository and outside git, so this log is its record.
+Ran: `ssh bitwhiz "hostname; whoami; uname -m"` → `BitWhiz`, `kevinro`, `aarch64`; `ssh -G bitwhiz` → `user kevinro`, `hostname 192.168.10.170`.
+Found: the earlier failure was pattern case-sensitivity, not a missing key — the key was always right, the block simply did not match the lowercase name.
+Next: the M0 gate's merge clause, which is the owner's action.
 
 ## 14. Gate verification
 
