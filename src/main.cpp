@@ -64,6 +64,7 @@ int main(int argc, char** argv) {
 
     const char* image_path = argv[2];
     std::uint32_t base = 0;
+    std::string user_path;
     std::uint64_t max_steps = 1000000;
     bool want_frame_hash = false;
     bool want_trace = false;
@@ -78,6 +79,8 @@ int main(int argc, char** argv) {
             want_transcript = true;
         } else if (std::strcmp(argv[i], "--base") == 0 && i + 1 < argc) {
             base = static_cast<std::uint32_t>(std::strtoul(argv[++i], nullptr, 0));
+        } else if (std::strcmp(argv[i], "--user") == 0 && i + 1 < argc) {
+            user_path = argv[++i];
         } else if (std::strcmp(argv[i], "--max-steps") == 0 && i + 1 < argc) {
             max_steps = std::strtoull(argv[++i], nullptr, 0);
         } else {
@@ -97,6 +100,23 @@ int main(int argc, char** argv) {
     if (!loaded.ok) {
         std::fprintf(stderr, "kr232-emu: %s\n", loaded.error.c_str());
         return 2;
+    }
+
+    // A user image is preloaded where user-mode code must live; its entry reaches
+    // the kernel in R2, which is where the kernel reads the address it enters.
+    if (!user_path.empty()) {
+        std::vector<std::uint8_t> user_image;
+        if (!read_file(user_path.c_str(), user_image)) {
+            std::fprintf(stderr, "kr232-emu: cannot read '%s'\n", user_path.c_str());
+            return 2;
+        }
+        const kr232::LoadOutcome user_loaded =
+            kr232::load_image(machine, user_image, 0x08000000u);
+        if (!user_loaded.ok) {
+            std::fprintf(stderr, "kr232-emu: user image: %s\n", user_loaded.error.c_str());
+            return 2;
+        }
+        machine.set_reg(2, user_loaded.entry);
     }
 
     std::uint64_t steps = 0;
