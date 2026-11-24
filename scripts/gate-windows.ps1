@@ -7,8 +7,10 @@
 #
 # Usage: pwsh -File scripts/gate-windows.ps1 [-Krc <krc.exe>] [-Krld <krld.exe>] [-Arm64]
 param(
+    [string]$Preset = 'windows-msvc-debug',
     [string]$Krc = '',
     [string]$Krld = '',
+    [switch]$SkipTests,
     [switch]$Arm64
 )
 $ErrorActionPreference = 'Stop'
@@ -45,7 +47,7 @@ $unit = Join-Path $root 'build/windows-msvc/kr232_tests.exe'
 if (Test-Path $unit) {
     Invoke-Step 'kr232_tests' { & $unit }
 }
-Invoke-Step 'ctest (default)' { & $ctest --test-dir build/windows-msvc --output-on-failure }
+Invoke-Step 'ctest (default)' { & $ctest --preset $Preset --output-on-failure }
 
 if ($Krc -and $Krld) {
     if (-not (Test-Path $Krc) -or -not (Test-Path $Krld)) {
