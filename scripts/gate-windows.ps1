@@ -16,6 +16,12 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
+# CMake and ctest are not on PATH on this machine; the Visual Studio copy is. Fall
+# back to the bare names for a machine where they are on PATH.
+$cmake = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe'
+$ctest = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\ctest.exe'
+if (-not (Test-Path $cmake)) { $cmake = 'cmake'; $ctest = 'ctest' }
+
 function Invoke-Step([string]$Label, [scriptblock]$Action) {
     Write-Output "== $Label"
     & $Action
@@ -29,7 +35,7 @@ $unit = Join-Path $root 'build/windows-msvc/kr232_tests.exe'
 if (Test-Path $unit) {
     Invoke-Step 'kr232_tests' { & $unit }
 }
-Invoke-Step 'ctest (default)' { ctest --test-dir build/windows-msvc --output-on-failure }
+Invoke-Step 'ctest (default)' { & $ctest --test-dir build/windows-msvc --output-on-failure }
 
 if ($Krc -and $Krld) {
     if (-not (Test-Path $Krc) -or -not (Test-Path $Krld)) {
@@ -38,10 +44,10 @@ if ($Krc -and $Krld) {
     Write-Output '== kernel rows, package row, fixture drift'
     $configure = @("-DKR232_KRC=$Krc", "-DKR232_KRLD=$Krld")
     Invoke-Step 'configure with the kernel' {
-        cmake -S $root -B build/gate-kernel -G Ninja -DKR232_BUILD_KERNEL=ON @configure
+        & $cmake -S $root -B build/gate-kernel -G Ninja -DKR232_BUILD_KERNEL=ON @configure
     }
-    Invoke-Step 'build' { cmake --build build/gate-kernel -j 8 }
-    Invoke-Step 'kernel ctest' { ctest --test-dir build/gate-kernel --output-on-failure }
+    Invoke-Step 'build' { & $cmake --build build/gate-kernel -j 8 }
+    Invoke-Step 'kernel ctest' { & $ctest --test-dir build/gate-kernel --output-on-failure }
 } else {
     Write-Output '== kernel rows skipped: pass -Krc and -Krld to run them'
 }
