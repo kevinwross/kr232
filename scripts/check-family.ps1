@@ -170,7 +170,13 @@ if ($All) {
     foreach ($entry in $order) {
         if ($Only.Count -gt 0 -and $Only -notcontains $entry.Name) { continue }
         $tree = Join-Path $family $entry.Name
-        $preset = $entry.Preset -replace '-debug$', '-release'
+        # krdbg names its presets windows-msvc / windows-msvc-release, so the
+        # mapping appends when there is no -debug suffix to replace.
+        $preset = if ($entry.Preset -match '-debug$') {
+            $entry.Preset -replace '-debug$', '-release'
+        } else {
+            "$($entry.Preset)-release"
+        }
         $started = Get-Date
         $log = Join-Path $tree "build/family-release.log"
         Push-Location $tree
