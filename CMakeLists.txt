@@ -328,12 +328,17 @@ endif()
 if(KR232_BUILD_KERNEL)
     set(KR232_KERNEL_IMAGE "${CMAKE_BINARY_DIR}/kernel.kr232")
     add_custom_target(kr232_kernel ALL
+        # Compiled from the source root with a relative path: the assembler
+        # records the path it is given in the debug section, so an absolute one
+        # makes the image depend on the host that built it (E3).
         COMMAND "${KRG_KRC}" -c --target kr232
-                "${CMAKE_CURRENT_SOURCE_DIR}/targets/kr232/kernel/kernel.s"
+                "targets/kr232/kernel/kernel.s"
                 -o "${CMAKE_BINARY_DIR}/kernel.o"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
         # One tool: `krc image` links the object into the target's container, so
         # the kernel no longer needs krld as a second step (B5).
         COMMAND "${KRG_KRC}" image --target=kr232 --entry=_start
+                --source-root=${CMAKE_CURRENT_SOURCE_DIR}
                 "${CMAKE_BINARY_DIR}/kernel.o"
                 -o "${KR232_KERNEL_IMAGE}"
         COMMENT "Building the kr232 kernel with krc from the prefix"
