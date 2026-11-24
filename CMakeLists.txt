@@ -32,15 +32,15 @@ if(MSVC)
     # without it cl warns D9007 and silently ignores the mapping.
     target_compile_options(kr232_warnings INTERFACE
         /experimental:deterministic
-        "/pathmap:${CMAKE_SOURCE_DIR}=/src")
+        "/pathmap:${PROJECT_SOURCE_DIR}=/src")
 else()
     target_compile_options(kr232_warnings INTERFACE -Wall -Wextra -Wpedantic -ffp-contract=off)
     if(KR232_WARNINGS_AS_ERRORS)
         target_compile_options(kr232_warnings INTERFACE -Werror)
     endif()
     target_compile_options(kr232_warnings INTERFACE
-        "-ffile-prefix-map=${CMAKE_SOURCE_DIR}=/src"
-        "-fdebug-prefix-map=${CMAKE_SOURCE_DIR}=/src")
+        "-ffile-prefix-map=${PROJECT_SOURCE_DIR}=/src"
+        "-fdebug-prefix-map=${PROJECT_SOURCE_DIR}=/src")
 endif()
 
 # Host code only. Guest code lives under targets/kr232/ and is compiled by krc;
@@ -118,7 +118,7 @@ function(kr232_guard_host_sources target)
     endif()
     foreach(_source IN LISTS _sources)
         get_filename_component(_absolute "${_source}" ABSOLUTE)
-        file(RELATIVE_PATH _relative "${CMAKE_SOURCE_DIR}" "${_absolute}")
+        file(RELATIVE_PATH _relative "${PROJECT_SOURCE_DIR}" "${_absolute}")
         if(_relative MATCHES "(^|/)targets/")
             message(FATAL_ERROR
                 "${target} lists '${_source}', which is guest code under targets/. "

@@ -194,7 +194,7 @@ if ($All) {
 
     Write-Host ''
     Write-Host 'family: Linux x64 rows in WSL'
-    $wslScript = 'set -e; for r in krcompiler kr32 kr16 kr216 kr232 krdbg; do d=$HOME/mirrors/$r; if [ ! -d "$d" ]; then sh /mnt/c/Users/kevin/repos/krcompiler/scripts/kr-mirror.sh $r >/dev/null 2>&1 || true; fi; ( cd $d && if [ -x scripts/gate-linux.sh ]; then bash scripts/gate-linux.sh; elif [ -x scripts/run-gate.sh ]; then bash scripts/run-gate.sh; else cmake --preset linux-gcc-debug >/dev/null && cmake --build --preset linux-gcc-debug >/dev/null && ctest --preset linux-gcc-debug; fi ) > /tmp/family-$r.log 2>&1 && echo "$r pass" || echo "$r FAIL"; done'
+    $wslScript = 'set -e; for r in krcompiler kr32 kr16 kr216 kr232 krdbg; do d=$HOME/mirrors/$r; sh /mnt/c/Users/kevin/repos/krcompiler/scripts/kr-mirror.sh $r >/dev/null 2>&1 || true; ( cd $d && if [ -x scripts/gate-linux.sh ]; then bash scripts/gate-linux.sh; elif [ -x scripts/run-gate.sh ]; then bash scripts/run-gate.sh; else cmake --preset linux-gcc-debug >/dev/null && cmake --build --preset linux-gcc-debug >/dev/null && ctest --preset linux-gcc-debug; fi ) > /tmp/family-$r.log 2>&1 && echo "$r pass" || echo "$r FAIL"; done'
     $started = Get-Date
     $wslOut = & wsl.exe -e bash -lc $wslScript 2>&1
     foreach ($line in $wslOut) { Write-Host "family: $line" }
