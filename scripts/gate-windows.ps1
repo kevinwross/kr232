@@ -43,6 +43,12 @@ if ($Krc -and $Krld) {
     }
     Write-Output '== kernel rows, package row, fixture drift'
     $configure = @("-DKR232_KRC=$Krc", "-DKR232_KRLD=$Krld")
+    # A fresh Ninja tree needs cl.exe, its INCLUDE paths and the Windows SDK on the
+    # environment: from a plain shell the dyndep step fails with "code=2" and the
+    # message names nothing useful. Say what is missing instead.
+    if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue) -and -not $env:INCLUDE) {
+        throw 'the kernel rows configure a fresh Ninja tree, which needs a Developer environment: run this from a Developer PowerShell or after vcvarsall.bat'
+    }
     Invoke-Step 'configure with the kernel' {
         & $cmake -S $root -B build/gate-kernel -G Ninja -DKR232_BUILD_KERNEL=ON @configure
     }
