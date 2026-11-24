@@ -77,7 +77,7 @@ New-Item -ItemType Directory -Force $logs | Out-Null
 $results = @()
 $failed = 0
 
-$compiler = [pscustomobject]@{ Name = 'krcompiler'; Gate = 'scripts/gate-windows.ps1'; Preset = 'windows-msvc-debug'; Expected = 968; ExpectedRelease = 968 }
+$compiler = [pscustomobject]@{ Name = 'krcompiler'; Gate = 'scripts/gate-windows.ps1'; Preset = 'windows-msvc-debug'; Expected = 976; ExpectedRelease = 976 }
 $consumers = @(
     [pscustomobject]@{ Name = 'kr32';   Gate = 'scripts/run-gate.ps1';     Preset = 'windows-msvc-debug'; Expected = 41; ExpectedRelease = 41 },
     [pscustomobject]@{ Name = 'kr16';   Gate = '';                        Preset = 'windows-ninja-debug'; Expected = 61; ExpectedRelease = 61 },
