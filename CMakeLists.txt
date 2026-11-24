@@ -130,6 +130,7 @@ if(KR232_BUILD_TESTS)
                     -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.k232
                     -DPROGRAM=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-exit42.k232
                     -DEXPECT_EXIT=42
+                    -DROOT=${CMAKE_CURRENT_SOURCE_DIR}
                     -DKRC=${KR232_KRC}
                     -DKRLD=${KR232_KRLD}
                     -DWORK=${CMAKE_BINARY_DIR}/kernel-rebuild
@@ -146,6 +147,7 @@ if(KR232_BUILD_TESTS)
     if(KR232_BUILD_KERNEL AND EXISTS "${KR232_KRC}")
         add_test(NAME kr232_fixtures_match_source
             COMMAND ${CMAKE_COMMAND}
+                    -DROOT=${CMAKE_CURRENT_SOURCE_DIR}
                     -DKRC=${KR232_KRC}
                     -DKRLD=${KR232_KRLD}
                     -DFIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures

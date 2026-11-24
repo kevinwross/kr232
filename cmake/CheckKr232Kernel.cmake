@@ -5,7 +5,7 @@
 # match the checked-in file byte for byte, which is how drift is caught.
 #
 # Required: VM, KERNEL, PROGRAM, EXPECT_EXIT
-# Optional: KRC, KRLD, WORK   -- rebuild the kernel and require it to match
+# Optional: ROOT, KRC, KRLD, WORK -- rebuild the kernel and require it to match
 #           FRAME_HASH        -- the frame the program must commit
 #           BLANK_IMAGE       -- a program that commits without drawing; the
 #                                golden may not equal its frame
@@ -27,15 +27,19 @@ if(DEFINED KRC AND DEFINED KRLD)
         message(FATAL_ERROR "KRC and KRLD must exist when they are given")
     endif()
     file(MAKE_DIRECTORY "${WORK}")
+    # Named relative to ROOT and compiled there: the source path is embedded in
+    # the object, so an absolute one made the image depend on the host that built
+    # it rather than on the source.
     execute_process(COMMAND "${KRC}" -c --target kr232
-                            "${CMAKE_CURRENT_LIST_DIR}/../targets/kr232/kernel/kernel.s"
+                            "targets/kr232/kernel/kernel.s"
                             -o "${WORK}/kernel.o"
+                    WORKING_DIRECTORY "${ROOT}"
                     RESULT_VARIABLE compiled ERROR_VARIABLE compile_error)
     if(NOT compiled EQUAL 0)
         message(FATAL_ERROR "building the kernel failed:\n${compile_error}")
     endif()
-    execute_process(COMMAND "${KRLD}" --entry=_start "${WORK}/kernel.o"
-                            -o "${WORK}/kernel.k232"
+    execute_process(COMMAND "${KRLD}" --entry=_start
+                            "${WORK}/kernel.o" -o "${WORK}/kernel.k232"
                     RESULT_VARIABLE linked ERROR_VARIABLE link_error)
     if(NOT linked EQUAL 0)
         message(FATAL_ERROR "linking the kernel failed:\n${link_error}")
