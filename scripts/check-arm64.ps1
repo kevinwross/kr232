@@ -108,9 +108,11 @@ echo "== krdbg fixture drift"
 cmake --fresh -S "$ROOT/krdbg" -B "$ROOT/krdbg/build/fixtures" \
     -DKRDBG_KR232_KRC="$KRC/krc" -DKRDBG_KR232_KRLD="$KRC/krld" \
     -DKRDBG_KRCOMPILER_ROOT="$ROOT/krcompiler" -DKRDBG_KR232_ROOT="$ROOT/kr232" >/dev/null 2>&1
-KROWS=$(ctest --test-dir "$ROOT/krdbg/build/fixtures" -N 2>/dev/null | grep -cE '^ *Test +#' || true)
-if [ "$KROWS" -ne 1 ]; then
-    echo "krdbg registered $KROWS rows, expected the one fixture-drift row"
+# The row is asserted by name, not by count: this project registers other tests
+# too, and counting them made a healthy tree fail the gate.
+if ! ctest --test-dir "$ROOT/krdbg/build/fixtures" -N 2>/dev/null | grep -q krdbg_kr232_fixtures_match_source; then
+    echo "the krdbg fixture-drift row is not registered"
+    ctest --test-dir "$ROOT/krdbg/build/fixtures" -N 2>&1 | grep -E 'Test +#' || true
     exit 1
 fi
 ctest --test-dir "$ROOT/krdbg/build/fixtures" -R fixtures --no-tests=error \
