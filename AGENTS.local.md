@@ -66,6 +66,12 @@ Target-specific notes:
 
 **Install (requires approval).** Nothing beyond Node on `PATH`.
 
+## Platform matrix
+
+`docs/platform-matrix.md` is the one copy of what each gate row proves, where it runs and what
+it costs. It records which rows have measured durations and which have not been timed, and it
+is updated when a row is added or a duration is measured.
+
 ## Known traps
 
 - `core.autocrlf=true` is set machine-wide. `.gitattributes` pins `* text=auto eol=lf`, so the index stays LF and every clone matches byte for byte; deleting that file reintroduces per-machine checkouts and makes the appendices compare differently.
