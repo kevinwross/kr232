@@ -99,6 +99,18 @@ if(KR232_BUILD_TESTS)
 
 # Resolve the guest toolchain before any test row is registered, so the rows that
 # rebuild the kernel see the same paths the build does. See cmake/KrGuest.cmake.
+# The family's toolchain option, spelled the same in every tree. This repository
+# has one path -- the compiler -- so the value set is one long; `builtin` exists
+# only where a tree carries its own compiler, and saying so is better than
+# pretending the value is unknown.
+set(KRG_TOOLCHAIN "krc" CACHE STRING "Program build path: krc (this tree has one path)")
+set_property(CACHE KRG_TOOLCHAIN PROPERTY STRINGS krc)
+if(NOT KRG_TOOLCHAIN STREQUAL "krc")
+  message(FATAL_ERROR
+    "KRG_TOOLCHAIN must be 'krc' in this tree: guest code here is built by krc, "
+    "and the only other family value, 'builtin', exists in kr16, which carries "
+    "its own compiler")
+endif()
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/KrGuest.cmake")
 set(KRG_KRC "" CACHE FILEPATH "krc executable that builds the kernel")
 set(KRG_KRLD "" CACHE FILEPATH "krld executable that links the kernel")
