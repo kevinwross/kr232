@@ -43,7 +43,8 @@ param(
     [switch]$Arm64,
     [switch]$SkipTests,
     [string[]]$Only = @(),
-    [string]$Prefix = ''
+    [string]$Prefix = '',
+    [switch]$All
 )
 
 $ErrorActionPreference = 'Stop'
@@ -159,6 +160,47 @@ foreach ($entry in $order) {
         Result  = if ($ok) { 'pass' } else { 'FAIL' }
         Seconds = [int]((Get-Date) - $started).TotalSeconds
     }
+}
+
+
+# J1: the table decides the default, and the full matrix is always one command.
+if ($All) {
+    Write-Host ''
+    Write-Host 'family: release rows'
+    foreach ($entry in $order) {
+        if ($Only.Count -gt 0 -and $Only -notcontains $entry.Name) { continue }
+        $tree = Join-Path $family $entry.Name
+        $preset = $entry.Preset -replace '-debug$', '-release'
+        $started = Get-Date
+        $log = Join-Path $tree "build/family-release.log"
+        Push-Location $tree
+        try {
+            cmake --preset $preset "-DCMAKE_PREFIX_PATH=$Prefix" *>> $log
+            if ($LASTEXITCODE -ne 0) { throw "configure failed" }
+            cmake --build --preset $preset *>> $log
+            if ($LASTEXITCODE -ne 0) { throw "build failed" }
+            if (-not $SkipTests) {
+                ctest --preset $preset *>> $log
+                if ($LASTEXITCODE -ne 0) { throw "tests failed" }
+            }
+            $results += [pscustomobject]@{ Repo = "$($entry.Name) (release)"; Mode = "preset $preset"; Result = 'pass'; Seconds = [int]((Get-Date) - $started).TotalSeconds }
+        } catch {
+            Write-Host "family: $($entry.Name) release $($_.Exception.Message)" -ForegroundColor Red
+            Get-Content $log -Tail 8 | ForEach-Object { Write-Host "  | $_" }
+            $results += [pscustomobject]@{ Repo = "$($entry.Name) (release)"; Mode = "preset $preset"; Result = 'FAIL'; Seconds = [int]((Get-Date) - $started).TotalSeconds }
+            $failed++
+        } finally { Pop-Location }
+    }
+
+    Write-Host ''
+    Write-Host 'family: Linux x64 rows in WSL'
+    $wslScript = 'set -e; for r in krcompiler kr32 kr16 kr216 kr232 krdbg; do d=$HOME/mirrors/$r; if [ ! -d "$d" ]; then sh /mnt/c/Users/kevin/repos/krcompiler/scripts/kr-mirror.sh $r >/dev/null 2>&1 || true; fi; ( cd $d && if [ -x scripts/gate-linux.sh ]; then bash scripts/gate-linux.sh; elif [ -x scripts/run-gate.sh ]; then bash scripts/run-gate.sh; else cmake --preset linux-gcc-debug >/dev/null && cmake --build --preset linux-gcc-debug >/dev/null && ctest --preset linux-gcc-debug; fi ) > /tmp/family-$r.log 2>&1 && echo "$r pass" || echo "$r FAIL"; done'
+    $started = Get-Date
+    $wslOut = & wsl.exe -e bash -lc $wslScript 2>&1
+    foreach ($line in $wslOut) { Write-Host "family: $line" }
+    $wslResult = if ($wslOut -match 'FAIL') { 'FAIL' } else { 'pass' }
+    $results += [pscustomobject]@{ Repo = 'linux x64 (WSL)'; Mode = 'gate-linux from ~/mirrors'; Result = $wslResult; Seconds = [int]((Get-Date) - $started).TotalSeconds }
+    if ($wslResult -eq 'FAIL') { $failed++ }
 }
 
 Write-Host ''
