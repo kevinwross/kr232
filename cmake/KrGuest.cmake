@@ -16,6 +16,7 @@
 # existing files; otherwise the configure stops with one sentence.
 
 function(krguest_find_toolchain)
+    set(kinds krc krld)
     set(candidates_krc "")
     set(candidates_krld "")
 
@@ -104,7 +105,7 @@ function(krguest_find_toolchain)
         list(APPEND candidates_krld "${KRG_KRLD_ON_PATH}")
     endif()
 
-    foreach(kind krc krld)
+    foreach(kind IN LISTS kinds)
         string(TOUPPER "${kind}" kind_upper)
         set(found "")
         foreach(candidate IN LISTS candidates_${kind})
@@ -115,7 +116,7 @@ function(krguest_find_toolchain)
         endforeach()
         if(NOT found)
             message(FATAL_ERROR
-                "no ${kind} was found. Set KRG_${kind} (or this repository's own "
+                "no ${kind} was found. Set KRG_${kind_upper} (or this repository's own "
                 "variable) to an existing ${kind}, build the sibling krcompiler so "
                 "its build tree can be used, or put ${kind} on PATH. Tried: "
                 "${candidates_${kind}}")
