@@ -331,7 +331,9 @@ if(KR232_BUILD_KERNEL)
         COMMAND "${KRG_KRC}" -c --target kr232
                 "${CMAKE_CURRENT_SOURCE_DIR}/targets/kr232/kernel/kernel.s"
                 -o "${CMAKE_BINARY_DIR}/kernel.o"
-        COMMAND "${KRG_KRLD}" --entry=_start
+        # One tool: `krc image` links the object into the target's container, so
+        # the kernel no longer needs krld as a second step (B5).
+        COMMAND "${KRG_KRC}" image --target=kr232 --entry=_start
                 "${CMAKE_BINARY_DIR}/kernel.o"
                 -o "${KR232_KERNEL_IMAGE}"
         COMMENT "Building the kr232 kernel with krc from the prefix"
