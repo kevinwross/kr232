@@ -14,6 +14,9 @@ param(
     [switch]$Arm64
 )
 $ErrorActionPreference = 'Stop'
+# The family gate hands down a share of the machine; alone, this takes 80%.
+$cores = if ($env:NUMBER_OF_PROCESSORS) { [int]$env:NUMBER_OF_PROCESSORS } else { [Environment]::ProcessorCount }
+$jobs = if ($env:FAMILY_JOBS) { [Math]::Max(1, [int]$env:FAMILY_JOBS) } else { [Math]::Max(1, [Math]::Floor($cores * 0.8)) }
 # J5: ask the doctor first, so a missing tool fails with a sentence naming the
 # tool and the repository instead of a build error. The doctor lives in the
 # compiler tree, the same place the shell one does.
@@ -47,7 +50,7 @@ $unit = Join-Path $root 'build/windows-msvc/kr232_tests.exe'
 if (Test-Path $unit) {
     Invoke-Step 'kr232_tests' { & $unit }
 }
-Invoke-Step 'ctest (default)' { & $ctest --preset $Preset --output-on-failure }
+Invoke-Step 'ctest (default)' { & $ctest --preset $Preset -j $jobs --output-on-failure }
 
 if ($Krc -and $Krld) {
     if (-not (Test-Path $Krc) -or -not (Test-Path $Krld)) {
@@ -64,7 +67,7 @@ if ($Krc -and $Krld) {
     Invoke-Step 'configure with the kernel' {
         & $cmake -S $root -B build/gate-kernel -G Ninja -DKR232_BUILD_KERNEL=ON @configure
     }
-    Invoke-Step 'build' { & $cmake --build build/gate-kernel -j 8 }
+    Invoke-Step 'build' { & $cmake --build build/gate-kernel -j $jobs }
     # F2: the row count is asserted here and on ARM64, because a row that stops
     # registering reports success and a smaller suite is the failure this exists
     # to catch.
@@ -73,7 +76,7 @@ if ($Krc -and $Krld) {
         throw "the kernel tree registered $registered rows, expected 14; a missing row reports success"
     }
     Write-Output "kernel rows registered: $registered"
-    Invoke-Step 'kernel ctest' { & $ctest --test-dir build/gate-kernel --output-on-failure }
+    Invoke-Step 'kernel ctest' { & $ctest --test-dir build/gate-kernel -j $jobs --output-on-failure }
 } else {
     Write-Output '== kernel rows skipped: pass -Krc and -Krld to run them'
 }

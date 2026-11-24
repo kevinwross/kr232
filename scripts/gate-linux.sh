@@ -59,7 +59,11 @@ esac
 
 echo "kr232 gate: $preset"
 cmake --preset "$preset"
-cmake --build --preset "$preset"
-ctest --preset "$preset"
+# A share handed down by the family gate wins; alone this takes every core. The
+# suite ran serially before, which was the longest step in the Linux wave.
+JOBS="${FAMILY_JOBS:-$(nproc 2>/dev/null || echo 4)}"
+[ "$JOBS" -lt 1 ] && JOBS=1
+cmake --build --preset "$preset" -j "$JOBS"
+ctest --preset "$preset" -j "$JOBS"
 node tools/check-isa.mjs
 echo "kr232 gate: $preset passed"

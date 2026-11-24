@@ -1,38 +1,40 @@
 <#
 .SYNOPSIS
-    Build and gate the whole family in dependency order.
+    Build and gate the whole family: one command, one summary, one exit code.
 
 .DESCRIPTION
-    One command, one summary, one exit code. The order is the dependency graph:
-    the compiler first, then the machines that consume it, then the debugger that
-    links them.
+    The order is the dependency graph. The compiler is built and installed first, in
+    each configuration, because every other repository links its package; after that
+    the repositories are independent and run at the same time.
 
-    The compiler this run builds is installed into one prefix, and every later
-    repository is pointed at that prefix. Without that step the family gate would
-    test whatever the last hand install left behind, which is the defect the
-    prefix stamp was added to make visible.
+    Waves:
+      1. the compiler, Debug; install into the Debug prefix
+      2. every consumer, Debug, in parallel
+      3. the compiler, Release; install into the Release prefix -- two prefixes,
+         because a Release consumer linking a Debug library fails on
+         __imp__CrtDbgReport
+      4. every consumer, Release, in parallel
+      5. the Linux x64 rows in WSL, started before the Windows waves so the slowest
+         wave runs underneath the others
 
-    A repository is gated by its own script when it has one -- the point of the
-    family gate is to run what each tree declares, not to invent a second opinion
-    -- and by configure, build and test on the documented preset when it does not.
-
-    Every repository also declares how many rows its suite registers. A count that
-    does not match fails the run, because a row that stops registering still
-    reports success and a smaller suite is exactly the failure this catches.
+    Each repository is gated by its own script when it has one, and by configure,
+    build and test on its documented preset when it does not. Row counts are
+    asserted: a suite that registers fewer rows still reports success.
 
 .PARAMETER Arm64
-    Run the gate on the ARM64 host instead of this one, through
-    scripts/check-arm64.ps1.
+    Run the gate on the ARM64 host instead of this one.
 
 .PARAMETER SkipTests
-    Configure and build only; the summary says the tests were skipped.
+    Configure and build only.
 
 .PARAMETER Only
-    Restrict the run to these repositories, e.g. -Only kr32,krdbg.
+    Restrict to these repositories, e.g. -Only kr32,krdbg.
 
-.PARAMETER Prefix
-    Where to install the compiler this run builds. Defaults to
-    <family>/build/family-prefix.
+.PARAMETER Serial
+    One repository at a time. For reading the log of a failing row.
+
+.PARAMETER Jobs
+    Repositories per wave. Defaults to the smaller of six and half the cores.
 
 .EXAMPLE
     ./scripts/check-family.ps1
@@ -43,21 +45,17 @@ param(
     [switch]$Arm64,
     [switch]$SkipTests,
     [string[]]$Only = @(),
-    [string]$Prefix = '',
-    [switch]$All
+    [switch]$All,
+    [switch]$Serial,
+    [int]$Jobs = 0,
+    [string]$Prefix = ''
 )
 
 $ErrorActionPreference = 'Stop'
-
-# cmd passes -Only a,b as one string, so each element is split as well.
 $Only = @($Only | ForEach-Object { $_ -split ',' } | Where-Object { $_ })
 
-# The script lives in <repo>/scripts, so the family root is two levels up.
 $family = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 if (-not $Prefix) { $Prefix = Join-Path $family 'build/family-prefix' }
-# A Debug library records its CRT; a Release consumer linking it fails on
-# __imp__CrtDbgReport. The two configurations get two prefixes, and each row is
-# pointed at the one built for it.
 $PrefixRelease = "$Prefix-release"
 
 if ($Arm64) {
@@ -68,169 +66,169 @@ if ($Arm64) {
     exit $LASTEXITCODE
 }
 
-# Dependency order, not alphabetical. Expected is the row count each suite
-# registers; kr232 asserts its own two trees inside its gate, so its family
-# expectation is 0.
-$order = @(
-    [pscustomobject]@{ Name = 'krcompiler'; Gate = 'scripts/gate-windows.ps1'; Preset = 'windows-msvc-debug'; Expected = 962 },
-    [pscustomobject]@{ Name = 'kr32';       Gate = 'scripts/run-gate.ps1';     Preset = 'windows-msvc-debug'; Expected = 40 },
-    [pscustomobject]@{ Name = 'kr16';       Gate = '';                        Preset = 'windows-ninja-debug'; Expected = 61 },
-    [pscustomobject]@{ Name = 'kr216';      Gate = '';                        Preset = 'windows-msvc-debug'; Expected = 56 },
-    [pscustomobject]@{ Name = 'kr232';      Gate = 'scripts/gate-windows.ps1'; Preset = 'windows-msvc-debug'; Expected = 0 },
-    [pscustomobject]@{ Name = 'krdbg';      Gate = '';                        Preset = 'windows-msvc'; Expected = 14 }
-)
+$cores = [Environment]::ProcessorCount
+if ($Jobs -le 0) { $Jobs = [Math]::Max(1, [Math]::Min(6, [Math]::Floor($cores / 2))) }
+$waveJobs = if ($Serial) { 1 } else { [Math]::Max(1, [Math]::Min($Jobs, 6)) }
+$innerJobs = [Math]::Max(1, [Math]::Floor($cores / $waveJobs))
 
+$worker = Join-Path $PSScriptRoot 'family-worker.ps1'
+$logs = Join-Path $family 'build/family-logs'
+New-Item -ItemType Directory -Force $logs | Out-Null
 $results = @()
 $failed = 0
 
-foreach ($entry in $order) {
-    if ($Only.Count -gt 0 -and $Only -notcontains $entry.Name) { continue }
-    $tree = Join-Path $family $entry.Name
-    if (-not (Test-Path $tree)) {
-        $results += [pscustomobject]@{ Repo = $entry.Name; Mode = 'missing tree'; Result = 'FAIL'; Seconds = 0 }
-        $failed++
-        continue
-    }
+$compiler = [pscustomobject]@{ Name = 'krcompiler'; Gate = 'scripts/gate-windows.ps1'; Preset = 'windows-msvc-debug'; Expected = 968; ExpectedRelease = 968 }
+$consumers = @(
+    [pscustomobject]@{ Name = 'kr32';   Gate = 'scripts/run-gate.ps1';     Preset = 'windows-msvc-debug'; Expected = 41; ExpectedRelease = 41 },
+    [pscustomobject]@{ Name = 'kr16';   Gate = '';                        Preset = 'windows-ninja-debug'; Expected = 61; ExpectedRelease = 61 },
+    [pscustomobject]@{ Name = 'kr216';  Gate = '';                        Preset = 'windows-msvc-debug'; Expected = 56; ExpectedRelease = 11 },
+    [pscustomobject]@{ Name = 'kr232';  Gate = 'scripts/gate-windows.ps1'; Preset = 'windows-msvc-debug'; Expected = 0; ExpectedRelease = 0 },
+    [pscustomobject]@{ Name = 'krdbg';  Gate = '';                        Preset = 'windows-msvc'; Expected = 14; ExpectedRelease = 3 }
+)
 
-    $started = Get-Date
-    $mode = ''
-    $ok = $false
-    try {
-        $script = if ($entry.Gate) { Join-Path $tree $entry.Gate } else { '' }
-        if ($script -and (Test-Path $script)) {
-            $mode = "gate $($entry.Gate)"
-            $arguments = @('-NoProfile', '-File', $script)
+# The Linux half needs nothing from the Windows waves, so it starts first and runs
+# underneath them. It is a separate script with a results file, not a PowerShell
+# job: a job serialises its output back and a native process writing to stderr
+# breaks that channel.
+$linuxProcess = $null
+$linuxResults = Join-Path $logs 'linux-results.txt'
+if (-not $Only -and -not $SkipTests) {
+    $runner = Join-Path $PSScriptRoot 'family-linux.ps1'
+    $linuxProcess = Start-Process -FilePath 'pwsh' `
+        -ArgumentList @('-NoProfile', '-File', $runner, '-Logs', $logs, '-Jobs', $innerJobs) `
+        -NoNewWindow -PassThru
+    Write-Host 'family: Linux x64 rows started in the background'
+}
+
+function Invoke-Wave {
+    param([object[]]$Entries, [string]$Label, [string]$PrefixForWave)
+
+    $running = @()
+    $index = 0
+    while ($index -lt $Entries.Count -or $running.Count -gt 0) {
+        while ($running.Count -lt $waveJobs -and $index -lt $Entries.Count) {
+            $entry = $Entries[$index]
+            $index++
+            $log = Join-Path $logs "$Label-$($entry.Name).log"
+            $arguments = @('-NoProfile', '-File', $worker,
+                           '-Repo', $entry.Name, '-Preset', $entry.Preset,
+                           '-Expected', $entry.Expected,
+                           '-Prefix', $PrefixForWave, '-Jobs', $innerJobs, '-Log', $log)
+            if ($entry.Gate) { $arguments += @('-Gate', $entry.Gate) }
             if ($SkipTests) { $arguments += '-SkipTests' }
-            if ($entry.Name -in @('kr232', 'kr32') -and (Test-Path (Join-Path $Prefix 'bin/krc.exe'))) {
-                $arguments += @('-Krc', (Join-Path $Prefix 'bin/krc.exe'),
-                                '-Krld', (Join-Path $Prefix 'bin/krld.exe'))
-            }
-            & pwsh @arguments
-            $ok = $LASTEXITCODE -eq 0
-        } else {
-            $mode = "preset $($entry.Preset)"
-            $log = Join-Path $tree "build/family-$($entry.Name).log"
-            New-Item -ItemType Directory -Force (Split-Path -Parent $log) | Out-Null
-            Push-Location $tree
-            try {
-                cmake --preset $entry.Preset "-DCMAKE_PREFIX_PATH=$Prefix" *>> $log
-                if ($LASTEXITCODE -ne 0) { throw 'configure failed' }
-                cmake --build --preset $entry.Preset *>> $log
-                if ($LASTEXITCODE -ne 0) { throw 'build failed' }
-                if (-not $SkipTests) {
-                    ctest --preset $entry.Preset *>> $log
-                    if ($LASTEXITCODE -ne 0) { throw 'tests failed' }
-                }
-                $ok = $true
-            } catch {
-                Write-Host "family: $($entry.Name) $($_.Exception.Message)" -ForegroundColor Red
-                Get-Content $log -Tail 12 | ForEach-Object { Write-Host "  | $_" }
-            } finally {
-                Pop-Location
+            $running += [pscustomobject]@{
+                Entry   = $entry
+                Process = Start-Process -FilePath 'pwsh' -ArgumentList $arguments -NoNewWindow -PassThru
+                Log     = $log
+                Started = Get-Date
             }
         }
-
-        if ($entry.Name -eq 'krcompiler' -and $ok) {
-            Push-Location $tree
-            try {
-                cmake --install (Join-Path $tree "build/$($entry.Preset)") --config Debug --prefix $Prefix *> $null
-                if ($LASTEXITCODE -ne 0) { throw 'install failed' }
-                Write-Host "family: compiler installed into $Prefix"
-
-            } finally { Pop-Location }
+        if ($running.Count -eq 0) { break }
+        $finished = @($running | Where-Object { $_.Process.HasExited })
+        if ($finished.Count -eq 0) { Start-Sleep -Milliseconds 500; continue }
+        foreach ($row in $finished) {
+            $running = @($running | Where-Object { $_.Process.Id -ne $row.Process.Id })
+            $ok = $row.Process.ExitCode -eq 0
+            if (-not $ok) {
+                $script:failed++
+                Write-Host "family: $($row.Entry.Name) failed" -ForegroundColor Red
+                Get-Content $row.Log -Tail 10 | ForEach-Object { Write-Host "  | $_" }
+            }
+            $countLine = Select-String -Path $row.Log -Pattern 'rows registered: (\d+)' -ErrorAction SilentlyContinue |
+                         Select-Object -Last 1
+            if ($countLine) { Write-Host "family: $($row.Entry.Name) rows registered: $($countLine.Matches.Groups[1].Value)" }
+            $script:results += [pscustomobject]@{
+                Repo    = $row.Entry.Name
+                Mode    = if ($row.Entry.Gate) { 'gate' } else { 'preset' }
+                Result  = if ($ok) { 'pass' } else { 'FAIL' }
+                Seconds = [int]((Get-Date) - $row.Started).TotalSeconds
+            }
         }
-
-        if ($ok -and -not $SkipTests -and $entry.Expected -gt 0) {
-            Push-Location $tree
-            try {
-                $countLine = (ctest --preset $entry.Preset -N 2>&1 | Select-String -Pattern 'Total Tests: (\d+)' | Select-Object -First 1)
-                $rows = if ($countLine) { $countLine.Matches.Groups[1].Value } else { '0' }
-                if ("$rows" -ne "$($entry.Expected)") {
-                    Write-Host "family: $($entry.Name) registered $rows rows, expected $($entry.Expected); a missing row reports success" -ForegroundColor Red
-                    $ok = $false
-                } else {
-                    Write-Host "family: $($entry.Name) rows registered: $rows"
-                }
-            } finally { Pop-Location }
-        }
-    } catch {
-        Write-Host "family: $($entry.Name) $($_.Exception.Message)" -ForegroundColor Red
-        $ok = $false
-    }
-
-    if (-not $ok) { $failed++ }
-    $results += [pscustomobject]@{
-        Repo    = $entry.Name
-        Mode    = $mode
-        Result  = if ($ok) { 'pass' } else { 'FAIL' }
-        Seconds = [int]((Get-Date) - $started).TotalSeconds
     }
 }
 
-
-# J1: the table decides the default, and the full matrix is always one command.
-if ($All) {
-    Write-Host ''
-    Write-Host 'family: release rows'
-    foreach ($entry in $order) {
-        if ($Only.Count -gt 0 -and $Only -notcontains $entry.Name) { continue }
-        $tree = Join-Path $family $entry.Name
-        # krdbg names its presets windows-msvc / windows-msvc-release, so the
-        # mapping appends when there is no -debug suffix to replace.
-        $preset = if ($entry.Preset -match '-debug$') {
-            $entry.Preset -replace '-debug$', '-release'
+function Install-Compiler([string]$buildTree, [string]$config, [string]$destination) {
+    Push-Location (Join-Path $family 'krcompiler')
+    try {
+        if ($config) {
+            cmake --install $buildTree --config $config --prefix $destination *> $null
         } else {
-            "$($entry.Preset)-release"
+            cmake --install $buildTree --prefix $destination *> $null
         }
-        $started = Get-Date
-        $log = Join-Path $tree "build/family-release.log"
-        Push-Location $tree
-        try {
-            # --fresh: a build directory that has already found the Debug package keeps krc-toolchain_DIR pinned there whatever CMAKE_PREFIX_PATH says.
-            cmake --preset $preset --fresh "-DCMAKE_PREFIX_PATH=$PrefixRelease" *>> $log
-            if ($LASTEXITCODE -ne 0) { throw "configure failed" }
-            cmake --build --preset $preset *>> $log
-            if ($LASTEXITCODE -ne 0) { throw "build failed" }
-            if (-not $SkipTests) {
-                ctest --preset $preset *>> $log
-                if ($LASTEXITCODE -ne 0) { throw "tests failed" }
-            }
-            $results += [pscustomobject]@{ Repo = "$($entry.Name) (release)"; Mode = "preset $preset"; Result = 'pass'; Seconds = [int]((Get-Date) - $started).TotalSeconds }
-            # The release rows that come next link the compiler, so it is installed
-            # from the tree this row just built and tested -- not from the Debug one,
-            # whose Release configuration may never have been built.
-            if ($entry.Name -eq 'krcompiler') {
-                cmake --install (Join-Path $tree "build/$preset") --prefix $PrefixRelease *> $null
-                if ($LASTEXITCODE -ne 0) { throw 'release install failed' }
-                Write-Host "family: release compiler installed into $PrefixRelease"
-            }
-        } catch {
-            Write-Host "family: $($entry.Name) release $($_.Exception.Message)" -ForegroundColor Red
-            Get-Content $log -Tail 8 | ForEach-Object { Write-Host "  | $_" }
-            $results += [pscustomobject]@{ Repo = "$($entry.Name) (release)"; Mode = "preset $preset"; Result = 'FAIL'; Seconds = [int]((Get-Date) - $started).TotalSeconds }
-            $failed++
-        } finally { Pop-Location }
+        if ($LASTEXITCODE -ne 0) { throw "installing the compiler into $destination failed" }
+        Write-Host "family: compiler installed into $destination"
+        return $true
+    } catch {
+        Write-Host "family: $($_.Exception.Message)" -ForegroundColor Red
+        return $false
+    } finally {
+        Pop-Location
     }
+}
 
-    Write-Host ''
-    Write-Host 'family: Linux x64 rows in WSL'
-    $wslScript = 'set -e; for r in krcompiler kr32 kr16 kr216 kr232 krdbg; do d=$HOME/mirrors/$r; sh /mnt/c/Users/kevin/repos/krcompiler/scripts/kr-mirror.sh $r >/dev/null 2>&1 || true; ( cd $d && if [ -x scripts/gate-linux.sh ]; then bash scripts/gate-linux.sh; elif [ -x scripts/run-gate.sh ]; then bash scripts/run-gate.sh; else cmake --preset linux-gcc-debug >/dev/null && cmake --build --preset linux-gcc-debug >/dev/null && ctest --preset linux-gcc-debug; fi ) > /tmp/family-$r.log 2>&1 && echo "$r pass" || echo "$r FAIL"; done'
-    $started = Get-Date
-    $wslOut = & wsl.exe -e bash -lc $wslScript 2>&1
-    foreach ($line in $wslOut) { Write-Host "family: $line" }
-    $wslResult = if ($wslOut -match 'FAIL') { 'FAIL' } else { 'pass' }
-    $results += [pscustomobject]@{ Repo = 'linux x64 (WSL)'; Mode = 'gate-linux from ~/mirrors'; Result = $wslResult; Seconds = [int]((Get-Date) - $started).TotalSeconds }
-    if ($wslResult -eq 'FAIL') { $failed++ }
+# Wave 1 and installation.
+$wanted = { param($entry) $Only.Count -eq 0 -or $Only -contains $entry.Name }
+if (& $wanted $compiler) {
+    $before = $failed
+    Invoke-Wave -Entries @($compiler) -Label 'debug' -PrefixForWave $Prefix
+    if ($failed -eq $before) {
+        if (-not (Install-Compiler "build/$($compiler.Preset)" 'Debug' $Prefix)) { $failed++ }
+    }
+}
+
+# Wave 2.
+$chosen = @($consumers | Where-Object { & $wanted $_ })
+if ($chosen.Count -gt 0) {
+    Invoke-Wave -Entries $chosen -Label 'debug' -PrefixForWave $Prefix
+}
+
+# Waves 3 and 4: Release.
+if (-not $SkipTests) {
+    if (& $wanted $compiler) {
+        $releasePreset = $compiler.Preset -replace '-debug$', '-release'
+        $releaseRow = [pscustomobject]@{ Name = 'krcompiler'; Gate = ''; Preset = $releasePreset; Expected = $compiler.ExpectedRelease }
+        $before = $failed
+        Invoke-Wave -Entries @($releaseRow) -Label 'release' -PrefixForWave $PrefixRelease
+        if ($failed -eq $before) {
+            if (-not (Install-Compiler "build/$releasePreset" '' $PrefixRelease)) { $failed++ }
+        }
+    }
+    if ($chosen.Count -gt 0) {
+        $releaseRows = @($chosen | ForEach-Object {
+            $preset = if ($_.Preset -match '-debug$') { $_.Preset -replace '-debug$', '-release' } else { "$($_.Preset)-release" }
+            [pscustomobject]@{ Name = $_.Name; Gate = ''; Preset = $preset; Expected = $_.ExpectedRelease }
+        })
+        Invoke-Wave -Entries $releaseRows -Label 'release' -PrefixForWave $PrefixRelease
+    }
+}
+
+# Join the Linux half.
+if ($linuxProcess) {
+    $linuxProcess.WaitForExit()
+    if (Test-Path $linuxResults) {
+        foreach ($line in (Get-Content -LiteralPath $linuxResults)) {
+            if ($line -match '^seconds (\d+)$') { Write-Host "family: linux x64 rows took $($Matches[1])s"; continue }
+            if ($line -match '^(\S+) (pass|FAIL)$') {
+                $name = $Matches[1]
+                $state = $Matches[2]
+                Write-Host ("family: {0} {1}" -f $name, $state)
+                if ($state -eq 'FAIL') { $script:failed++ }
+                $script:results += [pscustomobject]@{ Repo = "$name (linux x64)"; Mode = 'gate-linux'; Result = $state; Seconds = 0 }
+            }
+        }
+    } else {
+        Write-Host 'family: the Linux wave wrote no results' -ForegroundColor Red
+        $script:failed++
+    }
 }
 
 Write-Host ''
 Write-Host 'family summary'
 foreach ($row in $results) {
-    Write-Host ("  {0,-11} {1,-34} {2,-5} {3,4}s" -f $row.Repo, $row.Mode, $row.Result, $row.Seconds)
+    Write-Host ("  {0,-24} {1,-10} {2,-5} {3,4}s" -f $row.Repo, $row.Mode, $row.Result, $row.Seconds)
 }
-if ($SkipTests) {
-    Write-Host '  tests were skipped by -SkipTests; this run proves the trees build'
-}
+if ($SkipTests) { Write-Host '  tests were skipped by -SkipTests; this run proves the trees build' }
+Write-Host ("family: {0} cores, {1} repositories at a time, {2} jobs each" -f $cores, $waveJobs, $innerJobs)
 if ($failed -ne 0) {
     Write-Host "family: $failed of $($results.Count) failed" -ForegroundColor Red
     exit 1
