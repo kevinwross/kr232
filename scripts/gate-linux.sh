@@ -8,13 +8,13 @@
 # preset's own value, which is 10 on x64 and 4 on the Pi.
 set -euo pipefail
 
-preset="${1:-linux-wsl}"
+preset="${1:-linux-gcc-debug}"
 cd "$(dirname "$0")/.."
 
 case "$preset" in
-    linux-wsl | linux-arm64) ;;
+    linux-gcc-debug | linux-gcc-release | linux-arm64-release) ;;
     *)
-        echo "gate-linux: unknown preset '$preset' (linux-wsl or linux-arm64)" >&2
+        echo "gate-linux: unknown preset '$preset'" >&2
         exit 2
         ;;
 esac
