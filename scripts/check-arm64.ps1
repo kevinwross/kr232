@@ -13,18 +13,28 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $remote = @'
-set -e
+set -eu
 ROOT="__ROOT__"
 BUILD="$ROOT/kr232/build/arm64"
-git -C "$ROOT/kr232" fetch origin -q && git -C "$ROOT/kr232" checkout -B main origin/main -q
-git -C "$ROOT/krcompiler" fetch origin -q && git -C "$ROOT/krcompiler" checkout -B master origin/master -q
-git -C "$ROOT/krdbg" fetch origin -q && git -C "$ROOT/krdbg" checkout -B main origin/main -q
+
+# Fast-forward only: a checkout with local work stops the run instead of having its
+# branch rewritten under it, which is what `checkout -B` did.
+pull() {
+    git -C "$1" fetch origin -q
+    git -C "$1" merge --ff-only -q "origin/$2"
+}
+pull "$ROOT/kr232" main
+pull "$ROOT/krcompiler" master
+pull "$ROOT/krdbg" main
 
 KRC="$ROOT/krcompiler/build/linux-clang-debug/host/bin/Debug"
 cmake --build "$ROOT/krcompiler/build/linux-clang-debug" -j 4 >/tmp/krc-build.log 2>&1 \
     || { tail -15 /tmp/krc-build.log; exit 1; }
 
-cmake -S "$ROOT/kr232" -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Debug \
+# `--fresh` discards the cache: a directory reused between runs keeps any setting a
+# previous run put there, and a stale KR232_WARNINGS_AS_ERRORS=OFF would relax the
+# build without saying so.
+cmake --fresh -S "$ROOT/kr232" -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Debug \
     -DKR232_BUILD_KERNEL=ON -DKR232_KRC="$KRC/krc" -DKR232_KRLD="$KRC/krld" >/tmp/kr232-config.log 2>&1 \
     || { tail -15 /tmp/kr232-config.log; exit 1; }
 cmake --build "$BUILD" -j 4 >/tmp/kr232-build.log 2>&1 \
@@ -58,8 +68,20 @@ report() {
         failed=1
         return
     fi
+    # A disabled test is a hole, not a pass: ctest prints "***Not Run (Disabled)"
+    # beside "100% tests passed" and exits 0.
+    if grep -qE "Not Run|Disabled" "$1"; then
+        echo "   tests were not run"
+        grep -E "Not Run|Disabled" "$1"
+        failed=1
+        return
+    fi
     if grep -qE "100% tests passed" "$1"; then
         grep -E "tests passed" "$1"
+        skipped=$(grep -cE "Skipped" "$1" || true)
+        if [ "$skipped" -gt 0 ]; then
+            echo "   note: $skipped test(s) skipped, named in the log"
+        fi
     else
         cat "$1"
         failed=1
@@ -67,11 +89,12 @@ report() {
 }
 
 echo "== kr232 (kernel rows)"
-ctest --test-dir "$BUILD" --output-on-failure >/tmp/kr232-rows.log 2>&1 || true
+ctest --test-dir "$BUILD" --output-on-failure --no-tests=error >/tmp/kr232-rows.log 2>&1 || true
 report /tmp/kr232-rows.log
 
 echo "== krcompiler (whole suite)"
-ctest --test-dir "$ROOT/krcompiler/build/linux-clang-debug" >/tmp/krc-rows.log 2>&1 || true
+ctest --test-dir "$ROOT/krcompiler/build/linux-clang-debug" --no-tests=error \
+    >/tmp/krc-rows.log 2>&1 || true
 report /tmp/krc-rows.log
 
 echo "== krc_tests"
@@ -82,10 +105,16 @@ echo "== krdbg gate"
 bash "$ROOT/krdbg/scripts/gate-linux.sh" --arch arm64 >/tmp/krdbg-gate.log 2>&1 && grep -E "GATE LINUX" /tmp/krdbg-gate.log || { tail -20 /tmp/krdbg-gate.log; failed=1; }
 
 echo "== krdbg fixture drift"
-cmake -S "$ROOT/krdbg" -B "$ROOT/krdbg/build/fixtures" \
+cmake --fresh -S "$ROOT/krdbg" -B "$ROOT/krdbg/build/fixtures" \
     -DKRDBG_KR232_KRC="$KRC/krc" -DKRDBG_KR232_KRLD="$KRC/krld" \
     -DKRDBG_KRCOMPILER_ROOT="$ROOT/krcompiler" -DKRDBG_KR232_ROOT="$ROOT/kr232" >/dev/null 2>&1
-ctest --test-dir "$ROOT/krdbg/build/fixtures" -R fixtures >/tmp/krdbg-fixtures.log 2>&1 || true
+KROWS=$(ctest --test-dir "$ROOT/krdbg/build/fixtures" -N 2>/dev/null | grep -cE '^ *Test +#' || true)
+if [ "$KROWS" -ne 1 ]; then
+    echo "krdbg registered $KROWS rows, expected the one fixture-drift row"
+    exit 1
+fi
+ctest --test-dir "$ROOT/krdbg/build/fixtures" -R fixtures --no-tests=error \
+    >/tmp/krdbg-fixtures.log 2>&1 || true
 report /tmp/krdbg-fixtures.log
 
 if [ "$failed" -ne 0 ]; then

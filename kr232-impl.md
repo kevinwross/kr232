@@ -3297,3 +3297,30 @@ mechanism.
 **Measured on BitWhiz.** `build/arm64-clean` and `build/arm64-bisect` both list
 15 rows; a scratch configure with `KR232_BUILD_KERNEL=OFF` lists 12, so the
 assertion has teeth and the number is the kernel-enabled count this gate uses.
+### 2026-11-23T17:40:00-08:00 — The gate refuses a suite that did not really run
+
+The audit of this gate found four ways it could pass without checking what it
+claims, and they are closed. Pulls are `fetch` + `merge --ff-only` instead of
+`checkout -B main origin/main`, which rewrote the remote branch and could drop
+local work. Both configure steps pass `--fresh`, because a reused build directory
+keeps any setting an earlier run left in its cache. Every ctest call passes
+`--no-tests=error`, `report()` fails on `Not Run`/`Disabled` -- ctest prints
+`***Not Run (Disabled)` beside `100% tests passed` and exits 0 -- and names the
+skips it does accept rather than counting them as passes. The krdbg fixture row is
+counted like kr232's: one registered row, not "whatever ran".
+
+**Correction to the entry above.** The configure-time guard that makes the
+fixture rows mandatory is at `CMakeLists.txt:270-274`, not `:289-295`. The
+numbers I recorded came from a working copy that still held an edit I later
+reverted; the guard has not moved.
+
+**The audit's blocking finding is fixed in krdbg** (`efffb38`): the checked-in
+kr232 fixtures could not be reproduced, on either host, because `regenerate.ps1`
+recorded them through backslash paths while the drift check compiles with forward
+slashes and the path is embedded in the image. The recording now normalises, the
+five images and the adapter golden are re-recorded, and on Windows the drift row
+passes, `krdbg_kr232_tests` is 17 of 17 and `krdbg_tests` 110 of 110.
+
+**Verified here:** `scripts/check-arm64.ps1` parses under PowerShell with zero
+errors and its bash block passes `bash -n` on the ARM64 host. The gate itself has
+not been re-run: the host is in use, and a run is the clean test of all of this.
