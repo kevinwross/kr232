@@ -26,6 +26,10 @@ pull() {
 pull "$ROOT/kr232" main
 pull "$ROOT/krcompiler" master
 pull "$ROOT/krdbg" main
+# krdbg's two-adapter step builds kr216 as a subdirectory, so that checkout has to
+# be current too: a stale one lacks the kr216::core target the adapter links, and
+# the failure reads as a missing target rather than a stale tree.
+pull "$ROOT/kr216" main
 
 KRC="$ROOT/krcompiler/build/linux-clang-debug/host/bin/Debug"
 cmake --build "$ROOT/krcompiler/build/linux-clang-debug" -j 4 >/tmp/krc-build.log 2>&1 \
