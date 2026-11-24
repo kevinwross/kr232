@@ -70,3 +70,17 @@ Target-specific notes:
 
 - `core.autocrlf=true` is set machine-wide. `.gitattributes` pins `* text=auto eol=lf`, so the index stays LF and every clone matches byte for byte; deleting that file reintroduces per-machine checkouts and makes the appendices compare differently.
 - `AGENTS.md` and `.agents/environment.md` say to run `node scripts/sync.mjs`, but `scripts/` is not in this repository. Run `node ..\devtemplate\scripts\sync.mjs` from here, or copy the script in first.
+
+## WSL builds
+
+A WSL build runs on an ext4 mirror, never on `/mnt/c`. A build under the mount carries
+mount paths in its debug data and its file timestamps are too coarse for incremental
+work, so the mirror is refreshed with the family tool and the gate runs from there:
+
+    sh ../krcompiler/scripts/kr-mirror.sh kr232
+    cd ~/mirrors/kr232 && bash scripts/gate-linux.sh
+
+A gate that supports it does this itself when it is started from a `/mnt/c` path: it
+prints the mirror it used and re-executes there, and `--in-place` opts out for the
+rare case where a mount build is intended. Editing happens on Windows; the mirror is
+disposable and is never committed.
