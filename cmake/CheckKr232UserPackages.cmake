@@ -37,7 +37,7 @@ foreach(source IN LISTS sources)
     list(APPEND objects "${object}")
 endforeach()
 
-set(image "${WORK}/packages.k232")
+set(image "${WORK}/packages.kr232")
 execute_process(COMMAND "${KRLD}" "--source-root=${RUNTIME}/../.." --base=0x08000000 --entry=_start ${objects}
                         -o "${image}"
                 RESULT_VARIABLE linked ERROR_VARIABLE link_error)

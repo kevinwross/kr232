@@ -37,12 +37,12 @@ $runtimeRelative = [System.IO.Path]::GetRelativePath($root, (Resolve-Path $Runti
 
 # `Extra` names further sources compiled and linked beside the main one.
 $fixtures = @(
-    @{ Source = 'user-exit42.s'; Image = 'user-exit42.k232'; Base = '--base=0x08000000' },
-    @{ Source = 'user-calls.c'; Image = 'user-calls.k232'; Base = '--base=0x08000000'
+    @{ Source = 'user-exit42.s'; Image = 'user-exit42.kr232'; Base = '--base=0x08000000' },
+    @{ Source = 'user-calls.c'; Image = 'user-calls.kr232'; Base = '--base=0x08000000'
        Extra = @('crt0_user.s', 'syscall6.s') },
-    @{ Source = 'user-echo.s'; Image = 'user-echo.k232'; Base = '--base=0x08000000' },
-    @{ Source = 'user-text.s'; Image = 'user-text.k232'; Base = '--base=0x08000000' },
-    @{ Source = 'blank-flip.s'; Image = 'blank-flip.k232'; Base = '' },
+    @{ Source = 'user-echo.s'; Image = 'user-echo.kr232'; Base = '--base=0x08000000' },
+    @{ Source = 'user-text.s'; Image = 'user-text.kr232'; Base = '--base=0x08000000' },
+    @{ Source = 'blank-flip.s'; Image = 'blank-flip.kr232'; Base = '' },
     @{ Source = 'kernel-gate.s'; Image = 'kernel-gate.bin'; Base = '' }
 )
 
@@ -81,9 +81,9 @@ try {
     $kernelObject = Join-Path $work 'kernel.o'
     & $Krc -c --target kr232 'targets/kr232/kernel/kernel.s' -o $kernelObject
     if ($LASTEXITCODE -ne 0) { throw 'compiling the kernel failed' }
-    & $Krld --entry=_start $kernelObject -o (Join-Path $here 'kernel.k232')
-    if ($LASTEXITCODE -ne 0) { throw 'linking kernel.k232 failed' }
-    Write-Output 'rebuilt kernel.k232'
+    & $Krld --entry=_start $kernelObject -o (Join-Path $here 'kernel.kr232')
+    if ($LASTEXITCODE -ne 0) { throw 'linking kernel.kr232 failed' }
+    Write-Output 'rebuilt kernel.kr232'
 }
 finally {
     Pop-Location

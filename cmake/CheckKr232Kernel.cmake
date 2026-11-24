@@ -39,19 +39,19 @@ if(DEFINED KRC AND DEFINED KRLD)
         message(FATAL_ERROR "building the kernel failed:\n${compile_error}")
     endif()
     execute_process(COMMAND "${KRLD}" --entry=_start
-                            "${WORK}/kernel.o" -o "${WORK}/kernel.k232"
+                            "${WORK}/kernel.o" -o "${WORK}/kernel.kr232"
                     RESULT_VARIABLE linked ERROR_VARIABLE link_error)
     if(NOT linked EQUAL 0)
         message(FATAL_ERROR "linking the kernel failed:\n${link_error}")
     endif()
     file(SHA256 "${KERNEL}" checked_in)
-    file(SHA256 "${WORK}/kernel.k232" rebuilt)
+    file(SHA256 "${WORK}/kernel.kr232" rebuilt)
     if(NOT checked_in STREQUAL rebuilt)
         message(FATAL_ERROR
             "the kernel in the tree does not match the source: rebuild "
-            "tests/fixtures/kernel.k232 with krc and commit it")
+            "tests/fixtures/kernel.kr232 with krc and commit it")
     endif()
-    set(image "${WORK}/kernel.k232")
+    set(image "${WORK}/kernel.kr232")
 endif()
 
 set(optional_args)

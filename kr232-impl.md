@@ -227,13 +227,13 @@ The 81 vectors, the protection suite, the eight device suites, the blitter rejec
 - [x] `[krcompiler]` `Kr232Descriptor` with the register roles of M0. Check: a unit test reads each role back.
 - [x] `[krcompiler]` `src/asm/kr232_assembler.cpp` and its encoder, plus `make_object` with target id 5. Check: round-trip tests, assemble → bytes → disassemble, for every Appendix A vector.
 - [x] `[krcompiler]` `.kdbg` emission from assembly: line and function records. Check: `krc --dump-symbols` on a linked image names the fixture's lines.
-- [x] `[krcompiler]` `src/linker/kr232_image.cpp` — the `.k232` writer the M0 ADR specifies: header, section records, the `.reset` section at `0x0100`, CRC, `image_base = 0`. Check: a unit test reads back every header field, and the writer rejects an entry outside executable text, a section outside the map and overlapping sections.
+- [x] `[krcompiler]` `src/linker/kr232_image.cpp` — the `.kr232` writer the M0 ADR specifies: header, section records, the `.reset` section at `0x0100`, CRC, `image_base = 0`. Check: a unit test reads back every header field, and the writer rejects an entry outside executable text, a section outside the map and overlapping sections.
 - [x] `[krcompiler]` `toolchain::link_impl` selects the writer for target 5, with 4-byte heap alignment and the kr232 stack bounds. Check: a linked image's header and entry agree with the ADR.
-- [x] `[krcompiler]` `krc --dump-symbols` reads a `.k232`. Check: the gate's decode assertion passes on a fixture.
+- [x] `[krcompiler]` `krc --dump-symbols` reads a `.kr232`. Check: the gate's decode assertion passes on a fixture.
 - [x] `[krcompiler]` `cmake/RunKr232Image.cmake` and the `KRC_KR232_VM` cache variable in `CMakeLists.txt`, with the sibling fallback. Check: a deliberate wrong exit status fails with `expected exit N, got M`.
 - [x] `[kr232]` `kr232-dis`: the canonical decoder and text form, shared with the emulator. Check: a disassembly test over all 81 vectors and over the assembled fixture.
-- [x] `[kr232]` The `.k232` loader replaces the flat loader and dispatches on the container magic. Check: a bad checksum, a section outside the map and a base mismatch each fail at load.
-- [x] `[kr232]` A `.s` fixture assembles to an object, links to a `.k232`, and runs under M1. Check: exit status and screen match.
+- [x] `[kr232]` The `.kr232` loader replaces the flat loader and dispatches on the container magic. Check: a bad checksum, a section outside the map and a base mismatch each fail at load.
+- [x] `[kr232]` A `.s` fixture assembles to an object, links to a `.kr232`, and runs under M1. Check: exit status and screen match.
 - [x] `[kr232]` Log the gate. Check: `## Gate verification` block with every M2 item.
 
 ### Tests
@@ -242,7 +242,7 @@ Round-trip for all 81 vectors; a hand-written `.s` linked and run; the `.kdbg` d
 
 ### Gate
 
-> **Plan §7.** `krc --list-targets` shows `kr232` with `backend=no`; a hand-written `.s` file assembles to an object, links to a `.k232`, and runs under M1 with the expected exit status and screen; the image's `.kdbg` decodes through `krc --dump-symbols` with the fixture's lines and functions and `image_base = 0`; every vector round-trips byte-exactly; two builds of one image are byte-identical.
+> **Plan §7.** `krc --list-targets` shows `kr232` with `backend=no`; a hand-written `.s` file assembles to an object, links to a `.kr232`, and runs under M1 with the expected exit status and screen; the image's `.kdbg` decodes through `krc --dump-symbols` with the fixture's lines and functions and `image_base = 0`; every vector round-trips byte-exactly; two builds of one image are byte-identical.
 
 ---
 
@@ -284,7 +284,7 @@ The per-target loops, determinism, KDBG invariants, the clean gate, `-S` byte-id
 
 **Goal.** kr232 is debuggable at assembly level, then source level.
 
-**Preconditions.** M2's gate is recorded, so a `.k232` with a `.kdbg` exists; and the `krc` prefix is installed from the same `krcompiler` revision the work is on (§1), because the host-build check cannot run without it.
+**Preconditions.** M2's gate is recorded, so a `.kr232` with a `.kdbg` exists; and the `krc` prefix is installed from the same `krcompiler` revision the work is on (§1), because the host-build check cannot run without it.
 
 ### Tasks
 
@@ -295,8 +295,8 @@ The per-target loops, determinism, KDBG invariants, the clean gate, `-S` byte-id
 - [x] `[krdbg]` `disassemble` through `kr232-dis`, advancing by decoded length. Check: a one-byte `RET` is followed by the next instruction, not by a four-byte gap.
 - [x] `[krdbg]` `unwind()` through the EFP chain, `FunctionInfo::frame` 0, and `Location::FrameOffset` negated. Check: two frames and a local's value at each.
 - [x] `[krdbg]` `IComPort` over page 2 and `IVideoSource` over the committed frame, with `has_com_port` and `has_framebuffer` agreeing. Check: a byte through the port reaches the guest, and a frame hash matches the emulator's.
-- [x] `[krdbg]` Source level: load `.k232`, locate `.kdbg`, `kdbg::read_payload`, resolve paths, `replace_target(std::move(target), info)` on reload. Check: line breakpoints resolve after a reload.
-- [x] `[krdbg]` Host wiring: `--kr232`, the include under `KRDBG_HAVE_KR232`, `load_any` on the `.k232` extension and `--target kr232`, `tests/test_host_build.cpp` with `KRDBG_KRC_PREFIX`. Check: the prefix is installed at the krcompiler revision recorded in the log, `test_host_build` **runs** rather than skipping, and the demo loads the fixture both ways.
+- [x] `[krdbg]` Source level: load `.kr232`, locate `.kdbg`, `kdbg::read_payload`, resolve paths, `replace_target(std::move(target), info)` on reload. Check: line breakpoints resolve after a reload.
+- [x] `[krdbg]` Host wiring: `--kr232`, the include under `KRDBG_HAVE_KR232`, `load_any` on the `.kr232` extension and `--target kr232`, `tests/test_host_build.cpp` with `KRDBG_KRC_PREFIX`. Check: the prefix is installed at the krcompiler revision recorded in the log, `test_host_build` **runs** rather than skipping, and the demo loads the fixture both ways.
 - [x] `[krdbg]` Fixtures and golden: `tests/fixtures/kr232/` assembled by M2's toolchain with a `regenerate.ps1`, and `goldens/kr232-loaded.hash`. Check: the golden matches on x64; the ARM64 run excludes it.
 - [x] `[krdbg]` `tests/test_kr232_adapter.cpp`: load, layout, execution, inspection, line stepping, reload, no-debug-info, bad input, COM, framebuffer. Check: ten cases green.
 - [x] `[krdbg]` Boundary check and host gate. Check: `krdbg_platform_boundary` clean; the host gate passes on the changed rows; the adapter build is reported separately because the repository gate builds adapter-OFF.
@@ -308,7 +308,7 @@ The adapter suite, the golden, the boundary check, the host gate, and the demo's
 
 ### Gate
 
-> **Plan §9.** The adapter compiles with its option ON; the fixture tests cover load, layout, execution, inspection, line stepping, reload, no-debug-info, bad input, COM and framebuffer; the disassembly view advances by decoded length, so a one-byte `RET` is followed by the next instruction; `write_flags` cannot clear `K`; the demo loads the fixture by `.k232` extension and by `--kr232`; the golden matches; `krdbg_platform_boundary` reports clean; the host gate passes on the changed rows. The adapter build is reported separately, because the repository gate builds adapter-OFF.
+> **Plan §9.** The adapter compiles with its option ON; the fixture tests cover load, layout, execution, inspection, line stepping, reload, no-debug-info, bad input, COM and framebuffer; the disassembly view advances by decoded length, so a one-byte `RET` is followed by the next instruction; `write_flags` cannot clear `K`; the demo loads the fixture by `.kr232` extension and by `--kr232`; the golden matches; `krdbg_platform_boundary` reports clean; the host gate passes on the changed rows. The adapter build is reported separately, because the repository gate builds adapter-OFF.
 
 ---
 
@@ -322,7 +322,7 @@ The adapter suite, the golden, the boundary check, the host gate, and the demo's
 
 - [x] `[kr232]` Kernel in `targets/kr232/kernel/`, built by a custom target that invokes `krc` from the prefix and links with `krld`, guarded by `KR232_BUILD_KERNEL` (default OFF so M1–M3 need no compiler): vector table at `0x0100`, a trap handler that resumes `SYSCALL`, and `IRET` into user mode with a constructed frame. Check: a trap reaches the handler and returns; the layout check confirms the host build never compiles it, and the kernel target's command line names `krc`.
 - [x] `[kr232]` Syscall table: `write`, `read`, `exit`, blitter copy/fill, graphics commands, with kernel-side validation of every user pointer. Check: an invalid pointer is rejected without trapping the kernel.
-- [x] `[kr232]` `--user <program.k232>` on the CLI: preload at `0x08000000`, no entry word, the kernel builds the frame. Check: the kernel enters the program at its link address.
+- [x] `[kr232]` `--user <program.kr232>` on the CLI: preload at `0x08000000`, no entry word, the kernel builds the frame. Check: the kernel enters the program at its link address.
 - [x] `[krcompiler]` A user-mode program built by krc that prints, draws and exits through the table. Check: it runs and its frame matches a golden.
 - [x] `[kr232]` Protection from user mode: the M1 trap tests rerun with K = 0. Check: each raises vector 8 or 4 as documented.
 - [x] `[krdbg]` `host.kernel_supported` and `load_kernel`, replacing the session target. Check: the debugger loads kernel then program and steps the program through a syscall.
@@ -678,7 +678,7 @@ Ran: krcompiler's suite 2875 assertions, all passing; two parser cases.
 Found: the first version of the file carried helpers for immediates and conditions that nothing called yet, which `/W4` treats as dead code; they were removed rather than suppressed and will come back with the shapes that use them. A brace-initialised operand also narrowed `unsigned` to `uint8_t`, which the same warning level caught.
 Next: `link_impl` selecting the writer for target 5, then `.kdbg` and the loader.
 
-### 2026-11-22T21:32:04-08:00 — M2: the `.k232` container writer
+### 2026-11-22T21:32:04-08:00 — M2: the `.kr232` container writer
 
 Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2` at `675efb7`
 Added: `src/linker/kr232_image.{h,cpp}` implementing ADR 0058 — a 64-byte little-endian header (magic `K232`, kind 2, target id 5, ABI 1, image base, section-table and string-table offsets, file size, CRC32 over the whole file with its own field zeroed), 32-byte section records (name offset into a string table, type, flags, absolute address, payload offset, size, alignment), and payloads laid between the header and the table. Refused with a named error: an entry outside every executable section, a section leaving the image's half of the map, two allocated sections overlapping, and a non-power-of-two alignment.
@@ -692,7 +692,7 @@ Next: `toolchain::link_impl` selecting this writer for target 5 with the 4-byte 
 Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2` at `ad92565`
 Added: `src/asm/kr232_object.{h,cpp}` — a `Program` of sections and symbols becomes a `KroObject` with kind object, **target id 5** through `kROTargetId`, ABI version 1, the profile's 32-bit pointer width, little-endian, one section per program section and one symbol per program symbol with its binding. An empty program, a symbol naming a missing section, and another target's profile are each refused.
 Ran: krcompiler's suite 243 cases, 3595 assertions, all passing.
-Next: `.kdbg` line and function records from assembly, then the `.k232` image writer of ADR 0058.
+Next: `.kdbg` line and function records from assembly, then the `.kr232` image writer of ADR 0058.
 
 ### 2026-11-22T21:29:13-08:00 — M2: every Appendix A vector round-trips
 
@@ -782,7 +782,7 @@ Ran: `ssh bitwhiz "hostname; whoami; uname -m"` → `BitWhiz`, `kevinro`, `aarch
 Found: the earlier failure was pattern case-sensitivity, not a missing key — the key was always right, the block simply did not match the lowercase name.
 Next: the M0 gate's merge clause, which is the owner's action.
 
-### 2026-11-22T21:32:57-08:00 — M2: the .k232 loader replaces the flat loader
+### 2026-11-22T21:32:57-08:00 — M2: the .kr232 loader replaces the flat loader
 
 Host: CROSBY (Windows `windows-msvc`) and CROSBY WSL (`linux-wsl`)
 Added: `load_k232` validates the ADR 0058 container before writing a byte -- magic, versions, kind, header size, target id 5, ABI, file size, CRC32 with its field zeroed first, the image base, the entry inside the image's half of the map, and every section's address and payload. A kernel image's header entry is written into the reset word at `0x0100`. `load_image` dispatches on the magic and the CLI calls it.
@@ -812,7 +812,7 @@ Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2` at `3c7238b`
 Added: `src/asm/kr232_assembler.{h,cpp}` — reads `.text`, `.data`, `.globl`, `.word`, `.byte`, labels and the instructions the parser accepts, and produces a `Program` plus one `DebugLine` per instruction with its source line and text offset. A label operand on `bra`, `call`, `jmp` or the common conditions becomes a two-byte compact branch patched once every label is placed; an out-of-range target is an error rather than a truncation; each label records its own section.
 Ran: krcompiler's suite 3679 assertions, all passing.
 Found: two of my own expectations were wrong, not the code — a branch to the label immediately following has displacement 0, not 2, and line records are one per instruction rather than one per statement (labels are not statements). Both were caught by asserting exact bytes and exact counts.
-Next: emit the `.debug_info` bridge from these line records so `attach_kdbg` produces a `.kdbg`, then `krc --dump-symbols` on a `.k232`.
+Next: emit the `.debug_info` bridge from these line records so `attach_kdbg` produces a `.kdbg`, then `krc --dump-symbols` on a `.kr232`.
 
 ### 2026-11-22T21:42:23-08:00 — M2: the debug bridge converts to a .kdbg
 
@@ -820,23 +820,23 @@ Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2` at `20e32f0`
 Added: the conversion test the previous round left unfinished. Two instructions and a global link to a container that carries a `.kdbg` section, and `decode_kdbg` reads back target id 5, the source path `fixture.s`, exactly two line records and the `main` function.
 Ran: krcompiler's suite 3691 assertions, all passing.
 Found: the previous round's single failure was the end-of-text label emitting an `L` record as well as a symbol, so two statements produced three lines. `.Lend` is now a symbol only -- it exists so a function record has an end, not to mark a statement. The previous round committed the emission without this test and said so; this round is what closes it.
-Next: `krc --dump-symbols` on a `.k232`, `RunKr232Image.cmake` with `KRC_KR232_VM`, then `kr232-dis` and the `.s` fixture run under `kr232-emu`.
+Next: `krc --dump-symbols` on a `.kr232`, `RunKr232Image.cmake` with `KRC_KR232_VM`, then `kr232-dis` and the `.s` fixture run under `kr232-emu`.
 
-### 2026-11-22T21:43:41-08:00 — M2: reading a section out of a .k232
+### 2026-11-22T21:43:41-08:00 — M2: reading a section out of a .kr232
 
 Host: CROSBY (Windows `windows-msvc-debug`) and CROSBY WSL (`linux-wsl`)
 Added: `read_k232_section` finds the section table through the header, resolves a name through the string table, and returns the payload span; a missing section and a file that is not a container are named errors. Tested against a written container with a `.kdbg` section.
 Ran: krcompiler's suite 3699 assertions, all passing; kr232's suite unaffected.
-Blocked, and named: `krc --dump-symbols` cannot yet read a `.k232`. The krc tool target does not have `src/` on its include path, so the CLI cannot see `linker/kr232_image.h`, and the right fix is a public header rather than adding a source directory to a tool's includes. That header is the next step, after which the CLI branch is three lines.
-Next: the public reader header, then `--dump-symbols` on a `.k232`, `RunKr232Image.cmake`, `kr232-dis`, and the `.s` fixture under `kr232-emu`.
+Blocked, and named: `krc --dump-symbols` cannot yet read a `.kr232`. The krc tool target does not have `src/` on its include path, so the CLI cannot see `linker/kr232_image.h`, and the right fix is a public header rather than adding a source directory to a tool's includes. That header is the next step, after which the CLI branch is three lines.
+Next: the public reader header, then `--dump-symbols` on a `.kr232`, `RunKr232Image.cmake`, `kr232-dis`, and the `.s` fixture under `kr232-emu`.
 
 ### 2026-11-22T21:44:42-08:00 — M2: the container reader is public, and krc can reach it
 
 Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2` at `12963c0`
-Added: `include/krc/image/k232.h` and `src/image/k232.cpp` hold `read_k232_section`, moved out of the linker implementation so a tool can include it without reaching into `src/`. `krc --dump-symbols` now decodes a `.k232` by reading its `.kdbg` section and falls back to `decode_kdbg_image` for `.k32` and `.kex`.
+Added: `include/krc/image/k232.h` and `src/image/k232.cpp` hold `read_k232_section`, moved out of the linker implementation so a tool can include it without reaching into `src/`. `krc --dump-symbols` now decodes a `.kr232` by reading its `.kdbg` section and falls back to `decode_kdbg_image` for `.kr32` and `.kr16`.
 Ran: krcompiler's suite 3699 assertions, all passing.
-Not verified end to end: the CLI branch has no fixture. There is no checked-in `.k232` to run `--dump-symbols` against, so the code path exists and compiles but its first real invocation is still ahead. That is the next round's first task, and it needs a generated fixture rather than a hand-built one.
-Next: generate a `.k232` fixture from a `.s` file, run `krc --dump-symbols` on it, then `RunKr232Image.cmake` and the `.s` fixture under `kr232-emu`.
+Not verified end to end: the CLI branch has no fixture. There is no checked-in `.kr232` to run `--dump-symbols` against, so the code path exists and compiles but its first real invocation is still ahead. That is the next round's first task, and it needs a generated fixture rather than a hand-built one.
+Next: generate a `.kr232` fixture from a `.s` file, run `krc --dump-symbols` on it, then `RunKr232Image.cmake` and the `.s` fixture under `kr232-emu`.
 
 ### 2026-11-22T21:52:03-08:00 — M2: the CLI pipeline runs, and four tasks close
 
@@ -844,7 +844,7 @@ Host: CROSBY (Windows `windows-msvc-debug`), branch `kr232-m2` at `5fdf725` plus
 Added: the backend-availability check moved ahead of the front end for stages that need code generation, so a target without a backend answers `has no code generator yet` instead of reporting whatever the source's own errors are. `krc --dump-symbols` recognises `K232` and decodes the `.kdbg` section; a checked-in 712-byte fixture produced by `krc -c` then `krld --entry=main --base=0x200` is the test's input.
 Ran: `ctest -R kr232` **2 of 2 passed** -- `krc_kr232_no_backend` (the M0 red test, green now without editing it) and `krc_kr232_dump_symbols`; `krc_tests` 3699 assertions.
 Found: the M0 test failed differently once the profile row landed, because the backend gate sat after typechecking and the fixture's kr16-sized static assertions fired first. The fix is where the check belongs -- a target that cannot generate code should say so before the front end runs -- and it is what turns the planted test green for the reason it was planted.
-Ticked: `.kdbg` emission, the `.k232` writer, `link_impl` for target 5, and `--dump-symbols` on a container.
+Ticked: `.kdbg` emission, the `.kr232` writer, `link_impl` for target 5, and `--dump-symbols` on a container.
 Next: `RunKr232Image.cmake` with `KRC_KR232_VM`, `kr232-dis`, the `.s` fixture under `kr232-emu`, and the gate.
 
 ### 2026-11-22T21:52:59-08:00 — M2: the image runs under the emulator
@@ -853,7 +853,7 @@ Host: CROSBY (Windows `windows-msvc` emulator, `windows-msvc-debug` compiler)
 Added: `cmake/RunKr232Image.cmake` and `KRC_KR232_VM` with the same preference and sibling fallback as the KR32 and KR16 rules; the kr232 CLI now returns the program's `SYS exit` status as its process status, which is what makes the runner's check meaningful. Four CTests: the no-backend message, `--dump-symbols` on the container, the fixture run expecting exit 0, and a deliberate wrong expectation marked `WILL_FAIL` so the runner's `expected exit N, got M` path is exercised rather than assumed.
 Ran: `ctest -R kr232` **4 of 4 passed**.
 Found: the emulator returned 0 whatever the program did, so the runner could not have caught a wrong exit. That is the same class as the earlier `--frame-hash` gap: the harness existed, the contract behind it did not.
-Ticked: `RunKr232Image.cmake` with `KRC_KR232_VM`, and the `.k232` loader replacing the flat loader.
+Ticked: `RunKr232Image.cmake` with `KRC_KR232_VM`, and the `.kr232` loader replacing the flat loader.
 Not ticked: the `.s` fixture task, whose check also asks the screen to match; the fixture draws nothing yet, so a frame hash would be the empty basis and prove nothing.
 Next: give the fixture a drawing and a flip, pin its frame hash, then `kr232-dis` and the M2 gate.
 
@@ -1241,7 +1241,7 @@ Not yet exercised: no fixture or test calls it. That is the next task's job -- `
 ### 2026-11-23T08:30:00-08:00 — M4: the adapter's layout and memory map are tested
 
 Host: CROSBY (Windows, `build/kr232-adapter` with `KRDBG_KR232_ADAPTER=ON`)
-`tests/test_kr232_adapter.cpp` and `tests/fixtures/kr232/loaded.k232` (a real container from M2's toolchain) landed in `krdbg`. Two tests:
+`tests/test_kr232_adapter.cpp` and `tests/fixtures/kr232/loaded.kr232` (a real container from M2's toolchain) landed in `krdbg`. Two tests:
 - a container loads with its `.kdbg`, target id **5**, pointer bits **32**; the layout is `KR232` with 32 address and pointer bits and variable-length instructions; **K and I are listed and not writable**; **both unbacked gaps are neither readable nor writable** (the test counts them, so a third gap or a missing one fails);
 - a register reads and `disassemble` returns a mnemonic with a length of at least one byte.
 
@@ -1265,7 +1265,7 @@ Ticked: the `disassemble` task. Next: `unwind` with two frames, the two device v
 ### 2026-11-23T09:30:00-08:00 — M4: the COM port works, the frame view does not
 
 Host: CROSBY (Windows, `build/kr232-adapter`)
-`Kr232ComPort` consumes the console's output through the device's own queue; a fixture built by M2's toolchain (`session.k232`, which says one byte, draws 4x4 and flips) is checked in, and the COM read returns **`'A'`** -- the byte the program wrote. Under the emulator the same fixture prints `A`, halts with status **7** and produces frame hash `d84ca06f0a9b9647`.
+`Kr232ComPort` consumes the console's output through the device's own queue; a fixture built by M2's toolchain (`session.kr232`, which says one byte, draws 4x4 and flips) is checked in, and the COM read returns **`'A'`** -- the byte the program wrote. Under the emulator the same fixture prints `A`, halts with status **7** and produces frame hash `d84ca06f0a9b9647`.
 
 `Kr232Video` returns **nothing**. The evidence narrows it: the COM read and the video view use the same `Machine`, so the program ran; but `frame_bytes()` is null, which means `vram` was never allocated, which means the **flip never reached the device** in this run -- against the same fixture producing a frame hash under the emulator. That contradiction is the next thing to instrument, not to guess at.
 
@@ -1283,17 +1283,17 @@ Next: source-level path resolution and `replace_target`, host wiring, fixtures a
 ### 2026-11-23T10:00:00-08:00 — M4: host wiring scoped, not half-landed
 
 Host: CROSBY (Windows)
-Started the host-wiring task and stopped deliberately. The wiring is four coordinated pieces in `apps/demo/main.cpp` plus the CMake define: the include under `KRDBG_HAVE_KR232`, the `--kr232 <image>` option and its field, the load block that mirrors kr216's (`ProgramInfo` from the loaded target's `pc`, a `DebugSession` with **no** reload callback because the adapter reloads from its own image), and `load_any`'s dispatch on the `.k232` extension.
+Started the host-wiring task and stopped deliberately. The wiring is four coordinated pieces in `apps/demo/main.cpp` plus the CMake define: the include under `KRDBG_HAVE_KR232`, the `--kr232 <image>` option and its field, the load block that mirrors kr216's (`ProgramInfo` from the loaded target's `pc`, a `DebugSession` with **no** reload callback because the adapter reloads from its own image), and `load_any`'s dispatch on the `.kr232` extension.
 
 I landed the include, the option and the field, then **reverted them**: an option that parses and does nothing is a worse state than no option, and the load block is the part that makes the flag meaningful. Two of the three scripted replacements had already failed on their anchors before that, which is the same lesson as before -- the editor tool is the only reliable way to change this file.
 
-Next: the four pieces as one edit with a build between each, then `krdbg --kr232 tests/fixtures/kr232/session.k232` as the check.
+Next: the four pieces as one edit with a build between each, then `krdbg --kr232 tests/fixtures/kr232/session.kr232` as the check.
 ### 2026-11-23T10:15:00-08:00 — M4: the demo opens a kr232 image
 
 Host: CROSBY (Windows, `build/kr232-adapter` with `KRDBG_KR232_ADAPTER=ON`)
-Landed in `krdbg` (**bf30c39**): `--kr232 <image.k232>` loads a container through the adapter, builds the program entry from the first line of `main` when the payload names it, and creates the session with **no reload callback** -- the adapter reloads from its own image, so a fresh target carries the same memory and entry. The demo links `krdbg_kr232` and defines `KRDBG_HAVE_KR232` only when the option is on. `krdbg_tests` **112 tests, 0 failures**, and the demo target builds with the adapter linked.
+Landed in `krdbg` (**bf30c39**): `--kr232 <image.kr232>` loads a container through the adapter, builds the program entry from the first line of `main` when the payload names it, and creates the session with **no reload callback** -- the adapter reloads from its own image, so a fresh target carries the same memory and entry. The demo links `krdbg_kr232` and defines `KRDBG_HAVE_KR232` only when the option is on. `krdbg_tests` **112 tests, 0 failures**, and the demo target builds with the adapter linked.
 
-Not yet done, so the task is not ticked: `load_any`'s dispatch on the `.k232` extension and the `--target kr232` mapping. The check also needs `krdbg --kr232` to be observed loading a file, which this environment cannot show for a windowed app; that verification belongs with the adapter's remaining cases rather than being claimed from a build.
+Not yet done, so the task is not ticked: `load_any`'s dispatch on the `.kr232` extension and the `--target kr232` mapping. The check also needs `krdbg --kr232` to be observed loading a file, which this environment cannot show for a windowed app; that verification belongs with the adapter's remaining cases rather than being claimed from a build.
 
 Four pieces were landed this time instead of three: the previous round reverted an option that parsed and did nothing, which is what made this round's edit a single coherent unit.
 ### 2026-11-23T10:30:00-08:00 — M4: line stepping, reload and bad input, and two defects they found
@@ -1320,10 +1320,10 @@ Host: CROSBY (Windows, `build/kr232-adapter`)
 `unwind` now reads the return address and the saved frame pointer **before** pushing a frame, so a frame whose words cannot be read is absent rather than present with `pc` 0 -- which is exactly how the caller looked absent in the previous round. `krdbg_tests` **115 tests, 0 failures**.
 
 Still unexplained, and therefore unasserted: the caller frame's `pc` is not where I expect it. Two frames with distinct bases are asserted; the return address is not, because a check I cannot explain is a check that would be adjusted until it passes. The `unwind` task stays open on it, and on the local's value its check names.
-### 2026-11-23T11:15:00-08:00 — M4: .k232 loads through the same path as every target
+### 2026-11-23T11:15:00-08:00 — M4: .kr232 loads through the same path as every target
 
 Host: CROSBY (Windows, `build/kr232-adapter`)
-`load_any` now recognises the **`.k232`** extension, names `kr232` as the target, and loads it through the adapter with `replace_target`, so a running session can switch to a kr232 image; `--target kr232` reaches the same loader for a rebuilt source. The demo builds with the branch and `ctest` is **3 of 3** (115 unit tests inside).
+`load_any` now recognises the **`.kr232`** extension, names `kr232` as the target, and loads it through the adapter with `replace_target`, so a running session can switch to a kr232 image; `--target kr232` reaches the same loader for a rebuilt source. The demo builds with the branch and `ctest` is **3 of 3** (115 unit tests inside).
 
 This completes the host-wiring task's pieces -- `--kr232`, the include under `KRDBG_HAVE_KR232`, `load_any` on the extension, and the target name -- but the task is **not ticked**: its check also wants `krdbg --kr232` observed loading a file, and this environment cannot show a windowed app doing that. A build and a passing suite are not that observation, and the difference is the whole point of the rule.
 
@@ -1426,7 +1426,7 @@ Lesson, again the same one: two rounds were spent on a suspicion when one writte
 ### 2026-11-23T13:35:00-08:00 — M4: a crafted no-debug container, and where it stops
 
 Host: CROSBY (Windows).
-Built a container **without** a `.kdbg` section by renaming the section's string-table entry in `loaded.k232` (`.kdbg` -> `.kdbX`) and recomputing the header CRC at offset 48 with the standard CRC-32 the writer uses.
+Built a container **without** a `.kdbg` section by renaming the section's string-table entry in `loaded.kr232` (`.kdbg` -> `.kdbX`) and recomputing the header CRC at offset 48 with the standard CRC-32 the writer uses.
 
 Ran: the **emulator accepts and runs it** -- `halted status 0 after 2 steps` -- so the file is a valid container, its CRC holds, and `kr232::load_image` is satisfied. The **adapter refuses it**, and the test's `CHECK(ok)` failed without the error text, so what the adapter complained about is not yet known.
 
@@ -1530,7 +1530,7 @@ Also committed: the two C fixtures (`kr232_nested_frames.c`, `kr232_session.c`) 
 Lesson: `ctest -R kr232` is a filter, not the suite. `krc_tests` was red for many rounds while every filter run was green, and the failures were mine.
 ### 2026-11-23T16:10:00-08:00 — M4: line breakpoints resolve after a reload
 
-Host: CROSBY (Windows). `kr232_adapter_line_breakpoints_survive_a_reload`: the session stops on a line of `nested_frames.k232`, `restart` runs the reload callback (which resets the target), the breakpoint count is unchanged, and the next `run` stops at the same address. That is the source-level task's check -- load `.k232`, locate `.kdbg`, read the payload, resolve paths, `replace_target` on reload -- exercised end to end rather than piece by piece.
+Host: CROSBY (Windows). `kr232_adapter_line_breakpoints_survive_a_reload`: the session stops on a line of `nested_frames.kr232`, `restart` runs the reload callback (which resets the target), the breakpoint count is unchanged, and the next `run` stops at the same address. That is the source-level task's check -- load `.kr232`, locate `.kdbg`, read the payload, resolve paths, `replace_target` on reload -- exercised end to end rather than piece by piece.
 
 `krdbg_kr232_tests` **12 tests, 0 failures**. Ticked: **source level**.
 
@@ -1544,11 +1544,11 @@ Host: CROSBY (Windows). `tests/test_host_build.cpp` is now compiled into `krdbg_
 The install did not happen: `cmake --install build/windows-msvc-debug --prefix .../dist` fails with "File exists" on a library inside the build tree, so the prefix layout the chain wants is not being produced by that command. Next: read `discover_toolchain` for the layout it expects, then produce it (either a working install rule or the documented layout), and only then claim the task.
 ### 2026-11-23T16:40:00-08:00 — M4: the chain grew kr232, the host cases still skipped
 
-Host: CROSBY (Windows). `krdbg::host::BuildChain` refused every target but kr32 and kr16; it now accepts **kr232** -- `.k232` image, the startup assembled from the prefix's `share/krc/sysroot/kr232/lib/crt0.s` as kr16's is, no `--base` because a container records its own (commit **e834fa9**, builds clean).
+Host: CROSBY (Windows). `krdbg::host::BuildChain` refused every target but kr32 and kr16; it now accepts **kr232** -- `.kr232` image, the startup assembled from the prefix's `share/krc/sysroot/kr232/lib/crt0.s` as kr16's is, no `--base` because a container records its own (commit **e834fa9**, builds clean).
 
 Built the prefix by hand, since `cmake --install` fails: `bin/krc.exe`, `bin/krld.exe`, `share/krc/sysroot/kr232/{include,lib}`.
 
-**The host-build cases still did not run.** They reported PASS and the process exited 0, but **no `host_build*.k232` exists anywhere under either repository's build tree**, so both returned at the empty-prefix guard. `KRDBG_KRC_PREFIX` was set in the same shell that launched the binary. Until that is explained, "14 tests, 0 failures" says nothing about a host build, and the task stays unticked.
+**The host-build cases still did not run.** They reported PASS and the process exited 0, but **no `host_build*.kr232` exists anywhere under either repository's build tree**, so both returned at the empty-prefix guard. `KRDBG_KRC_PREFIX` was set in the same shell that launched the binary. Until that is explained, "14 tests, 0 failures" says nothing about a host build, and the task stays unticked.
 
 Confirmed by absence, not assumed: a search for the produced image across both build trees found nothing.
 
@@ -1631,8 +1631,8 @@ Host: CROSBY (Windows). Reproduced outside the harness with the tools directly:
 
 ```
 krc -c --target kr232 host_build.c -o hb.kro          (ok)
-krld --entry=main hb.kro -o c.k232                    (ok, entry 732)
-krld --entry=_start hb.kro crt0.kro -o d.k232         (link relocation overflows its width)
+krld --entry=main hb.kro -o c.kr232                    (ok, entry 732)
+krld --entry=_start hb.kro crt0.kro -o d.kr232         (link relocation overflows its width)
 krld --base=0 ... / --base=0x08000000 ...             (same, so it is not the base)
 ```
 
@@ -1663,7 +1663,7 @@ Fixed in `src/linker/linker.cpp` (**c5654c5**): the check now accepts a value th
 Evidence after the fix:
 
 ```
-krld: linked 2 object(s) to k.k232 (entry 868)
+krld: linked 2 object(s) to k.kr232 (entry 868)
 kr232-emu: halted status 7 after 11 steps
 ```
 
@@ -1675,7 +1675,7 @@ This was a real krcompiler defect, not a kr232 one: every target that emits a ba
 Host: CROSBY (Windows). `host_build_chain_builds_c_cpp_and_s` now builds kr232 for real. With `KRDBG_KRC_PREFIX` pointing at a prefix laid out as `bin/{krc,krld}.exe` and `share/krc/sysroot/kr232/{include,lib}`:
 
 ```
-build/krdbg-host/host_build.k232   1346 bytes
+build/krdbg-host/host_build.kr232   1346 bytes
 15 tests, 0 failures
 ```
 
@@ -1797,7 +1797,7 @@ Host: CROSBY (Windows). Recorded 2026-11-23T20:50:00-08:00. **The gate is not de
 | Fixture tests cover load, layout, execution, inspection, line stepping, reload, no-debug-info, bad input, COM, framebuffer | ten cases in `tests/test_kr232_adapter.cpp`, all passing, plus a reload case and a local-through-frame case |
 | Disassembly advances by decoded length | a one-byte `ret` is followed by the next instruction: `kr232_adapter_disassembles_by_decoded_length` |
 | `write_flags` cannot clear `K` | `kr232_adapter_flags_...` asserts the hardware-owned bits |
-| The demo loads the fixture by `.k232` extension **and** by `--kr232` | **NOT OBSERVED**: a windowed application cannot be shown loading here. Both code paths exist and build |
+| The demo loads the fixture by `.kr232` extension **and** by `--kr232` | **NOT OBSERVED**: a windowed application cannot be shown loading here. Both code paths exist and build |
 | The golden matches on x64 | `goldens/kr232-loaded.hash` = `751BE2BDFA24D8FD`, recorded then asserted |
 | `krdbg_platform_boundary` reports clean | `ctest` in `build/kr232-adapter`, 3 of 3 |
 | The host gate passes on the changed rows | `scripts/gate-windows.ps1` **GATE WINDOWS: PASS** |
@@ -1810,8 +1810,8 @@ Host: CROSBY (Windows). `KR232_BUILD_KERNEL` is **OFF by default**, so M1-M3 nee
 
 ```
 [1/1] Building the kr232 kernel with krc from the prefix
-krld: linked 1 object(s) to kernel.k232 (entry 604)
-kernel.k232   747 bytes
+krld: linked 1 object(s) to kernel.kr232 (entry 604)
+kernel.kr232   747 bytes
 kr232-emu: halted status 0 after 2 steps
 ```
 
@@ -1846,7 +1846,7 @@ Not decided this round, because choosing it silently would change what every exi
 Host: CROSBY (Windows). Decided and implemented the trap policy the last entry left open: **a vector whose handler word is non-zero enters the handler and retires the step**, still reporting the vector; **a vector with no handler stops as `Trapped`**, which is exactly what the protection and address-error tests depend on. Nothing in the ISA changes -- §11.3 already says PC = the handler word; the emulator was choosing to stop instead of continuing.
 
 ```
-kernel.k232:  halted status 0 after 10 steps
+kernel.kr232:  halted status 0 after 10 steps
 kr232_tests:  79 cases, 0 failed checks
 ctest:        8 of 8
 ```
@@ -1859,9 +1859,9 @@ One test's expectation changed with the decision and is marked as such in the so
 Host: CROSBY (Windows). Two tasks land together because one proves the other:
 
 ```
-kernel.k232   entry 872, built by krc from targets/kr232/kernel/kernel.s
-user.k232     entry 752, crt0 + int main(void){return 42;}
-kr232-emu vm kernel.k232 --user user.k232
+kernel.kr232   entry 872, built by krc from targets/kr232/kernel/kernel.s
+user.kr232     entry 752, crt0 + int main(void){return 42;}
+kr232-emu vm kernel.kr232 --user user.kr232
               halted status 42 after 7 steps
 ```
 
@@ -2082,7 +2082,7 @@ Not ticked yet: the task also wants the program to **draw** and its frame to mat
 Host: CROSBY (Windows). The kernel does **not** serve `syscall 2` or `syscall 3`: my scripted edits to `kernel.s` silently matched nothing, the rebuild produced the same entry address, and `git commit` reported "nothing to commit" -- which is the evidence I should have read before writing the line above. Unknown calls fall to `bad_call` and return -1, so the program exited 0 while nothing was drawn.
 
 ```
-userdraw.k232: halted status 0 after 50 steps
+userdraw.kr232: halted status 0 after 50 steps
 frame cbf29ce484222325
 ```
 
@@ -2096,8 +2096,8 @@ Not ticked: the user-program task needs the drawing to land.
 Host: CROSBY (Windows). With the handlers added by editor rather than by script, both halves work:
 
 ```
-userprint.k232  console: hello            halted status 3
-userdraw.k232   frame 2bf050200a5e1325    halted status 0     (identical on a second run)
+userprint.kr232  console: hello            halted status 3
+userdraw.kr232   frame 2bf050200a5e1325    halted status 0     (identical on a second run)
 ```
 
 - `syscall 1` copies a validated user buffer to the console `OUT` register, word by word;
@@ -2127,7 +2127,7 @@ Host: CROSBY (Windows). `kr232adapter::kernel_supported()` and `load_kernel()` e
 **Not ticked:** the task's check wants the debugger to load kernel then program and **step the program through a syscall**. That needs both images as checked-in fixtures and a test that runs the syscall path; the code is in place and the evidence is not.
 ### 2026-11-24T03:30:00-08:00 — M5: the debugger steps a kernel program through a syscall
 
-Host: CROSBY (Windows). `kernel.k232` and `userprint.k232` are fixtures, and the test loads both into **one machine**:
+Host: CROSBY (Windows). `kernel.kr232` and `userprint.kr232` are fixtures, and the test loads both into **one machine**:
 
 ```
 kr232_adapter_steps_a_kernel_program_through_a_syscall   PASS
@@ -2153,7 +2153,7 @@ Ticked: **the two deferred questions**. M5 at 7 of 7 tasks. The kernel still ans
 Host: CROSBY (Windows). The implementation moved to what the drafts now say:
 
 ```
-kernel.k232   dispatch 16 fill_rect, 17 flip; -2 unknown, -1 refused argument
+kernel.kr232   dispatch 16 fill_rect, 17 flip; -2 unknown, -1 refused argument
 userdraw      halted status 0    frame 2bf050200a5e1325   (unchanged)
 userprint     halted status 3    console: hello           (unchanged)
 krdbg_kr232_tests  17 of 17, including the syscall-stepping case
@@ -2170,10 +2170,10 @@ Host: CROSBY (Windows). Recorded 2026-11-24T04:30:00-08:00. Evidence gathered in
 
 | Plan §10 criterion | Evidence |
 |---|---|
-| A kernel loads a user image with `--user` | `kr232-emu vm kernel.k232 --user userprint.k232` runs the program; `--user` refuses an image based below user RAM with a message naming `--base=0x08000000` |
+| A kernel loads a user image with `--user` | `kr232-emu vm kernel.kr232 --user userprint.kr232` runs the program; `--user` refuses an image based below user RAM with a message naming `--base=0x08000000` |
 | Enters it through a constructed frame with `IRET` and K = 0 | the kernel writes four words and executes `IRET`; the trace shows user execution at `0x08000100`+ with `k=0` |
 | The program writes to the console and exits with a status the kernel returns | `console: hello`, `halted status 3` |
-| The program draws | **corrected 2026-11-24T11:40**: the original evidence, `frame 2bf050200a5e1325`, was a *blank flipped frame* -- the graphics clip started at zero and clipped every commanded draw. After the clip fix: `user-calls.k232` commits `f6b786175f12b425` and `kernel-gate.bin` `dddcd2efdafe5925` |
+| The program draws | **corrected 2026-11-24T11:40**: the original evidence, `frame 2bf050200a5e1325`, was a *blank flipped frame* -- the graphics clip started at zero and clipped every commanded draw. After the clip fix: `user-calls.kr232` commits `f6b786175f12b425` and `kernel-gate.bin` `dddcd2efdafe5925` |
 | A user access below `0x08000000` and a kernel-only instruction both reach the handler | `user_mode_cannot_load_or_call_into_kernel_memory`: vector 8 for a load at `0x10` and vector 8 for `sys`, both after `IRET` with `!kernel_mode()` asserted before the step |
 | The same program is stepped in krdbg at source level | `kr232_adapter_steps_a_kernel_program_through_a_syscall`: kernel and program in one machine, program halts after printing |
 | The two §12 questions answered in the drafts | ISA §18 and devices §14 are titled **Settled at M5**: -1 refused argument, -2 unknown call, display calls 16-21 |
@@ -2305,7 +2305,7 @@ Host: CROSBY (Windows). I hand-wrote the bytes for `add r6, #1` in a unit test a
 
 The guest's bit-4 loss is still unexplained, and this is the **fifth** time in this milestone that a hand-written byte sequence produced a false signal. The rule is already in this log twice and needs a third: **never write an instruction's bytes by hand -- assemble it and disassemble the result.** The one-line cost would have saved this round.
 
-Next: the guest loop's *own* bytes, taken from `kr232-dis` on the image it actually runs (`bytemap.k232`), and a debug print of `r6` and the stored byte inside the machine -- the two together will show whether the register or the memory differs, without any hand-written encoding in the way.
+Next: the guest loop's *own* bytes, taken from `kr232-dis` on the image it actually runs (`bytemap.kr232`), and a debug print of `r6` and the stored byte inside the machine -- the two together will show whether the register or the memory differs, without any hand-written encoding in the way.
 ### 2026-11-24T07:10:00-08:00 — M3: the device is exact, the round trip is not, and the missing datum is `r6` after the store
 
 Host: CROSBY (Windows). Four programs, all assembled and disassembled rather than hand-written:
@@ -2416,8 +2416,8 @@ Host: CROSBY (Windows). The host-wiring check asked for something I had called u
 The demo had no kr232 block at all -- no `--kr232` option, no `kr232_image` field, no include -- so `--load` answered "this build has no VM adapter" and `--kr232` was an unknown argument. With the adapter linked and `KRDBG_HAVE_KR232` defined:
 
 ```
-krdbg_demo --headless --load  loaded.k232   frame hash D5B8D6A158DE3E16 1440x900   exit 0
-krdbg_demo --headless --kr232 loaded.k232   frame hash D5B8D6A158DE3E16 1440x900   exit 0
+krdbg_demo --headless --load  loaded.kr232   frame hash D5B8D6A158DE3E16 1440x900   exit 0
+krdbg_demo --headless --kr232 loaded.kr232   frame hash D5B8D6A158DE3E16 1440x900   exit 0
 ```
 
 **Both paths load the fixture and agree on the frame hash.** Ticked: **host wiring**. M4 at 14 of 14.
@@ -2428,7 +2428,7 @@ M4's gate record is now complete against plan §9, with the ARM64 row passing ra
 Host: CROSBY (Windows). The task asks for "a disassembly test over all 81 vectors and over the assembled fixture". Both exist and pass:
 
 - `disassembly_names_every_appendix_vector` walks Appendix A and requires each vector to decode in full, with the right length and the right leading mnemonic;
-- the CTest rows `kr232-dis tests/fixtures/kernel-gate.bin` and `kr232-dis tests/fixtures/compiled-draw.k232` run the disassembler over an assembled fixture and a compiled image.
+- the CTest rows `kr232-dis tests/fixtures/kernel-gate.bin` and `kr232-dis tests/fixtures/compiled-draw.kr232` run the disassembler over an assembled fixture and a compiled image.
 
 Ticked: **`kr232-dis`**. M2 is now 13 of 13.
 
@@ -2522,10 +2522,10 @@ Final state: `kr232` **8 of 8** and **87 cases**; `krcompiler` **31 of 31** kr23
 
 Host: CROSBY (Windows). The kernel was guest code that only `krc` can build, and nothing in `ctest` touched it -- every kernel result so far came from manual commands. Two rows now do:
 
-- **`kr232_kernel_user`** runs the checked-in `tests/fixtures/kernel.k232` with the checked-in `user-exit42.k232` and requires the host status to be **42**, which is the user program's `syscall` exit coming back through the kernel. It needs no compiler, so it runs in the default configuration: **9 of 9** rows.
+- **`kr232_kernel_user`** runs the checked-in `tests/fixtures/kernel.kr232` with the checked-in `user-exit42.kr232` and requires the host status to be **42**, which is the user program's `syscall` exit coming back through the kernel. It needs no compiler, so it runs in the default configuration: **9 of 9** rows.
 - **`kr232_kernel_matches_source`** (only when `KR232_BUILD_KERNEL=ON`) rebuilds the kernel from `targets/kr232/kernel/kernel.s` and compares it **byte for byte** with the checked-in image, so the two cannot drift silently. `KR232_BUILD_KERNEL=ON`: **10 of 10** rows.
 
-The drift row was **proved to bite** by inserting a `nop` after `_start`: it failed with *"the kernel in the tree does not match the source: rebuild tests/fixtures/kernel.k232 with krc and commit it"*, and reverting restored it.
+The drift row was **proved to bite** by inserting a `nop` after `_start`: it failed with *"the kernel in the tree does not match the source: rebuild tests/fixtures/kernel.kr232 with krc and commit it"*, and reverting restored it.
 
 Next: gap 1, the kernel's missing calls.
 ### 2026-11-24T11:40:00-08:00 — The clip started at zero, so no commanded draw ever landed
@@ -2537,7 +2537,7 @@ So the frame hashes recorded as drawing evidence were **blank flipped frames**:
 | Image | Before | After |
 |---|---|---|
 | `kernel-gate.bin` golden | `2bf050200a5e1325` | `dddcd2efdafe5925` |
-| `user-calls.k232` | (did not exist) | `f6b786175f12b425` |
+| `user-calls.kr232` | (did not exist) | `f6b786175f12b425` |
 
 `devices.cpp` now starts with the clip set to the target and resets it when the mode changes, per `kr232-devices.md` §8.1. **M5's gate row for drawing is corrected in place** with a pointer to this entry; the old hash was never a drawing.
 
@@ -2676,20 +2676,20 @@ Suites: `krcompiler` **33 of 33**, `krc_tests` **3704**, `kr232` **10 of 10** an
 Item 2 of 8 closed. Next: the golden that must not be the blank frame.
 ### 2026-11-24T18:20:00-08:00 — Item 3 closed: a drawing golden cannot be the void
 
-Host: CROSBY (Windows). `tests/fixtures/blank-flip.k232` commits the surface without drawing and leaves **`2bf050200a5e1325`** -- the exact hash two goldens were recorded with while the graphics clip clipped every pixel away. Both frame checks (`CheckFrameHash.cmake`, `CheckKr232Kernel.cmake`) and the compiler's `BuildAndRunKr232.cmake` now measure that blank frame and **fail when a golden equals it**:
+Host: CROSBY (Windows). `tests/fixtures/blank-flip.kr232` commits the surface without drawing and leaves **`2bf050200a5e1325`** -- the exact hash two goldens were recorded with while the graphics clip clipped every pixel away. Both frame checks (`CheckFrameHash.cmake`, `CheckKr232Kernel.cmake`) and the compiler's `BuildAndRunKr232.cmake` now measure that blank frame and **fail when a golden equals it**:
 
 ```
 the golden 2bf050200a5e1325 is the blank committed frame: this program draws nothing
 ```
 
-That message was produced by running the check against `blank-flip.k232` with a golden set to the blank hash -- the guard was proved, not assumed. Rows wired: `kr232_cli_kernel_golden`, `kr232_kernel_calls`, `kr232_kernel_packages`, and `krc_kr232_run_gfx_draw` through `KRC_KR232_BLANK_IMAGE`.
+That message was produced by running the check against `blank-flip.kr232` with a golden set to the blank hash -- the guard was proved, not assumed. Rows wired: `kr232_cli_kernel_golden`, `kr232_kernel_calls`, `kr232_kernel_packages`, and `krc_kr232_run_gfx_draw` through `KRC_KR232_BLANK_IMAGE`.
 
 Suites: `kr232` **12 of 12** with the kernel and **10 of 10** without, `krcompiler` **33 of 33**, `krc_tests` **3704**, `krdbg` **17 of 17**.
 
 Item 3 of 8 closed. Next: the kernel's read call with real input.
 ### 2026-11-24T18:55:00-08:00 — Item 4 closed: the kernel's read call moves bytes into user memory
 
-Host: CROSBY (Windows). `kr232-emu --input <text>` queues text on the console before the run, through the same queue the device uses, so a program that reads input can be tested without a terminal. `tests/fixtures/user-echo.k232` reads up to eight bytes into a buffer, writes back exactly as many as arrived, and exits:
+Host: CROSBY (Windows). `kr232-emu --input <text>` queues text on the console before the run, through the same queue the device uses, so a program that reads input can be tested without a terminal. `tests/fixtures/user-echo.kr232` reads up to eight bytes into a buffer, writes back exactly as many as arrived, and exits:
 
 ```
 kr232_kernel_read    --input hey!    console: hey!    exit 0
@@ -2733,12 +2733,12 @@ Host: CROSBY (Windows). The five checked-in images (`user-exit42`, `user-calls`,
 - **`kr232_fixtures_match_source`** rebuilds each `.s` with `krc` and `krld` and compares the bytes, naming the exact commands in the failure.
 - **`tests/fixtures/regenerate.ps1`** is the regeneration path.
 
-Proved both ways: corrupting one byte of `user-echo.k232` failed the row with
+Proved both ways: corrupting one byte of `user-echo.kr232` failed the row with
 
 ```
-user-echo.k232 does not match user-echo.s: rebuild it with
+user-echo.kr232 does not match user-echo.s: rebuild it with
   krc -c --target kr232 user-echo.s -o user-echo.o
-  krld --base=0x08000000 --entry=_start user-echo.o -o user-echo.k232
+  krld --base=0x08000000 --entry=_start user-echo.o -o user-echo.kr232
 ```
 
 and running the regeneration afterwards rebuilt **all five** to byte-identical files -- `git status` stayed clean, which is the evidence that the script and the checker agree.
@@ -2779,12 +2779,12 @@ The thirty-third needed a fix, and it is a real platform difference: **a POSIX p
 That also sharpens the earlier 32-bit exit-status work: the *machine* holds 32 bits, and on POSIX only the last eight reach the parent.
 ### 2026-11-24T23:15:00-08:00 — Items 2 and 4 closed: every fixture has a source, and two of them had none
 
-Host: CROSBY (Windows) and BitWhiz (aarch64). Two checked-in images had **no source at all**: krdbg's `userprint.k232` and kr232's `kernel-gate.bin`. Both now do, and both reproduce byte for byte:
+Host: CROSBY (Windows) and BitWhiz (aarch64). Two checked-in images had **no source at all**: krdbg's `userprint.kr232` and kr232's `kernel-gate.bin`. Both now do, and both reproduce byte for byte:
 
 - **`tests/fixtures/kr232/userprint.s`** prints `hello` through `SYSCALL` and exits 3, which is what the checked-in image did; rebuilding from it produces the same file.
 - **`tests/fixtures/kernel-gate.s`** writes `K` to the terminal, an 8x8 green rectangle and a flip: `frame dddcd2efdafe5925` in 21 steps, the same drawing the golden has always named. It joins `kr232_fixtures_match_source`.
 
-`regenerate.ps1` in krdbg was broken in three ways and never built `kernel.k232` or `userprint.k232` at all: its repo path was one level short, it wrote to the system temp directory, and it passed `--source-root` as a separate argument, which the linker reads as a file name. It now builds all six fixtures with relative source paths.
+`regenerate.ps1` in krdbg was broken in three ways and never built `kernel.kr232` or `userprint.kr232` at all: its repo path was one level short, it wrote to the system temp directory, and it passed `--source-root` as a separate argument, which the linker reads as a file name. It now builds all six fixtures with relative source paths.
 
 The loaded-state golden is a hash of the first guest page, so rebuilt fixtures moved it: **751BE2BDFA24D8FD becomes 81A7220B18CE534D**, recorded through the test's own recording path and then asserted; **17 of 17** adapter tests pass.
 
@@ -2847,7 +2847,7 @@ ARM64 CHECKS: PASS
 Getting there found three defects, all in the writing rather than the checking:
 
 - **The script printed PASS after a failing suite**, because `ctest ... | grep` reports grep's status. Each suite now writes a log and a failure is remembered.
-- **`user-calls.k232` was stale**: the drift row rebuilt only the `.s` fixtures, so the C one was never compared, and it predated the global-size fix.
+- **`user-calls.kr232` was stale**: the drift row rebuilt only the `.s` fixtures, so the C one was never compared, and it predated the global-size fix.
 - **Its upload was invalid** and always had been: a four-pixel row with an eight-byte stride is narrower than a row, so the device refused every time. It passed before because the block overlapped the counters beside it; with the globals fixed, the refusal became visible. Stride 16 is accepted and the frame is unchanged.
 
 Items 5 and 6 of 25 closed.
@@ -3025,7 +3025,7 @@ ARM64 CHECKS: PASS
 
 Before this, ARM64 had run **36** of those 955 rows.
 
-**Two stale fixtures fell out of it.** `session.k232` carried the data layout from before a global stopped being four bytes wide, and `kernel.k232` predated the write-range check. Both were rebuilt from source, the adapter tests still pass **17 of 17**, and the drift row holds on the second host.
+**Two stale fixtures fell out of it.** `session.kr232` carried the data layout from before a global stopped being four bytes wide, and `kernel.kr232` predated the write-range check. Both were rebuilt from source, the adapter tests still pass **17 of 17**, and the drift row holds on the second host.
 
 **Errata.** The commit `faa849d`'s subject says "ARN64"; it is pushed and history is append-only, so it stays as written.
 
@@ -3090,9 +3090,9 @@ Host: CROSBY (Windows).
 
 **The cascade.** Recording the translation unit's name changes every image, so every checked-in fixture drifted from its source at once. Each was rebuilt from its **own drift row's output**, not by hand, because the row's rebuild is the canonical one:
 
-- `kernel.k232` from `kernel-rebuild/kernel.k232` (the row's entry differs from the target's);
+- `kernel.kr232` from `kernel-rebuild/kernel.kr232` (the row's entry differs from the target's);
 - `user-exit42`, `user-calls`, `user-echo`, `user-text`, `blank-flip` and `kernel-gate.bin` from `fixtures/`;
-- krdbg's five kr232 fixtures, and its adapter golden re-recorded as **C20CAE8151BD20AD** from the rebuilt `loaded.k232`.
+- krdbg's five kr232 fixtures, and its adapter golden re-recorded as **C20CAE8151BD20AD** from the rebuilt `loaded.kr232`.
 
 `regenerate.ps1` also listed `user-calls` as assembly when the drift row has compiled it as C with the user start-up and the variadic stub since the STATUS checks landed; the script compiles and links all three now.
 
@@ -3227,9 +3227,9 @@ after one instruction.
 | Machine | Break | Watch | Page | Frame |
 |---|---|---|---|---|
 | kr232 | yes | yes | yes | yes |
-| kr32 | `bios.k32` at the entry | not on that image | three stores at the first instruction | no change on that image |
-| kr16 | `exec_min.kex` at `0x0100` | `0x2000`: `0x1234` to `0x5678` | the same stores, byte by byte | no frame register |
-| kr216 | `probe.k216` at `0x0200` | `0xFEC2`: `0x035E` at pc `0x0237` | the stack stores | `0x0000` to `0xFEEE` |
+| kr32 | `bios.kr32` at the entry | not on that image | three stores at the first instruction | no change on that image |
+| kr16 | `exec_min.kr16` at `0x0100` | `0x2000`: `0x1234` to `0x5678` | the same stores, byte by byte | no frame register |
+| kr216 | `probe.kr216` at `0x0200` | `0xFEC2`: `0x035E` at pc `0x0237` | the stack stores | `0x0000` to `0xFEEE` |
 
 kr216's demonstration program is three lines compiled with the bundled toolchain,
 because no image checked into that repository writes memory.
@@ -3246,8 +3246,8 @@ The two drift rows failed on BitWhiz while passing on Windows, and the code was
 not the reason. `CheckKr232FixtureDrift.cmake` compiled with an absolute source
 path, and krc embeds that path in the object, so every checked-in image carried
 `C:/Users/kevin/...` and could only be reproduced on the machine that generated
-it. The same source built on aarch64 differed by 31 bytes in `user-text.k232`,
-32 bytes in `user-calls.k232` and 2 bytes in the kernel — all of it path text —
+it. The same source built on aarch64 differed by 31 bytes in `user-text.kr232`,
+32 bytes in `user-calls.kr232` and 2 bytes in the kernel — all of it path text —
 while the disassembly of the two images was identical. A bisect at `b71a57e`,
 before the frame-size change, produced the same numbers, so the drift predates
 this milestone's compiler work.
@@ -3260,7 +3260,7 @@ sysroot spelling makes no difference.
 **Changed.** Both rows now pass `ROOT` and compile with `file(RELATIVE_PATH)`
 paths and `WORKING_DIRECTORY` at the root, so the embedded path is
 `tests/fixtures/user-calls.c` everywhere. `regenerate.ps1` does the same, in
-forward slashes, and now also rebuilds `kernel.k232` and `kernel-gate.bin`, which
+forward slashes, and now also rebuilds `kernel.kr232` and `kernel-gate.bin`, which
 were previously rebuilt by hand from a command recorded in this file. Every
 fixture image was regenerated.
 

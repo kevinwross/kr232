@@ -179,16 +179,16 @@ endif()
     add_test(NAME kr232_kernel_user
         COMMAND ${CMAKE_COMMAND}
                 -DVM=$<TARGET_FILE:kr232-emu>
-                -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.k232
-                -DPROGRAM=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-exit42.k232
+                -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.kr232
+                -DPROGRAM=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-exit42.kr232
                 -DEXPECT_EXIT=42
                 -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232Kernel.cmake)
     if(KR232_BUILD_KERNEL)
         add_test(NAME kr232_kernel_matches_source
             COMMAND ${CMAKE_COMMAND}
                     -DVM=$<TARGET_FILE:kr232-emu>
-                    -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.k232
-                    -DPROGRAM=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-exit42.k232
+                    -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.kr232
+                    -DPROGRAM=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-exit42.kr232
                     -DEXPECT_EXIT=42
                     -DROOT=${CMAKE_CURRENT_SOURCE_DIR}
                     -DKRC=${KRG_KRC}
@@ -218,15 +218,15 @@ endif()
     add_test(NAME kr232_kernel_text_reports_error
         COMMAND ${CMAKE_COMMAND}
                 -DVM=$<TARGET_FILE:kr232-emu>
-                -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.k232
-                -DPROGRAM=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-text.k232
+                -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.kr232
+                -DPROGRAM=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-text.kr232
                 -DEXPECT_EXIT=0
                 -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232Kernel.cmake)
     add_test(NAME kr232_kernel_read
         COMMAND ${CMAKE_COMMAND}
                 -DVM=$<TARGET_FILE:kr232-emu>
-                -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.k232
-                -DPROGRAM=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-echo.k232
+                -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.kr232
+                -DPROGRAM=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-echo.kr232
                 -DEXPECT_EXIT=0
                 -DINPUT=hey!
                 -DEXPECT_CONSOLE=hey!
@@ -234,11 +234,11 @@ endif()
     add_test(NAME kr232_kernel_calls
         COMMAND ${CMAKE_COMMAND}
                 -DVM=$<TARGET_FILE:kr232-emu>
-                -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.k232
-                -DPROGRAM=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-calls.k232
+                -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.kr232
+                -DPROGRAM=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-calls.kr232
                 -DEXPECT_EXIT=0
                 -DFRAME_HASH=f6b786175f12b425
-                -DBLANK_IMAGE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/blank-flip.k232
+                -DBLANK_IMAGE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/blank-flip.kr232
                 -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232Kernel.cmake)
 
     # The package program names no call numbers: it prints, draws, flips and
@@ -250,14 +250,14 @@ endif()
                     -DKRC=${KRG_KRC}
                     -DKRLD=${KRG_KRLD}
                     -DVM=$<TARGET_FILE:kr232-emu>
-                    -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.k232
+                    -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.kr232
                     -DRUNTIME=${KR232_RUNTIME_DIR}
                     -DINCLUDE=${KR232_SYSROOT_DIR}
                     -DFIXTURE=${KR232_PACKAGE_FIXTURE}
                     -DWORK=${CMAKE_BINARY_DIR}/packages
                     -DFRAME_HASH=659d051c4dc232e5
                     -DINPUT=z
-                    -DBLANK_IMAGE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/blank-flip.k232
+                    -DBLANK_IMAGE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/blank-flip.kr232
                     -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232UserPackages.cmake)
     endif()
 
@@ -268,7 +268,7 @@ endif()
         PASS_REGULAR_EXPRESSION "ld r2, #0xfff08000")
 
     add_test(NAME kr232_dis_container
-        COMMAND kr232-dis "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/compiled-draw.k232")
+        COMMAND kr232-dis "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/compiled-draw.kr232")
     set_tests_properties(kr232_dis_container PROPERTIES
         LABELS "unit"
         PASS_REGULAR_EXPRESSION "0x000002a1: 73 +sys")
@@ -302,7 +302,7 @@ endif()
             "-DEXE=$<TARGET_FILE:kr232-emu>"
             "-DIMAGE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel-gate.bin"
             "-DGOLDEN=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel-gate.hash"
-            "-DBLANK_IMAGE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/blank-flip.k232"
+            "-DBLANK_IMAGE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/blank-flip.kr232"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckFrameHash.cmake")
     set_tests_properties(kr232_cli_kernel_golden PROPERTIES LABELS "unit")
 
@@ -326,7 +326,7 @@ endif()
 # The kernel target uses the toolchain resolved above by cmake/KrGuest.cmake;
 # this block only registers it, so there is one place that decides where krc is.
 if(KR232_BUILD_KERNEL)
-    set(KR232_KERNEL_IMAGE "${CMAKE_BINARY_DIR}/kernel.k232")
+    set(KR232_KERNEL_IMAGE "${CMAKE_BINARY_DIR}/kernel.kr232")
     add_custom_target(kr232_kernel ALL
         COMMAND "${KRG_KRC}" -c --target kr232
                 "${CMAKE_CURRENT_SOURCE_DIR}/targets/kr232/kernel/kernel.s"

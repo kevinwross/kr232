@@ -67,7 +67,7 @@ TEST_CASE(an_image_that_does_not_fit_is_refused_whole) {
 
 namespace {
 
-// A minimal `.k232`: header, one executable section at 0x0200 holding `nop`, its
+// A minimal `.kr232`: header, one executable section at 0x0200 holding `nop`, its
 // record and a string table. The CRC field is left zero, which the container
 // defines as "absent", so the tests below exercise the other validations.
 std::vector<std::uint8_t> make_container(std::uint32_t entry, std::uint16_t target, std::uint32_t section_address, std::uint32_t crc) {

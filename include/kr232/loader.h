@@ -20,7 +20,7 @@ struct LoadOutcome {
 // the loader writes nothing it cannot then finish writing.
 LoadOutcome load_flat(Machine& machine, std::span<const std::uint8_t> image, std::uint32_t base);
 
-// The `.k232` container of ADR 0058: a 64-byte header, section payloads, section
+// The `.kr232` container of ADR 0058: a 64-byte header, section payloads, section
 // records and a string table. Everything is validated before a byte is written --
 // magic, container version, kind, header size, target id, ABI version, file size,
 // CRC32, each section's address and payload, and the entry. The header's entry is

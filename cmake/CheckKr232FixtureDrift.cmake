@@ -41,10 +41,10 @@ set(FAILURES "")
 
 # One source, one image, no extra arguments: these are flat kernel-mode images.
 set(simple
-    "user-exit42.s|user-exit42.k232|--base=0x08000000"
-    "user-echo.s|user-echo.k232|--base=0x08000000"
-    "user-text.s|user-text.k232|--base=0x08000000"
-    "blank-flip.s|blank-flip.k232|none"
+    "user-exit42.s|user-exit42.kr232|--base=0x08000000"
+    "user-echo.s|user-echo.kr232|--base=0x08000000"
+    "user-text.s|user-text.kr232|--base=0x08000000"
+    "blank-flip.s|blank-flip.kr232|none"
     "kernel-gate.s|kernel-gate.bin|none")
 
 foreach(entry IN LISTS simple)
@@ -79,12 +79,12 @@ if(DEFINED RUNTIME)
     compile("${WORK}/user-calls.o" "${fixtures}/user-calls.c")
     execute_process(COMMAND "${KRLD}" --base=0x08000000
                             --entry=_start "${WORK}/user-calls.o" "${WORK}/crt0_user.o"
-                            "${WORK}/syscall6.o" -o "${WORK}/user-calls.k232"
+                            "${WORK}/syscall6.o" -o "${WORK}/user-calls.kr232"
                     RESULT_VARIABLE state ERROR_VARIABLE error)
     if(NOT state EQUAL 0)
-        message(FATAL_ERROR "linking user-calls.k232 failed:\n${error}")
+        message(FATAL_ERROR "linking user-calls.kr232 failed:\n${error}")
     endif()
-    compare("user-calls.k232")
+    compare("user-calls.kr232")
 endif()
 
 if(NOT FAILURES STREQUAL "")
