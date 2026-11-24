@@ -31,6 +31,14 @@ KRC="$ROOT/krcompiler/build/linux-clang-debug/host/bin/Debug"
 cmake --build "$ROOT/krcompiler/build/linux-clang-debug" -j 4 >/tmp/krc-build.log 2>&1 \
     || { tail -15 /tmp/krc-build.log; exit 1; }
 
+# The debugger consumes the compiler as a package, so the tree this run just
+# built is installed into one prefix and every later configure is pointed at it.
+# Without that step the run tested whatever package the host happened to have, or
+# failed with "Could not find krc-debug" and no way to see which tree it wanted.
+cmake --install "$ROOT/krcompiler/build/linux-clang-debug" --prefix "$HOME/krc-debug" \
+    >/tmp/krc-install.log 2>&1 || { tail -15 /tmp/krc-install.log; exit 1; }
+export CMAKE_PREFIX_PATH="$HOME/krc-debug${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}"
+
 # `--fresh` discards the cache: a directory reused between runs keeps any setting a
 # previous run put there, and a stale KR232_WARNINGS_AS_ERRORS=OFF would relax the
 # build without saying so.
