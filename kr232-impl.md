@@ -3275,3 +3275,25 @@ two images from identical objects.
 **Verified.** Windows x64: 15 of 15 rows. BitWhiz aarch64, after `git pull` at
 `fe86bf4` and against the compiler installed from current source: 15 of 15 rows,
 with no regeneration on that host.
+### 2026-11-23T17:05:00-08:00 — The gate counts its rows
+
+The premise I carried into this was wrong, and the check is worth recording for
+that reason. I expected `kr232_fixtures_match_source` to be skipped silently:
+it is registered under `if(KR232_BUILD_KERNEL AND EXISTS "${KR232_KRC}")`, so a
+configure without the compiler looked like it would register twelve or thirteen
+rows and still report success. It cannot. `CMakeLists.txt:289-295` fails the
+configure outright when `KR232_BUILD_KERNEL=ON` and either `KR232_KRC` or
+`KR232_KRLD` does not exist, so with the kernel enabled -- and the ARM64 gate
+always enables it -- the two drift rows are always registered. Configured with a
+bogus `KR232_KRC`, the run stops with `KR232_BUILD_KERNEL=ON expects KR232_KRC
+and KR232_KRLD to name an installed krc and krld`.
+
+**Added anyway.** `scripts/check-arm64.ps1` now counts the registered rows and
+fails when there are not fifteen, and `report()` refuses a suite whose log says
+`No tests were found` or `out of 0` rather than reading it as a pass. ctest
+reports success for a suite with rows missing, and that is true whatever the
+mechanism.
+
+**Measured on BitWhiz.** `build/arm64-clean` and `build/arm64-bisect` both list
+15 rows; a scratch configure with `KR232_BUILD_KERNEL=OFF` lists 12, so the
+assertion has teeth and the number is the kernel-enabled count this gate uses.

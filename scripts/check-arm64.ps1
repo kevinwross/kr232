@@ -30,6 +30,18 @@ cmake -S "$ROOT/kr232" -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Debug \
 cmake --build "$BUILD" -j 4 >/tmp/kr232-build.log 2>&1 \
     || { tail -15 /tmp/kr232-build.log; exit 1; }
 
+# CMakeLists.txt fails the configure when KR232_BUILD_KERNEL is on and the compiler
+# is missing, so the rows that need one cannot vanish silently. This counts them
+# anyway: a row that stops being registered for any other reason is exactly the
+# failure this gate exists to catch, and ctest reports success either way.
+ROWS=$(ctest --test-dir "$BUILD" -N 2>/dev/null | grep -cE '^ *Test +#' || true)
+if [ "$ROWS" -ne 15 ]; then
+    echo "kr232 registered $ROWS rows, expected 15; a missing row reports success"
+    ctest --test-dir "$BUILD" -N 2>&1 | grep -E 'Test +#' || true
+    exit 1
+fi
+echo "kr232 rows registered: $ROWS"
+
 cmake -S "$ROOT/krcompiler" -B "$ROOT/krcompiler/build/linux-clang-debug" \
     -DKRC_KR232_VM="$BUILD/kr232-emu" >/dev/null 2>&1
 
@@ -38,6 +50,14 @@ cmake -S "$ROOT/krcompiler" -B "$ROOT/krcompiler/build/linux-clang-debug" \
 # printed PASS once.
 failed=0
 report() {
+    # A suite that registered nothing prints neither a failure nor a count worth
+    # trusting, so it is named rather than read as a pass.
+    if grep -qE "No tests were found|out of 0" "$1"; then
+        echo "   the suite ran no tests"
+        cat "$1"
+        failed=1
+        return
+    fi
     if grep -qE "100% tests passed" "$1"; then
         grep -E "tests passed" "$1"
     else
