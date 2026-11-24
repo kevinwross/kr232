@@ -64,8 +64,20 @@ if [ "$ROWS" -ne 14 ]; then
 fi
 echo "kr232 rows registered: $ROWS"
 
+# The compiler's run rows execute guest images in a kr32 emulator, and they were
+# executing the copied binary in the compiler tree -- older than the image names,
+# so it loaded nothing and every run row reported "expected exit 42, got 0". Build
+# kr32 from its own current source and point the rows at that binary.
+pull "$ROOT/kr32" main
+KR32_BUILD="$ROOT/kr32/build/arm64-gate"
+cmake --fresh -S "$ROOT/kr32" -B "$KR32_BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Debug >/tmp/kr32-config.log 2>&1 \
+    || { tail -15 /tmp/kr32-config.log; exit 1; }
+cmake --build "$KR32_BUILD" -j 4 >/tmp/kr32-build.log 2>&1 \
+    || { tail -15 /tmp/kr32-build.log; exit 1; }
+[ -x "$KR32_BUILD/kr32" ] || { echo "kr32 was not built at $KR32_BUILD/kr32"; exit 1; }
+
 cmake -S "$ROOT/krcompiler" -B "$ROOT/krcompiler/build/linux-clang-debug" \
-    -DKRC_KR232_VM="$BUILD/kr232-emu" >/dev/null 2>&1
+    -DKRC_KR232_VM="$BUILD/kr232-emu" -DKRC_KR32_VM="$KR32_BUILD/kr32" >/dev/null 2>&1
 
 # Each suite reports and a failure is remembered: passing ctest output through
 # grep would replace ctest's status with grep's, which is how a failing suite
