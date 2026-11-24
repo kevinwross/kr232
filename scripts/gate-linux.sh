@@ -11,6 +11,15 @@ set -euo pipefail
 preset="${1:-linux-gcc-debug}"
 cd "$(dirname "$0")/.."
 
+# J5: every gate asks the doctor first, so a missing tool fails before the first
+# compile with a sentence naming the tool and the repository.
+doctor_tool="${KRC_DOCTOR_TOOL:-$(pwd)/../krcompiler/scripts/doctor.sh}"
+if [ -f "$doctor_tool" ]; then
+    sh "$doctor_tool" kr232 --need=krc,krld
+else
+    echo "gate: no doctor at '$doctor_tool' (set KRC_DOCTOR_TOOL); continuing without one" >&2
+fi
+
 # I2: a build under /mnt/c carries mount paths in its debug data and its
 # timestamps are too coarse for an incremental build, so the gate refreshes a
 # native mirror through the family tool and re-executes there. --in-place opts
