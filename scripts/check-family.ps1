@@ -9,12 +9,16 @@
 
     The compiler this run builds is installed into one prefix, and every later
     repository is pointed at that prefix. Without that step the family gate would
-    test whatever the last hand install left behind, which is exactly the defect
-    the prefix stamp was added to make visible.
+    test whatever the last hand install left behind, which is the defect the
+    prefix stamp was added to make visible.
 
     A repository is gated by its own script when it has one -- the point of the
     family gate is to run what each tree declares, not to invent a second opinion
     -- and by configure, build and test on the documented preset when it does not.
+
+    Every repository also declares how many rows its suite registers. A count that
+    does not match fails the run, because a row that stops registering still
+    reports success and a smaller suite is exactly the failure this catches.
 
 .PARAMETER Arm64
     Run the gate on the ARM64 host instead of this one, through
@@ -44,6 +48,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# cmd passes -Only a,b as one string, so each element is split as well.
+$Only = @($Only | ForEach-Object { $_ -split ',' } | Where-Object { $_ })
+
 # The script lives in <repo>/scripts, so the family root is two levels up.
 $family = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 if (-not $Prefix) { $Prefix = Join-Path $family 'build/family-prefix' }
@@ -56,21 +63,20 @@ if ($Arm64) {
     exit $LASTEXITCODE
 }
 
-# Dependency order, not alphabetical: the compiler makes the tools, the machines
-# need the tools, and the debugger links the machines.
+# Dependency order, not alphabetical. Expected is the row count each suite
+# registers; kr232 asserts its own two trees inside its gate, so its family
+# expectation is 0.
 $order = @(
-    [pscustomobject]@{ Name = 'krcompiler'; Gate = 'scripts/gate-windows.ps1'; Preset = 'windows-msvc-debug' },
-    [pscustomobject]@{ Name = 'kr32';       Gate = 'scripts/run-gate.ps1';     Preset = 'windows-msvc-debug' },
-    [pscustomobject]@{ Name = 'kr16';       Gate = '';                        Preset = 'windows-ninja-debug' },
-    [pscustomobject]@{ Name = 'kr216';      Gate = '';                        Preset = 'windows-msvc-debug' },
-    [pscustomobject]@{ Name = 'kr232';      Gate = 'scripts/gate-windows.ps1'; Preset = 'windows-msvc-debug' },
-    # krdbg's presets predate the family vocabulary; C1 covered the four VMs.
-    [pscustomobject]@{ Name = 'krdbg';      Gate = '';                        Preset = 'windows-msvc' }
+    [pscustomobject]@{ Name = 'krcompiler'; Gate = 'scripts/gate-windows.ps1'; Preset = 'windows-msvc-debug'; Expected = 962 },
+    [pscustomobject]@{ Name = 'kr32';       Gate = 'scripts/run-gate.ps1';     Preset = 'windows-msvc-debug'; Expected = 40 },
+    [pscustomobject]@{ Name = 'kr16';       Gate = '';                        Preset = 'windows-ninja-debug'; Expected = 61 },
+    [pscustomobject]@{ Name = 'kr216';      Gate = '';                        Preset = 'windows-msvc-debug'; Expected = 56 },
+    [pscustomobject]@{ Name = 'kr232';      Gate = 'scripts/gate-windows.ps1'; Preset = 'windows-msvc-debug'; Expected = 0 },
+    [pscustomobject]@{ Name = 'krdbg';      Gate = '';                        Preset = 'windows-msvc'; Expected = 14 }
 )
 
 $results = @()
 $failed = 0
-$tools = @()
 
 foreach ($entry in $order) {
     if ($Only.Count -gt 0 -and $Only -notcontains $entry.Name) { continue }
@@ -90,7 +96,6 @@ foreach ($entry in $order) {
             $mode = "gate $($entry.Gate)"
             $arguments = @('-NoProfile', '-File', $script)
             if ($SkipTests) { $arguments += '-SkipTests' }
-            # A gate that links guest code needs the compiler this run installed.
             if ($entry.Name -in @('kr232', 'kr32') -and (Test-Path (Join-Path $Prefix 'bin/krc.exe'))) {
                 $arguments += @('-Krc', (Join-Path $Prefix 'bin/krc.exe'),
                                 '-Krld', (Join-Path $Prefix 'bin/krld.exe'))
@@ -99,8 +104,6 @@ foreach ($entry in $order) {
             $ok = $LASTEXITCODE -eq 0
         } else {
             $mode = "preset $($entry.Preset)"
-            # Output goes to a log rather than nowhere: a gate that fails must be
-            # able to say why, and the failure path prints the tail.
             $log = Join-Path $tree "build/family-$($entry.Name).log"
             New-Item -ItemType Directory -Force (Split-Path -Parent $log) | Out-Null
             Push-Location $tree
@@ -122,15 +125,26 @@ foreach ($entry in $order) {
             }
         }
 
-        # Install the compiler this run built, once, so the next repositories use
-        # it rather than whatever is already on the machine.
         if ($entry.Name -eq 'krcompiler' -and $ok) {
             Push-Location $tree
             try {
                 cmake --install (Join-Path $tree "build/$($entry.Preset)") --config Debug --prefix $Prefix *> $null
                 if ($LASTEXITCODE -ne 0) { throw 'install failed' }
                 Write-Host "family: compiler installed into $Prefix"
-                $tools = @((Join-Path $Prefix 'bin/krc.exe'), (Join-Path $Prefix 'bin/krld.exe'))
+            } finally { Pop-Location }
+        }
+
+        if ($ok -and -not $SkipTests -and $entry.Expected -gt 0) {
+            Push-Location $tree
+            try {
+                $countLine = (ctest --preset $entry.Preset -N 2>&1 | Select-String -Pattern 'Total Tests: (\d+)' | Select-Object -First 1)
+                $rows = if ($countLine) { $countLine.Matches.Groups[1].Value } else { '0' }
+                if ("$rows" -ne "$($entry.Expected)") {
+                    Write-Host "family: $($entry.Name) registered $rows rows, expected $($entry.Expected); a missing row reports success" -ForegroundColor Red
+                    $ok = $false
+                } else {
+                    Write-Host "family: $($entry.Name) rows registered: $rows"
+                }
             } finally { Pop-Location }
         }
     } catch {
