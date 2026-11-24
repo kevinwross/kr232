@@ -136,9 +136,7 @@ foreach ($entry in $order) {
                 cmake --install (Join-Path $tree "build/$($entry.Preset)") --config Debug --prefix $Prefix *> $null
                 if ($LASTEXITCODE -ne 0) { throw 'install failed' }
                 Write-Host "family: compiler installed into $Prefix"
-                cmake --install (Join-Path $tree "build/$($entry.Preset)") --config Release --prefix $PrefixRelease *> $null
-                if ($LASTEXITCODE -ne 0) { throw 'release install failed' }
-                Write-Host "family: release compiler installed into $PrefixRelease"
+
             } finally { Pop-Location }
         }
 
@@ -198,6 +196,14 @@ if ($All) {
                 if ($LASTEXITCODE -ne 0) { throw "tests failed" }
             }
             $results += [pscustomobject]@{ Repo = "$($entry.Name) (release)"; Mode = "preset $preset"; Result = 'pass'; Seconds = [int]((Get-Date) - $started).TotalSeconds }
+            # The release rows that come next link the compiler, so it is installed
+            # from the tree this row just built and tested -- not from the Debug one,
+            # whose Release configuration may never have been built.
+            if ($entry.Name -eq 'krcompiler') {
+                cmake --install (Join-Path $tree "build/$preset") --prefix $PrefixRelease *> $null
+                if ($LASTEXITCODE -ne 0) { throw 'release install failed' }
+                Write-Host "family: release compiler installed into $PrefixRelease"
+            }
         } catch {
             Write-Host "family: $($entry.Name) release $($_.Exception.Message)" -ForegroundColor Red
             Get-Content $log -Tail 8 | ForEach-Object { Write-Host "  | $_" }
