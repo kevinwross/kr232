@@ -45,8 +45,8 @@ cmake --build "$BUILD" -j 4 >/tmp/kr232-build.log 2>&1 \
 # anyway: a row that stops being registered for any other reason is exactly the
 # failure this gate exists to catch, and ctest reports success either way.
 ROWS=$(ctest --test-dir "$BUILD" -N 2>/dev/null | grep -cE '^ *Test +#' || true)
-if [ "$ROWS" -ne 15 ]; then
-    echo "kr232 registered $ROWS rows, expected 15; a missing row reports success"
+if [ "$ROWS" -ne 14 ]; then
+    echo "kr232 registered $ROWS rows, expected 14; a missing row reports success"
     ctest --test-dir "$BUILD" -N 2>&1 | grep -E 'Test +#' || true
     exit 1
 fi

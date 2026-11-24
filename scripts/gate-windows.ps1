@@ -63,6 +63,14 @@ if ($Krc -and $Krld) {
         & $cmake -S $root -B build/gate-kernel -G Ninja -DKR232_BUILD_KERNEL=ON @configure
     }
     Invoke-Step 'build' { & $cmake --build build/gate-kernel -j 8 }
+    # F2: the row count is asserted here and on ARM64, because a row that stops
+    # registering reports success and a smaller suite is the failure this exists
+    # to catch.
+    $registered = (& $ctest --test-dir build/gate-kernel -N 2>&1 | Select-String -Pattern 'Total Tests: (\d+)').Matches.Groups[1].Value
+    if ($registered -ne '14') {
+        throw "the kernel tree registered $registered rows, expected 14; a missing row reports success"
+    }
+    Write-Output "kernel rows registered: $registered"
     Invoke-Step 'kernel ctest' { & $ctest --test-dir build/gate-kernel --output-on-failure }
 } else {
     Write-Output '== kernel rows skipped: pass -Krc and -Krld to run them'
