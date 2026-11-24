@@ -19,6 +19,23 @@ function(krguest_find_toolchain)
     set(candidates_krc "")
     set(candidates_krld "")
 
+    # An explicit path that does not exist is a mistake, not a hint: falling
+    # through to the sibling build here would run a compiler the caller did not
+    # name, which is the failure mode this module exists to prevent.
+    if(KRG_KRC AND NOT EXISTS "${KRG_KRC}")
+        message(FATAL_ERROR "KRG_KRC points at ${KRG_KRC}, which does not exist")
+    endif()
+    if(KRG_KRLD AND NOT EXISTS "${KRG_KRLD}")
+        message(FATAL_ERROR "KRG_KRLD points at ${KRG_KRLD}, which does not exist")
+    endif()
+    if(KRG_LEGACY_KRC AND NOT EXISTS "${KRG_LEGACY_KRC}")
+        message(FATAL_ERROR
+            "the legacy krc variable points at ${KRG_LEGACY_KRC}, which does not exist")
+    endif()
+    if(KRG_LEGACY_KRLD AND NOT EXISTS "${KRG_LEGACY_KRLD}")
+        message(FATAL_ERROR
+            "the legacy krld variable points at ${KRG_LEGACY_KRLD}, which does not exist")
+    endif()
     if(KRG_KRC)
         list(APPEND candidates_krc "${KRG_KRC}")
     endif()
@@ -34,26 +51,48 @@ function(krguest_find_toolchain)
 
     # The sibling compiler's build trees, so a developer who has just built the
     # compiler does not have to pass both paths to every VM configure.
+    # Sibling build trees, most recently built first. Sorting the directory names
+    # would put a stale Release tree ahead of a Debug tree that was just rebuilt,
+    # which is how one row ended up running a compiler too old to know `krc image`.
     set(compiler_root "${CMAKE_CURRENT_SOURCE_DIR}/../krcompiler")
     if(IS_DIRECTORY "${compiler_root}/build")
+        set(stamped "")
         file(GLOB krc_builds LIST_DIRECTORIES true "${compiler_root}/build/*")
-        list(SORT krc_builds ORDER DESCENDING)
         foreach(tree IN LISTS krc_builds)
             foreach(config Debug Release)
-                if(EXISTS "${tree}/host/bin/${config}/krc")
-                    list(APPEND candidates_krc "${tree}/host/bin/${config}/krc")
-                endif()
-                if(EXISTS "${tree}/host/bin/${config}/krc.exe")
-                    list(APPEND candidates_krc "${tree}/host/bin/${config}/krc.exe")
-                endif()
-                if(EXISTS "${tree}/host/bin/${config}/krld")
-                    list(APPEND candidates_krld "${tree}/host/bin/${config}/krld")
-                endif()
-                if(EXISTS "${tree}/host/bin/${config}/krld.exe")
-                    list(APPEND candidates_krld "${tree}/host/bin/${config}/krld.exe")
-                endif()
+                foreach(tool krc krld)
+                    # Only a binary this host can execute: a sibling tree built in
+                    # WSL leaves a Linux krc whose mtime can be newer than the
+                    # Windows one, and feeding it to CreateProcess fails with a
+                    # bare exit code.
+                    if(WIN32)
+                        set(suffixes ".exe")
+                    else()
+                        set(suffixes "")
+                    endif()
+                    foreach(suffix IN LISTS suffixes)
+                        set(path "${tree}/host/bin/${config}/${tool}${suffix}")
+                        if(EXISTS "${path}")
+                            file(TIMESTAMP "${path}" stamp)
+                            list(APPEND stamped "${stamp}|${path}")
+                        endif()
+                    endforeach()
+                endforeach()
             endforeach()
         endforeach()
+        if(stamped)
+            list(SORT stamped ORDER DESCENDING)
+            foreach(entry IN LISTS stamped)
+                string(FIND "${entry}" "|" bar)
+                math(EXPR start "${bar} + 1")
+                string(SUBSTRING "${entry}" ${start} -1 path)
+                if(path MATCHES "/krld")
+                    list(APPEND candidates_krld "${path}")
+                else()
+                    list(APPEND candidates_krc "${path}")
+                endif()
+            endforeach()
+        endif()
     endif()
 
     find_program(KRG_KRC_ON_PATH NAMES krc PATHS ENV PATH NO_DEFAULT_PATH)
