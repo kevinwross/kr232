@@ -135,7 +135,7 @@ LoadOutcome load_k232(Machine& machine, std::span<const std::uint8_t> image) {
         const std::uint32_t offset = read32(image, at + 12);
         const std::uint32_t size = read32(image, at + 16);
         const std::uint16_t flags = read16(image, at + 6);
-        if (flags == 0) {
+        if ((flags & 0x0001u) == 0) {
             continue;  // unallocated, such as debug data
         }
         if (address < base || static_cast<std::uint64_t>(address) + size > limit) {
@@ -154,7 +154,7 @@ LoadOutcome load_k232(Machine& machine, std::span<const std::uint8_t> image) {
         const std::uint32_t offset = read32(image, at + 12);
         const std::uint32_t size = read32(image, at + 16);
         const std::uint16_t flags = read16(image, at + 6);
-        if (flags == 0 || size == 0) {
+        if ((flags & 0x0001u) == 0 || size == 0) {
             continue;
         }
         (void)machine.memory().load(address, image.subspan(offset, size));

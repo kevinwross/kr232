@@ -3350,3 +3350,10 @@ assertion reads `test "$rows" -eq 15`. The YAML was not parsed -- no parser is
 installed on this machine and PYYAML is absent -- so the file's structure was
 checked by reading, not by a tool. The first GitHub run still needs a push, and
 this workflow does not cover krdbg, which the gate script does.
+### 2026-11-23T18:40:00-08:00 — The overlap: the alloc bit, and a stale emulator
+
+`.debug_info` carries flags 8 (debug) and no alloc bit, and it is typed as ordinary data by the assembler. Three places read "the flag word is non-zero" as "this section occupies memory": the placement, the container writer's overlap test, and the emulator's loader. The section therefore took an address 18 KB ahead of `.text`, and `attach_kdbg`'s rewrite of its source paths -- longer than what the object recorded -- grew it into `.text` after layout. All three now read the alloc bit, and `.text` starts at `0x08000034` instead of `0x08000104`.
+
+**The six kr232 rows that failed the first time were a stale binary.** They run `../kr232/build/windows-msvc/kr232-emu.exe`, not the `build/kernel-check` emulator that had been rebuilt with the fix, so the old loader loaded the debug payload over address 0. Rebuilding that tree and re-running gives 957 of 957.
+
+**`--source-root` is not restored in the checkers.** Their compiler inputs are already relative to the repository root, so there is nothing for it to strip; passing it now would rewrite paths that need no rewriting and change every image again for no gain.
