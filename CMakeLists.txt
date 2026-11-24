@@ -97,6 +97,18 @@ kr232_guard_host_sources(kr232-emu)
 if(KR232_BUILD_TESTS)
     enable_testing()
 
+# Resolve the guest toolchain before any test row is registered, so the rows that
+# rebuild the kernel see the same paths the build does. See cmake/KrGuest.cmake.
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/KrGuest.cmake")
+set(KRG_KRC "" CACHE FILEPATH "krc executable that builds the kernel")
+set(KRG_KRLD "" CACHE FILEPATH "krld executable that links the kernel")
+set(KRG_LEGACY_KRC "${KR232_KRC}")
+set(KRG_LEGACY_KRLD "${KR232_KRLD}")
+if(KR232_BUILD_KERNEL)
+    krguest_find_toolchain()
+endif()
+
+
     add_executable(kr232_tests
         tests/main.cpp
         tests/test_decode.cpp
@@ -131,8 +143,8 @@ if(KR232_BUILD_TESTS)
                     -DPROGRAM=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-exit42.k232
                     -DEXPECT_EXIT=42
                     -DROOT=${CMAKE_CURRENT_SOURCE_DIR}
-                    -DKRC=${KR232_KRC}
-                    -DKRLD=${KR232_KRLD}
+                    -DKRC=${KRG_KRC}
+                    -DKRLD=${KRG_KRLD}
                     -DWORK=${CMAKE_BINARY_DIR}/kernel-rebuild
                     -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232Kernel.cmake)
     endif()
@@ -144,12 +156,12 @@ if(KR232_BUILD_TESTS)
     # program exits 0 only when STATUS bit 0 ERROR came back through the kernel.
     # Every checked-in image must equal a fresh build of its source: a stale
     # fixture keeps passing tests against a program nobody has.
-    if(KR232_BUILD_KERNEL AND EXISTS "${KR232_KRC}")
+    if(KR232_BUILD_KERNEL)
         add_test(NAME kr232_fixtures_match_source
             COMMAND ${CMAKE_COMMAND}
                     -DROOT=${CMAKE_CURRENT_SOURCE_DIR}
-                    -DKRC=${KR232_KRC}
-                    -DKRLD=${KR232_KRLD}
+                    -DKRC=${KRG_KRC}
+                    -DKRLD=${KRG_KRLD}
                     -DFIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures
                     -DRUNTIME=${KR232_RUNTIME_DIR}
                     -DWORK=${CMAKE_BINARY_DIR}/fixtures
@@ -184,11 +196,11 @@ if(KR232_BUILD_TESTS)
     # The package program names no call numbers: it prints, draws, flips and
     # asks for the mode through <kr232/*.h>, so this row fails when a package
     # does rather than when a test does. It needs the compiler to build.
-    if(KR232_BUILD_KERNEL AND EXISTS "${KR232_KRC}")
+    if(KR232_BUILD_KERNEL)
         add_test(NAME kr232_kernel_packages
             COMMAND ${CMAKE_COMMAND}
-                    -DKRC=${KR232_KRC}
-                    -DKRLD=${KR232_KRLD}
+                    -DKRC=${KRG_KRC}
+                    -DKRLD=${KRG_KRLD}
                     -DVM=$<TARGET_FILE:kr232-emu>
                     -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.k232
                     -DRUNTIME=${KR232_RUNTIME_DIR}
@@ -263,22 +275,15 @@ endif()
 
 # The kernel is guest code: it is built by krc from the prefix, never by the host
 # compiler, and the option is OFF so M1-M3 need no compiler at all.
-option(KR232_BUILD_KERNEL "Build the kr232 kernel with krc from the prefix" OFF)
-set(KR232_KRC "" CACHE FILEPATH "krc executable that builds the kernel")
-set(KR232_KRLD "" CACHE FILEPATH "krld executable that links the kernel")
+# The kernel target uses the toolchain resolved above by cmake/KrGuest.cmake;
+# this block only registers it, so there is one place that decides where krc is.
 if(KR232_BUILD_KERNEL)
-    if(NOT EXISTS "${KR232_KRC}" OR NOT EXISTS "${KR232_KRLD}")
-        message(FATAL_ERROR
-            "KR232_BUILD_KERNEL=ON expects KR232_KRC and KR232_KRLD to name "
-            "an installed krc and krld; the kernel is guest code and kr232 "
-            "never builds it with the host compiler")
-    endif()
     set(KR232_KERNEL_IMAGE "${CMAKE_BINARY_DIR}/kernel.k232")
     add_custom_target(kr232_kernel ALL
-        COMMAND "${KR232_KRC}" -c --target kr232
+        COMMAND "${KRG_KRC}" -c --target kr232
                 "${CMAKE_CURRENT_SOURCE_DIR}/targets/kr232/kernel/kernel.s"
                 -o "${CMAKE_BINARY_DIR}/kernel.o"
-        COMMAND "${KR232_KRLD}" --entry=_start
+        COMMAND "${KRG_KRLD}" --entry=_start
                 "${CMAKE_BINARY_DIR}/kernel.o"
                 -o "${KR232_KERNEL_IMAGE}"
         COMMENT "Building the kr232 kernel with krc from the prefix"
