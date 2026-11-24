@@ -54,7 +54,43 @@ add_library(kr232_core STATIC
     src/memory.cpp
     src/version.cpp
 )
-target_include_directories(kr232_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_include_directories(kr232_core PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+
+# The core is the machine, loader, decoder and devices without the emulator
+# front end. Exporting it as `kr232::core` is what lets krdbg link one machine
+# rather than compile these sources into its adapter, which is D4 of the build
+# cleanup plan: the debugger and the emulator should run the same object code.
+add_library(kr232::core ALIAS kr232_core)
+# The exported package has to present `kr232::core`, so the target carries that
+# name into the install tree; the alias above only serves this build.
+set_target_properties(kr232_core PROPERTIES EXPORT_NAME core)
+set_target_properties(kr232_warnings PROPERTIES EXPORT_NAME warnings)
+# The core's headers use std::span, and a consumer that links kr232::core should
+# not have to discover that by reading a compile error.
+target_compile_features(kr232_core PUBLIC cxx_std_20)
+option(KR232_INSTALL "Install kr232::core and its headers for other trees" OFF)
+include(GNUInstallDirs)
+if(KR232_INSTALL)
+    install(TARGETS kr232_core kr232_warnings EXPORT kr232Targets
+        ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+        RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+    install(DIRECTORY include/ DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+    install(EXPORT kr232Targets
+        FILE kr232Targets.cmake
+        NAMESPACE kr232::
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/kr232-core")
+    include(CMakePackageConfigHelpers)
+    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/kr232-core-config.cmake.in"
+        "@PACKAGE_INIT@\ninclude(\"\${CMAKE_CURRENT_LIST_DIR}/kr232Targets.cmake\")\n")
+    configure_package_config_file(
+        "${CMAKE_CURRENT_BINARY_DIR}/kr232-core-config.cmake.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/kr232-core-config.cmake"
+        INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/kr232-core")
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/kr232-core-config.cmake"
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/kr232-core")
+endif()
 target_link_libraries(kr232_core PRIVATE kr232_warnings)
 
 add_executable(kr232-dis src/dis.cpp)
