@@ -3240,3 +3240,38 @@ not built; building the default target produced them and both passed). kr16: 59 
 60, the failure being `embedded runtime sources match checked-in resources`, which
 compares the embedded libc against the checked-in resource and is unaffected by the
 CLI and runner changes — pre-existing, reported rather than fixed. kr216: 58 of 58.
+### 2026-11-23T16:32:00-08:00 — The fixtures had Windows paths baked into them
+
+The two drift rows failed on BitWhiz while passing on Windows, and the code was
+not the reason. `CheckKr232FixtureDrift.cmake` compiled with an absolute source
+path, and krc embeds that path in the object, so every checked-in image carried
+`C:/Users/kevin/...` and could only be reproduced on the machine that generated
+it. The same source built on aarch64 differed by 31 bytes in `user-text.k232`,
+32 bytes in `user-calls.k232` and 2 bytes in the kernel — all of it path text —
+while the disassembly of the two images was identical. A bisect at `b71a57e`,
+before the frame-size change, produced the same numbers, so the drift predates
+this milestone's compiler work.
+
+The mechanism was measured on one host: compiling the same file with a relative
+and an absolute path gave 61160 and 61186 bytes, the difference being exactly the
+26 characters of the prefix, and the object contains the path as a string. The
+sysroot spelling makes no difference.
+
+**Changed.** Both rows now pass `ROOT` and compile with `file(RELATIVE_PATH)`
+paths and `WORKING_DIRECTORY` at the root, so the embedded path is
+`tests/fixtures/user-calls.c` everywhere. `regenerate.ps1` does the same, in
+forward slashes, and now also rebuilds `kernel.k232` and `kernel-gate.bin`, which
+were previously rebuilt by hand from a command recorded in this file. Every
+fixture image was regenerated.
+
+**Two obstacles worth recording.** `--source-root` is gone from both checkers:
+with relative inputs there is nothing to strip, and passing the repository root
+made `krld` report `two allocated sections overlap` on objects that link cleanly
+without it, which is a linker defect that needs its own look. And `user-calls`
+links in the same object order as `regenerate.ps1` — `user-calls.o` before
+`crt0_user.o` — because the order decides the layout and two orderings produced
+two images from identical objects.
+
+**Verified.** Windows x64: 15 of 15 rows. BitWhiz aarch64, after `git pull` at
+`fe86bf4` and against the compiler installed from current source: 15 of 15 rows,
+with no regeneration on that host.
