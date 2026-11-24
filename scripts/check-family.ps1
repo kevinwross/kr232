@@ -188,7 +188,8 @@ if ($All) {
         $log = Join-Path $tree "build/family-release.log"
         Push-Location $tree
         try {
-            cmake --preset $preset "-DCMAKE_PREFIX_PATH=$PrefixRelease" *>> $log
+            # --fresh: a build directory that has already found the Debug package keeps krc-toolchain_DIR pinned there whatever CMAKE_PREFIX_PATH says.
+            cmake --preset $preset --fresh "-DCMAKE_PREFIX_PATH=$PrefixRelease" *>> $log
             if ($LASTEXITCODE -ne 0) { throw "configure failed" }
             cmake --build --preset $preset *>> $log
             if ($LASTEXITCODE -ne 0) { throw "build failed" }
