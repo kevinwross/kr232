@@ -3324,3 +3324,29 @@ passes, `krdbg_kr232_tests` is 17 of 17 and `krdbg_tests` 110 of 110.
 **Verified here:** `scripts/check-arm64.ps1` parses under PowerShell with zero
 errors and its bash block passes `bash -n` on the ARM64 host. The gate itself has
 not been re-run: the host is in use, and a run is the clean test of all of this.
+### 2026-11-23T18:05:00-08:00 — The CI workflow would have failed on its third step
+
+The workflow had never run, so this is a reading of it against commands measured
+on this host rather than a run. Two defects, both fatal:
+
+**The `krc_tests` path named a directory the build never wrote.** The last step
+ran `./krcompiler/build/ci/host/bin/Release/krc_tests`, but `build/ci` was
+configured without a preset, so its build type was empty and its binaries went to
+`host/bin/`, not `host/bin/Release/`. It also configured the compiler a second
+time, doubling the build. Both go away by reusing the `linux-gcc-release` tree:
+the preset sets `CMAKE_BUILD_TYPE=Release`, `KRC_BUILD_TESTS=ON` and
+`KRC_BUILD_TOOLS=ON`, so `host/bin/Release/krc_tests` is the file it writes.
+
+**The suites were trusted to have run.** Neither ctest call passed
+`--no-tests=error`, and nothing counted kr232's rows; ctest reports success for a
+suite with rows missing, which is the hole the gate closed in `a911c25`. Both
+calls now pass `--no-tests=error` and a step asserts fifteen registered rows,
+mirroring `scripts/check-arm64.ps1`.
+
+Verified here: `linux-gcc-release` exists as both a configure and a build preset
+and carries those three cache variables; the workflow has no tabs and its block
+steps are intact; `--no-tests=error` appears in both ctest calls and the row-count
+assertion reads `test "$rows" -eq 15`. The YAML was not parsed -- no parser is
+installed on this machine and PYYAML is absent -- so the file's structure was
+checked by reading, not by a tool. The first GitHub run still needs a push, and
+this workflow does not cover krdbg, which the gate script does.

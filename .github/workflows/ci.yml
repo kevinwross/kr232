@@ -5,9 +5,13 @@ name: CI
 # the emulator with the kernel enabled, and run both suites with the emulator
 # registered as the compiler's VM so the executed rows are registered too.
 #
-# The gate scripts remain the entry point on a developer machine; this runs the
-# same steps on a clean runner. Nothing here has been observed running on GitHub:
-# the scripts were verified locally and on the ARM64 host.
+# The gate script remains the entry point on a developer machine; this runs the
+# same steps on a clean runner.
+#
+# The first run of this workflow needs a push. Nothing here has been observed
+# running on GitHub: the steps were verified locally and on the ARM64 host, and
+# the gate script `scripts/check-arm64.ps1` covers the same ground plus krdbg,
+# which this workflow does not check.
 
 on:
   push:
@@ -45,6 +49,9 @@ jobs:
           cmake --build --preset linux-gcc-release --parallel
         working-directory: krcompiler
       - name: Configure kr232 with the kernel
+        # The kernel is guest code, so the configure fails outright when these two
+        # do not name a real krc and krld; the fixture-drift rows are registered
+        # only with the kernel on.
         run: |
           KRC="$PWD/krcompiler/build/linux-gcc-release/host/bin/Release"
           cmake -S kr232 -B kr232/build/ci -G Ninja -DCMAKE_BUILD_TYPE=Debug \
@@ -55,12 +62,24 @@ jobs:
             -DKR232_PACKAGE_FIXTURE="$PWD/krcompiler/tests/fixtures/c/kr232_user_packages.c"
       - name: Build the emulator and its tests
         run: cmake --build kr232/build/ci --parallel
-      - name: kr232 suites
-        run: ctest --test-dir kr232/build/ci --output-on-failure
-      - name: Register the emulator with the compiler and run its kr232 rows
+      - name: Count the kr232 rows
+        # ctest reports success for a suite with rows missing, so the count is
+        # asserted rather than trusted: fifteen with the kernel enabled.
         run: |
-          cmake -S krcompiler -B krcompiler/build/ci -DKRC_KR232_VM="$PWD/kr232/build/ci/kr232-emu"
-          cmake --build krcompiler/build/ci --parallel
-          ctest --test-dir krcompiler/build/ci -R kr232 --output-on-failure
+          rows=$(ctest --test-dir kr232/build/ci -N | grep -cE '^ *Test +#')
+          echo "kr232 rows registered: $rows"
+          test "$rows" -eq 15
+      - name: kr232 suites
+        run: ctest --test-dir kr232/build/ci --output-on-failure --no-tests=error
+      - name: Register the emulator with the compiler and run its kr232 rows
+        # The compiler tree built above is reused: a second configure would build
+        # the whole compiler again and would put its binaries somewhere else, which
+        # is how the krc_tests step below came to name a path the build never wrote.
+        run: |
+          cmake -S krcompiler -B krcompiler/build/linux-gcc-release \
+            -DKRC_KR232_VM="$PWD/kr232/build/ci/kr232-emu"
+          cmake --build krcompiler/build/linux-gcc-release --parallel
+          ctest --test-dir krcompiler/build/linux-gcc-release -R kr232 \
+            --output-on-failure --no-tests=error
       - name: krc_tests
-        run: ./krcompiler/build/ci/host/bin/Release/krc_tests
+        run: ./krcompiler/build/linux-gcc-release/host/bin/Release/krc_tests
