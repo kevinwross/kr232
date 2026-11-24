@@ -55,6 +55,10 @@ $Only = @($Only | ForEach-Object { $_ -split ',' } | Where-Object { $_ })
 # The script lives in <repo>/scripts, so the family root is two levels up.
 $family = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 if (-not $Prefix) { $Prefix = Join-Path $family 'build/family-prefix' }
+# A Debug library records its CRT; a Release consumer linking it fails on
+# __imp__CrtDbgReport. The two configurations get two prefixes, and each row is
+# pointed at the one built for it.
+$PrefixRelease = "$Prefix-release"
 
 if ($Arm64) {
     $remote = Join-Path $PSScriptRoot 'check-arm64.ps1'
@@ -132,6 +136,9 @@ foreach ($entry in $order) {
                 cmake --install (Join-Path $tree "build/$($entry.Preset)") --config Debug --prefix $Prefix *> $null
                 if ($LASTEXITCODE -ne 0) { throw 'install failed' }
                 Write-Host "family: compiler installed into $Prefix"
+                cmake --install (Join-Path $tree "build/$($entry.Preset)") --config Release --prefix $PrefixRelease *> $null
+                if ($LASTEXITCODE -ne 0) { throw 'release install failed' }
+                Write-Host "family: release compiler installed into $PrefixRelease"
             } finally { Pop-Location }
         }
 
@@ -181,7 +188,7 @@ if ($All) {
         $log = Join-Path $tree "build/family-release.log"
         Push-Location $tree
         try {
-            cmake --preset $preset "-DCMAKE_PREFIX_PATH=$Prefix" *>> $log
+            cmake --preset $preset "-DCMAKE_PREFIX_PATH=$PrefixRelease" *>> $log
             if ($LASTEXITCODE -ne 0) { throw "configure failed" }
             cmake --build --preset $preset *>> $log
             if ($LASTEXITCODE -ne 0) { throw "build failed" }
