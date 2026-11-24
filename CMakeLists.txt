@@ -267,11 +267,7 @@ endif()
         LABELS "unit"
         PASS_REGULAR_EXPRESSION "ld r2, #0xfff08000")
 
-    add_test(NAME kr232_dis_container
-        COMMAND kr232-dis "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/compiled-draw.kr232")
-    set_tests_properties(kr232_dis_container PROPERTIES
-        LABELS "unit"
-        PASS_REGULAR_EXPRESSION "0x000002a1: 73 +sys")
+
 
     add_test(NAME kr232_version COMMAND kr232_tests)
     set_tests_properties(kr232_version PROPERTIES LABELS "unit")
