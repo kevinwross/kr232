@@ -72,12 +72,31 @@ try {
         $env:FAMILY_JOBS = "$Jobs"
         $arguments = @('-NoProfile', '-File', $script)
         if ($SkipTests) { $arguments += '-SkipTests' }
+        # A gate that can run guest rows takes the toolchain; one that cannot ignores
+        # the extra arguments. Without this the kernel and package rows were skipped
+        # in every family run, which reported fewer rows than the gate itself does.
+        if ($Prefix) {
+            $krc = Join-Path $Prefix 'bin/krc.exe'
+            $krld = Join-Path $Prefix 'bin/krld.exe'
+            if (Test-Path $krc) { $arguments += @('-Krc', $krc) }
+            if (Test-Path $krld) { $arguments += @('-Krld', $krld) }
+        }
         & pwsh @arguments *>&1 | ForEach-Object { Write-Log "$_" }
         if ($LASTEXITCODE -ne 0) { Write-Log "family/$Repo`: gate failed ($LASTEXITCODE)"; exit 1 }
     } else {
         Write-Log "== $Repo preset $Preset"
         $configure = @('--preset', $Preset)
-        if ($Prefix) { $configure += "-DCMAKE_PREFIX_PATH=$Prefix" }
+        if ($Prefix) {
+            $configure += "-DCMAKE_PREFIX_PATH=$Prefix"
+            # Both spellings: the family convention is KRG_KRC/KRG_KRLD, and several
+            # trees decide whether their guest rows exist from KRC_EXECUTABLE and
+            # KRLD_EXECUTABLE. A row that forwards only one silently registers a
+            # smaller suite, which is what the row counts exist to catch.
+            $krc = Join-Path $Prefix 'bin/krc.exe'
+            $krld = Join-Path $Prefix 'bin/krld.exe'
+            if (Test-Path $krc) { $configure += "-DKRG_KRC=$krc"; $configure += "-DKRC_EXECUTABLE=$krc" }
+            if (Test-Path $krld) { $configure += "-DKRG_KRLD=$krld"; $configure += "-DKRLD_EXECUTABLE=$krld" }
+        }
         & cmake @configure *>&1 | ForEach-Object { Write-Log "$_" }
         if ($LASTEXITCODE -ne 0) { Write-Log "family/$Repo`: configure failed"; exit 1 }
         & cmake --build --preset $Preset -j $Jobs *>&1 | ForEach-Object { Write-Log "$_" }

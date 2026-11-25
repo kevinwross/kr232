@@ -45,11 +45,27 @@ function Invoke-Step([string]$Label, [scriptblock]$Action) {
 
 Invoke-Step 'spec lint' { node tools/check-isa.mjs }
 
+# The gate configures its own tree: on a clean checkout there is nothing to test,
+# and a gate that only builds assumes a tree someone else configured with options
+# it cannot see -- which is how a cold run reported "No tests were found".
+Invoke-Step 'configure (default)' { & $cmake --preset $Preset }
+
 Write-Output '== unit tests and the default suite'
 $unit = Join-Path $root 'build/windows-msvc/kr232_tests.exe'
 if (Test-Path $unit) {
     Invoke-Step 'kr232_tests' { & $unit }
 }
+# The default suite includes two rows that read the kernel image, so the kernel tree
+# has to exist before it runs. Building it here keeps the gate self-contained on a
+# clean checkout; without a toolchain the two rows fail rather than being skipped,
+# which is the honest report.
+if ($Krc -and $Krld) {
+    Write-Output '== configure with the kernel'
+    & $cmake -S $root -B build/gate-kernel -G Ninja -DKR232_BUILD_KERNEL=ON "-DKR232_KRC=$Krc" "-DKR232_KRLD=$Krld" | Out-Null
+    Write-Output '== build the kernel'
+    & $cmake --build build/gate-kernel -j $jobs | Out-Null
+}
+
 Invoke-Step 'ctest (default)' { & $ctest --preset $Preset -j $jobs --output-on-failure }
 
 if ($Krc -and $Krld) {

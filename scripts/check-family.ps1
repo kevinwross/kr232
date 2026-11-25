@@ -101,7 +101,7 @@ if (-not $Only -and -not $SkipTests) {
 }
 
 function Invoke-Wave {
-    param([object[]]$Entries, [string]$Label, [string]$PrefixForWave)
+    param([object[]]$Entries, [string]$Label, [string]$PrefixForWave, [switch]$SkipTests)
 
     $running = @()
     $index = 0
@@ -169,8 +169,11 @@ function Install-Compiler([string]$buildTree, [string]$config, [string]$destinat
 # Wave 1 and installation.
 $wanted = { param($entry) $Only.Count -eq 0 -or $Only -contains $entry.Name }
 if (& $wanted $compiler) {
+    # Build and install first, tests later: the executed rows run guest programs on
+    # sibling VM binaries discovered at configure time, so a cold tree has none yet.
     $before = $failed
-    Invoke-Wave -Entries @($compiler) -Label 'debug' -PrefixForWave $Prefix
+    $buildOnly = [pscustomobject]@{ Name = $compiler.Name; Gate = $compiler.Gate; Preset = $compiler.Preset; Expected = 0 }
+    Invoke-Wave -Entries @($buildOnly) -Label 'debug-build' -PrefixForWave $Prefix -SkipTests
     if ($failed -eq $before) {
         if (-not (Install-Compiler "build/$($compiler.Preset)" 'Debug' $Prefix)) { $failed++ }
     }
@@ -180,6 +183,37 @@ if (& $wanted $compiler) {
 $chosen = @($consumers | Where-Object { & $wanted $_ })
 if ($chosen.Count -gt 0) {
     Invoke-Wave -Entries $chosen -Label 'debug' -PrefixForWave $Prefix
+}
+
+# Wave 2b: the compiler's own tests, now that the sibling VMs exist. A fresh
+# configure is what lets it discover them, and the row count is asserted here rather
+# than before the VMs were built.
+if (-not $SkipTests -and (& $wanted $compiler)) {
+    $log = Join-Path $logs 'debug-tests-krcompiler.log'
+    $gateScript = Join-Path (Join-Path $family 'krcompiler') $compiler.Gate
+    $started = Get-Date
+    & pwsh -NoProfile -File $gateScript -Fresh *>&1 | ForEach-Object { Add-Content -LiteralPath $log -Value $_ }
+    $ok = $LASTEXITCODE -eq 0
+    if (-not $ok) {
+        $failed++
+        Write-Host 'family: krcompiler tests failed' -ForegroundColor Red
+        Get-Content $log -Tail 10 | ForEach-Object { Write-Host "  | $_" }
+    }
+    # The count is asserted here, as the worker does for every other row: a suite
+    # that registers fewer rows still reports success.
+    $compilerTree = Join-Path (Join-Path $family 'krcompiler') "build/$($compiler.Preset)"
+    $countOutput = & ctest --test-dir $compilerTree -C Debug -N 2>&1
+    $countMatch = ($countOutput | Select-String -Pattern 'Total Tests: (\d+)' | Select-Object -First 1)
+    $rows = if ($countMatch) { $countMatch.Matches.Groups[1].Value } else { '0' }
+    Write-Host "family: krcompiler rows registered: $rows"
+    if ("$rows" -ne "$($compiler.Expected)") {
+        $failed++
+        Write-Host "family: krcompiler registered $rows rows, expected $($compiler.Expected); a missing row reports success" -ForegroundColor Red
+    }
+    $results += [pscustomobject]@{
+        Repo = 'krcompiler (tests)'; Mode = 'gate'; Result = $(if ($ok) { 'pass' } else { 'FAIL' })
+        Seconds = [Math]::Round(((Get-Date) - $started).TotalSeconds)
+    }
 }
 
 # Waves 3 and 4: Release.
