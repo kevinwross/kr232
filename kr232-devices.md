@@ -6,7 +6,7 @@
 | Date | 2026-11-22T19:10:04-08:00 |
 | Basis | `kr232-isa.md` 0.4 (§2.3 memory map and protection, §14 device window) and the kr32 device work: `..\kr32\docs\devices.md`, `display.md`, `terminal.md`, `graphics.md` |
 | Approved against | `kr232-isa.md` 0.4 and `kr232-plan.md` 0.17, 2026-11-22 |
-| Applies to | the planned `kr232-emu` device model, the host display window, and the guest `fb`, `gfx`, `cons` and `input` packages |
+| Applies to | the planned `kr232` device model, the host display window, and the guest `fb`, `gfx`, `cons` and `input` packages |
 | Normative | §2–§10 are device contracts the ISA points at. §11 is a *package* contract, not ISA: it describes a guest library the plan will build |
 | Access | every device register and the framebuffer aperture are kernel-only (ISA §2.3); a user-mode access raises a protection fault, and user code reaches a device only through `SYSCALL` |
 | Open items | §13 lists the differences from kr32, §14 what planning still has to settle |

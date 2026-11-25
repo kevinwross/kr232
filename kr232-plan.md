@@ -37,7 +37,7 @@ The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 
 1.x is four deliverables, in this order:
 
-1. **`kr232-emu`** — the virtual machine: decoder, executor, protection, traps, all eight device pages, image loader.
+1. **`kr232`** — the virtual machine: decoder, executor, protection, traps, all eight device pages, image loader.
 2. **Image tooling** — assembler, encoder, object writer, `kr232-dis`, and the `.kr232` container.
 3. **A krcompiler backend** — profile, descriptor, sysroot bits, code generator, `crt0` and a libc subset, so C and C++ programs can be built.
 4. **A krdbg adapter** — `IDebugTarget` plus KDBG translation, assembly level first and source level second.
@@ -76,7 +76,7 @@ The owner accepted all eight on 2026-11-22. Each row states the decision and wha
 | M | Deliverable | Repositories | Exit gate |
 |---|---|---|---|
 | M0 | Contracts and identifiers | kr232, krcompiler | ADRs reviewed and merged; `docs/abi-kr232.md` merged; id `5` recorded; the failing test fails for its documented reason |
-| M1 | `kr232-emu` core and device model | kr232 | 81 vectors execute; protection and device suites pass; terminal frame hashes to a golden |
+| M1 | `kr232` core and device model | kr232 | 81 vectors execute; protection and device suites pass; terminal frame hashes to a golden |
 | M2 | Profile, descriptor, assembler, object writer, disassembler, container | krcompiler, kr232 | Hand-written assembly links and runs under M1; every vector round-trips |
 | M3 | Code generator, runtime, sysroot | krcompiler | A C, a C++ and a drawing program build, run and match their status, output and frame; `-S` output is byte-identical; the compiled program stops in krdbg; determinism and KDBG invariants pass; **ISA 1.0 and devices 1.0 freeze** |
 | M4 | krdbg adapter | krdbg | Adapter tests, golden, boundary check and host gate pass |
@@ -107,7 +107,7 @@ The compiler guide is explicit: the first commit for a new target is documentati
 
 **Exit gate.** Both ADRs are reviewed and merged; the ABI document is merged; the id `5` is recorded in ADR 0057 and in `docs/symbols.md`, with the `kROTargetId` case following at M2; the failing test exists and fails for the documented reason.
 
-## 6. M1 — `kr232-emu`: core and device model
+## 6. M1 — `kr232`: core and device model
 
 The decided first milestone (`AGENTS.local.md` §Plan). It makes the ISA executable and turns Appendix A from a lint fixture into a test suite.
 
@@ -117,7 +117,7 @@ The decided first milestone (`AGENTS.local.md` §Plan). It makes the ISA executa
 - Every instruction class of `kr232-isa.md` §3.1, including `F0`/`F4` lengths resolved from the bytes after the prefix.
 - Reset state, the reset word at `0x0100`, the sixteen vectors, the 16-byte trap frame, protection (vector 8), `SYSCALL` (vector 9), kernel-only instructions, the `K` and `I` write rules.
 - The eight device pages: timer, console, framebuffer, keyboard, terminal, graphics commands, system, blitter.
-- A headless CLI whose shape is fixed by the runner that will launch it: `kr232-emu vm <image> --max-steps <n>`, with `--trace`, `--screenshot <path>` and `--frame-hash` as additions, and `--input <text>`, which queues console input before the run so a program that reads can be tested without a terminal. The program's `SYS exit` status is the process status; on a POSIX host only its low eight bits survive as the process status, and the `halted status N` line it prints carries the whole value. It MUST be usable as `KRC_KR232_VM` by krcompiler's `RunKr232Image.cmake` (M2 adds that file; M1 only has to be invocable), which is why the subcommand is `vm` and the limit is `--max-steps`, as the KR32 rule passes them.
+- A headless CLI whose shape is fixed by the runner that will launch it: `kr232 vm <image> --max-steps <n>`, with `--trace`, `--screenshot <path>` and `--frame-hash` as additions, and `--input <text>`, which queues console input before the run so a program that reads can be tested without a terminal. The program's `SYS exit` status is the process status; on a POSIX host only its low eight bits survive as the process status, and the `halted status N` line it prints carries the whole value. It MUST be usable as `KRC_KR232_VM` by krcompiler's `RunKr232Image.cmake` (M2 adds that file; M1 only has to be invocable), which is why the subcommand is `vm` and the limit is `--max-steps`, as the KR32 rule passes them.
 - A flat image format for M1: the file's bytes load at `0x00000000`, and the word at `0x0100` is the entry address. M2's `.kr232` container supersedes it, and the loader dispatches on the container magic.
 
 **Exit gate**
@@ -165,7 +165,7 @@ The guide's steps 5–9 plus the sysroot bits of step 3, and the long pole: `kr3
 - The four guest packages `kr232-devices.md` §11 commits to: `<kr232/fb.h>`, `<kr232/gfx.h>`, `<kr232/cons.h>` and `<kr232/input.h>` under `sysroot/kr232/include/kr232/`, with their kernel-mode implementations in `targets/kr232/runtime/`. The user-mode column of §11.1's table lands with M5's kernel; the API and its arguments freeze here.
 - Per-target link/run loops in `tests/CMakeLists.txt` at `-O0`, a determinism test, and a KDBG-invariants test at `-O0` modeled on the existing `krc_debug_invariants_o1`; the `_o1` twins arrive only if §2.7's measurement makes `-O1` shippable.
 
-**Exit gate.** `int main(void){return 42;}`, a C++ program with a class, a virtual call, a by-value struct parameter, a struct return and an array, and a program that draws through `<kr232/gfx.h>` and flips, all build with `-O0`, run under `kr232-emu`, and match their status, terminal output and frame; the by-value and returned records include a three-`char` one, whose copy must be size-exact; `-S` output is byte-identical at every conversion step; the executed rows exist because `KRC_KR232_VM` is found; the compiled program loads in krdbg at source level and stops on a line breakpoint, which is the only check that pairs the compiler's `.kdbg` with the adapter; determinism, KDBG invariants and the clean gate pass. **ISA 1.0 and devices 1.0 freeze at this gate**, once real code has exercised every encoding and device the runtime touches.
+**Exit gate.** `int main(void){return 42;}`, a C++ program with a class, a virtual call, a by-value struct parameter, a struct return and an array, and a program that draws through `<kr232/gfx.h>` and flips, all build with `-O0`, run under `kr232`, and match their status, terminal output and frame; the by-value and returned records include a three-`char` one, whose copy must be size-exact; `-S` output is byte-identical at every conversion step; the executed rows exist because `KRC_KR232_VM` is found; the compiled program loads in krdbg at source level and stops on a line breakpoint, which is the only check that pairs the compiler's `.kdbg` with the adapter; determinism, KDBG invariants and the clean gate pass. **ISA 1.0 and devices 1.0 freeze at this gate**, once real code has exercised every encoding and device the runtime touches.
 
 ## 9. M4 — krdbg adapter
 
@@ -185,7 +185,7 @@ Assembly level first (`krdbg-newtarget.md` §1), then source level.
 ## 10. M5 — kernel and user mode (after 1.x)
 
 - A minimal kernel: vector table setup, a trap handler that resumes `SYSCALL`, the syscall table (`write`, `read`, `exit`, blitter copy/fill, graphics commands) with kernel-side validation, entry into the user image and `IRET`. The call numbers are the kernel's own convention — `SYS`'s 0–4 are the hypercall's, and `SYSCALL` leaves the number in R7 to the kernel (`kr232-isa.md` §4, §13) — so this table costs no ISA change.
-- The user program travels as a second image: `kr232-emu vm <kernel.kr232> --user <program.kr232>`, both preloaded before reset. The emulator loads and the kernel only enters, because the ISA leaves loading undefined (`kr232-isa.md` §12): the kernel builds a frame with PC `0x08000000` — the image's link address and its first instruction — a user SP and K = 0, then executes `IRET`. A kernel started without `--user` runs as an ordinary 1.x program.
+- The user program travels as a second image: `kr232 vm <kernel.kr232> --user <program.kr232>`, both preloaded before reset. The emulator loads and the kernel only enters, because the ISA leaves loading undefined (`kr232-isa.md` §12): the kernel builds a frame with PC `0x08000000` — the image's link address and its first instruction — a user SP and K = 0, then executes `IRET`. A kernel started without `--user` runs as an ordinary 1.x program.
 - A user-mode program built by krc that prints, draws and exits; the protection tests rerun from user mode; krdbg debugs a user program through the kernel by setting `host.kernel_supported` and implementing `load_kernel` to replace the session target with the kernel image (`krdbg-newtarget.md` §6.3).
 - The two questions §12 leaves open — `SYSCALL` error values and the display call numbers — are settled here, with the syscall table.
 
@@ -197,10 +197,10 @@ Assembly level first (`krdbg-newtarget.md` §1), then source level.
 |---|---|---|
 | Spec | `node tools/check-isa.mjs` after every document edit | kr232 |
 | Contracts | the M0 refusal test: `krc --target=kr232 -c` stops with "has no code generator yet" | krcompiler |
-| Vector execution | in `kr232-emu`, one test per Appendix A vector: bytes in, architectural state out | kr232 |
-| Protection and traps | in `kr232-emu`: user-mode faults, the 16-byte frame, `IRET`'s restore, the kernel-only instructions, both unbacked gaps | kr232 |
-| Devices | in `kr232-emu`: per-page `ID`, undefined offsets, FLIP bundles, blitter ranges | kr232 |
-| Images | `kr232-emu` with the toolchain: assembled and compiled images run, with exit status, terminal transcript and frame hash; the loader rejects a bad checksum, a section outside the map and a base mismatch | kr232, krcompiler |
+| Vector execution | in `kr232`, one test per Appendix A vector: bytes in, architectural state out | kr232 |
+| Protection and traps | in `kr232`: user-mode faults, the 16-byte frame, `IRET`'s restore, the kernel-only instructions, both unbacked gaps | kr232 |
+| Devices | in `kr232`: per-page `ID`, undefined offsets, FLIP bundles, blitter ranges | kr232 |
+| Images | `kr232` with the toolchain: assembled and compiled images run, with exit status, terminal transcript and frame hash; the loader rejects a bad checksum, a section outside the map and a base mismatch | kr232, krcompiler |
 | Assembler and container | assemble → bytes → disassemble for every vector; the `.kdbg` decodes; two builds of one image are byte-identical | krcompiler |
 | Compiler | the per-target link/run loops, determinism, `-S` byte-identical output at every step, KDBG invariants, clean gate | krcompiler |
 | Debugger | adapter tests, golden surface hash, boundary check, host gate | krdbg |
@@ -232,7 +232,7 @@ Neither question held the freeze, and both answers are in the drafts: §18 of th
 - **`has_rtti` is documentation.** Nothing in the compiler reads the flag, so a `dynamic_cast` in a kr232 program compiles and then fails at link with an undefined `__krc_dynamic_cast` — not with a diagnostic. The M3 fixture must not use it; rejecting it earlier is a krcompiler front-end change, not a profile edit.
 - **Backend size.** Expect 1,300–2,600 lines and rounds, not hours. A byte-identical `-S` diff at every step is the only honest guard; the two failed optimisation attempts in `..\krcompiler\implementation.md` show what happens without one.
 - **One id counter.** KRO and KDBG share a single target id: `kROTargetId` assigns it and the `.kdbg` header copies it. KR216 holds 4, so kr232 is 5 in both; an id that reuses 4 makes every kr232 object and payload claim to be a KR216 image.
-- **The container crosses two repositories.** The writer lands in krcompiler and the loader in kr232-emu, so the M0 ADR is the only thing keeping the two readings equal; a field added on one side without the ADR is a load-time failure in the other.
+- **The container crosses two repositories.** The writer lands in krcompiler and the loader in kr232, so the M0 ADR is the only thing keeping the two readings equal; a field added on one side without the ADR is a load-time failure in the other.
 - **ISA freeze timing.** Freezing at M3 exit rather than M2 leaves room for a gap the backend finds; any change before the freeze costs a §15 item and a §17 row.
 - **Adapter frame offsets.** KDBG's offset is non-negative and `Location::FrameOffset` is added to `frame_base`; kr232 locals are below FP, so the adapter negates. Reading the wrong slot shows a local as zero or as another local's value.
 - **KDBG translation limits.** The current path does not apply `Location` records, so register-held variables will not expand; frame offsets are the only locations until the decoder is re-vendored.
@@ -248,6 +248,6 @@ Neither question held the freeze, and both answers are in the drafts: §18 of th
 ## 14. What done means for 1.x
 
 - ISA 1.0 and devices 1.0 frozen, with the spec lint green. The freeze revision retitles each draft's open-questions section — `kr232-isa.md` §18 and `kr232-devices.md` §14 — to "Deferred to 2.0", still listing the two M5 items and why a kernel settles them, so a frozen 1.0 is a closed set with two named deferrals rather than a live question list.
-- A C program, a C++ program and a drawing program built by `krc --target=kr232 -O0` run under `kr232-emu` with the expected status, terminal output and frame.
+- A C program, a C++ program and a drawing program built by `krc --target=kr232 -O0` run under `kr232` with the expected status, terminal output and frame.
 - The same programs load in krdbg at source level, with line breakpoints, locals, a call stack and the framebuffer panel — including the compiler's output, which M3's gate checks rather than leaving to M4, since M4 precedes it.
 - Every gate in §4's table and every milestone's exit gate has been run and reported; a skipped gate is named as skipped.

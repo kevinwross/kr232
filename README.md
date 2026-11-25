@@ -28,7 +28,7 @@ page tables tile their window, and every table is well formed.
 
 ## Build it
 
-There is no build yet. `kr232-emu` arrives with M1, and the implementation plan carries its commands,
+There is no build yet. `kr232` arrives with M1, and the implementation plan carries its commands,
 its presets and its hosts.
 
 ## Read next

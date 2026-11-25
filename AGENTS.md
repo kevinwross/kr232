@@ -8,7 +8,7 @@
 -->
 # AGENTS.md — kr232
 
-kr232 is the specification of a 32-bit teaching virtual machine: `kr216` 1.0 widened to 32-bit registers and a 4 GiB address space, plus a protected kernel mode and a host-rendered display, console, keyboard and graphics command set shaped after `kr32`. This repository holds the two drafts — `kr232-isa.md` 0.4 and `kr232-devices.md` 0.4 — their spec lint (`tools/check-isa.mjs`), `kr232-plan.md` 0.17, approved on 2026-11-22 as the implementation basis for M0–M3, and `kr232-impl.md` 0.1, the approved task-level plan, log and gate record. The planned consumers are `kr232-emu`, `kr232-dis`, and the krcompiler assembler/encoder and image loader; M0 is the current work. Read ISA §17–§18 and devices §13–§14 first: §17 is the authoritative diff from kr216, and the open questions there are what planning settles.
+kr232 is the specification of a 32-bit teaching virtual machine: `kr216` 1.0 widened to 32-bit registers and a 4 GiB address space, plus a protected kernel mode and a host-rendered display, console, keyboard and graphics command set shaped after `kr32`. This repository holds the two drafts — `kr232-isa.md` 0.4 and `kr232-devices.md` 0.4 — their spec lint (`tools/check-isa.mjs`), `kr232-plan.md` 0.17, approved on 2026-11-22 as the implementation basis for M0–M3, and `kr232-impl.md` 0.1, the approved task-level plan, log and gate record. The planned consumers are `kr232`, `kr232-dis`, and the krcompiler assembler/encoder and image loader; M0 is the current work. Read ISA §17–§18 and devices §13–§14 first: §17 is the authoritative diff from kr216, and the open questions there are what planning settles.
 
 <!-- project:summary -->
 

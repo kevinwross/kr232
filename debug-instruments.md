@@ -6,7 +6,7 @@ direction, so every scaled index in every compiled program came out zero — whi
 took twenty-five rounds because none of these existed. Each one answers a question
 that reading a listing cannot.
 
-The options below are implemented in `kr232-emu` (`kr232/src/main.cpp`) and, with
+The options below are implemented in `kr232` (`kr232/src/main.cpp`) and, with
 the same names and output, in `kr32`, `kr16` and `kr216`.
 
 ## `--watch <address>`
@@ -17,7 +17,7 @@ Prints a line for every step that changes the 32-bit word at `<address>`, with t
 program counter of the write.
 
 ```sh
-kr232-emu vm program.kr232 --watch 0x07ffff98
+kr232 vm program.kr232 --watch 0x07ffff98
 watch 0x07ffff98 at pc=0x00166b41: 0x07ffffe0 -> 0x07ffffe1
 ```
 
@@ -41,7 +41,7 @@ exits. `--break-max` keeps going and repeats the dump for the next `n` hits, whi
 turns a call site into a sequence.
 
 ```sh
-kr232-emu vm program.kr232 --break 0x1885fc --break-max 30
+kr232 vm program.kr232 --break 0x1885fc --break-max 30
 break at 0x001885fc: r2=0x07ffff70 r3=0x0000077c … fp=0x07fffff8 sp=0x07fffd54
   [fp- 4] = 0x07ffff70
   …
@@ -66,7 +66,7 @@ page, with the PC of each write — a chronological log of all stores to the sta
 heap region.
 
 ```sh
-kr232-emu vm program.kr232 --watch-page 0x07fff000
+kr232 vm program.kr232 --watch-page 0x07fff000
 page 0x07ffffe0 at pc=0x00166a7c: 0x00000000 -> 0x00000770   ← array element 0
 page 0x07ffff70 at pc=0x00166bb0: 0x00000001 -> 0x00000002   ← loop counter
 page 0x07ffff98 at pc=0x00166b41: 0x07ffffe0 -> 0x07ffffe1   ← the bug
@@ -89,7 +89,7 @@ address is a slot collision, visible in one run.
 Prints a line whenever `r13` changes, with the PC.
 
 ```sh
-kr232-emu vm program.kr232 --watch-fp
+kr232 vm program.kr232 --watch-fp
 fp 0x00000000 -> 0x07fffff8 at pc=0x00166a62
 ```
 

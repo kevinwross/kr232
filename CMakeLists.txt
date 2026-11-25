@@ -97,11 +97,11 @@ add_executable(kr232-dis src/dis.cpp)
 target_link_libraries(kr232-dis PRIVATE kr232_core kr232_warnings)
 target_include_directories(kr232-dis PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-add_executable(kr232-emu src/main.cpp)
+add_executable(kr232 src/main.cpp)
 # kr232_warnings carries the prefix-map flags, so every target with sources of
 # its own links it. Linking it into kr232_core alone left main.cpp unmapped: the
 # Linux binary then carried its build-host path and the hygiene check failed.
-target_link_libraries(kr232-emu PRIVATE kr232_core kr232_warnings)
+target_link_libraries(kr232 PRIVATE kr232_core kr232_warnings)
 
 if(KR232_LAYOUT_SELFTEST)
     message(STATUS "kr232: layout selftest is on; adding targets/kr232/probe.cpp to kr232_core on purpose")
@@ -128,7 +128,7 @@ function(kr232_guard_host_sources target)
 endfunction()
 
 kr232_guard_host_sources(kr232_core)
-kr232_guard_host_sources(kr232-emu)
+kr232_guard_host_sources(kr232)
 
 if(KR232_BUILD_TESTS)
     enable_testing()
@@ -178,7 +178,7 @@ endif()
     # and run here: a program's syscall exit must come back as the host status.
     add_test(NAME kr232_kernel_user
         COMMAND ${CMAKE_COMMAND}
-                -DVM=$<TARGET_FILE:kr232-emu>
+                -DVM=$<TARGET_FILE:kr232>
                 -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.kr232
                 -DPROGRAM=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-exit42.kr232
                 -DEXPECT_EXIT=42
@@ -186,7 +186,7 @@ endif()
     if(KR232_BUILD_KERNEL)
         add_test(NAME kr232_kernel_matches_source
             COMMAND ${CMAKE_COMMAND}
-                    -DVM=$<TARGET_FILE:kr232-emu>
+                    -DVM=$<TARGET_FILE:kr232>
                     -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.kr232
                     -DPROGRAM=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-exit42.kr232
                     -DEXPECT_EXIT=42
@@ -217,14 +217,14 @@ endif()
     endif()
     add_test(NAME kr232_kernel_text_reports_error
         COMMAND ${CMAKE_COMMAND}
-                -DVM=$<TARGET_FILE:kr232-emu>
+                -DVM=$<TARGET_FILE:kr232>
                 -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.kr232
                 -DPROGRAM=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-text.kr232
                 -DEXPECT_EXIT=0
                 -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232Kernel.cmake)
     add_test(NAME kr232_kernel_read
         COMMAND ${CMAKE_COMMAND}
-                -DVM=$<TARGET_FILE:kr232-emu>
+                -DVM=$<TARGET_FILE:kr232>
                 -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.kr232
                 -DPROGRAM=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-echo.kr232
                 -DEXPECT_EXIT=0
@@ -233,7 +233,7 @@ endif()
                 -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232Kernel.cmake)
     add_test(NAME kr232_kernel_calls
         COMMAND ${CMAKE_COMMAND}
-                -DVM=$<TARGET_FILE:kr232-emu>
+                -DVM=$<TARGET_FILE:kr232>
                 -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.kr232
                 -DPROGRAM=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-calls.kr232
                 -DEXPECT_EXIT=0
@@ -249,7 +249,7 @@ endif()
             COMMAND ${CMAKE_COMMAND}
                     -DKRC=${KRG_KRC}
                     -DKRLD=${KRG_KRLD}
-                    -DVM=$<TARGET_FILE:kr232-emu>
+                    -DVM=$<TARGET_FILE:kr232>
                     -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.kr232
                     -DRUNTIME=${KR232_RUNTIME_DIR}
                     -DINCLUDE=${KR232_SYSROOT_DIR}
@@ -276,7 +276,7 @@ endif()
     # the machine it leaves behind. The hash of an uncommitted frame is the FNV
     # offset basis, so this also pins that the flag does not invent a frame.
     add_test(NAME kr232_cli_frame_hash
-        COMMAND kr232-emu vm "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/halt.bin"
+        COMMAND kr232 vm "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/halt.bin"
                 --base 0x08000000 --max-steps 10 --frame-hash)
     set_tests_properties(kr232_cli_frame_hash PROPERTIES
         LABELS "unit"
@@ -286,7 +286,7 @@ endif()
     # the framebuffer register, and a clean exit. The hash is what makes the run
     # reproducible across hosts and runs.
     add_test(NAME kr232_cli_kernel
-        COMMAND kr232-emu vm "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel-draw.bin"
+        COMMAND kr232 vm "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel-draw.bin"
                 --max-steps 100 --frame-hash)
     set_tests_properties(kr232_cli_kernel PROPERTIES
         LABELS "unit"
@@ -295,7 +295,7 @@ endif()
     # Plan §6 item 4: the hash of the gate image must match the checked-in golden.
     add_test(NAME kr232_cli_kernel_golden
         COMMAND ${CMAKE_COMMAND}
-            "-DEXE=$<TARGET_FILE:kr232-emu>"
+            "-DEXE=$<TARGET_FILE:kr232>"
             "-DIMAGE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel-gate.bin"
             "-DGOLDEN=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel-gate.hash"
             "-DBLANK_IMAGE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/blank-flip.kr232"
@@ -304,7 +304,7 @@ endif()
 
     add_test(NAME kr232_path_hygiene
         COMMAND ${CMAKE_COMMAND}
-            "-DBINARY=$<TARGET_FILE:kr232-emu>"
+            "-DBINARY=$<TARGET_FILE:kr232>"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckPathHygiene.cmake")
     set_tests_properties(kr232_path_hygiene PROPERTIES LABELS "hygiene")
 

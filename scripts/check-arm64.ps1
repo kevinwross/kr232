@@ -77,7 +77,7 @@ cmake --build "$KR32_BUILD" -j 4 >/tmp/kr32-build.log 2>&1 \
 [ -x "$KR32_BUILD/kr32" ] || { echo "kr32 was not built at $KR32_BUILD/kr32"; exit 1; }
 
 cmake -S "$ROOT/krcompiler" -B "$ROOT/krcompiler/build/linux-clang-debug" \
-    -DKRC_KR232_VM="$BUILD/kr232-emu" -DKRC_KR32_VM="$KR32_BUILD/kr32" >/dev/null 2>&1
+    -DKRC_KR232_VM="$BUILD/kr232" -DKRC_KR32_VM="$KR32_BUILD/kr32" >/dev/null 2>&1
 
 # Each suite reports and a failure is remembered: passing ctest output through
 # grep would replace ctest's status with grep's, which is how a failing suite

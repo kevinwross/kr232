@@ -7,7 +7,7 @@
 | Basis | `..\kr216\kr216-isa.md` version 1.0 (frozen 2026-11-22), widened to 32-bit registers and a 4 GiB address space; the device region's shape follows `..\kr32\docs\display.md`, `devices.md`, `terminal.md` and `graphics.md` |
 | Authority | `kr232-plan.md` 0.17 owns milestone scope, order and gates; this document owns the machine. §18 lists the two questions deferred to 2.0 |
 | Approved against | `kr232-devices.md` 0.4 and `kr232-plan.md` 0.17, 2026-11-22 |
-| Applies to | the planned `kr232-emu`, `kr232-dis`, the krcompiler assembler/encoder and the kr232 image loader. `kr232-devices.md` owns the device register contracts; no implementation exists yet, so no conformance suite pins anything |
+| Applies to | the planned `kr232`, `kr232-dis`, the krcompiler assembler/encoder and the kr232 image loader. `kr232-devices.md` owns the device register contracts; no implementation exists yet, so no conformance suite pins anything |
 | Open items | §15 records the decisions this draft makes, §17 every change from kr216, §18 every question left to planning, Appendix C the map in one table |
 
 The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.

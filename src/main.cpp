@@ -19,7 +19,7 @@ namespace {
 
 void usage(std::FILE* out) {
     std::fputs(
-        "usage: kr232-emu <command> [options]\n"
+        "usage: kr232 <command> [options]\n"
         "  vm <image> [--base <hex>] [--max-steps <n>] [--frame-hash]\n"
         "               run a flat image; --base 0 reads the entry from 0x0100\n"
    "               --input <text> queues console input, --user <image> runs a user program\n"
@@ -40,7 +40,7 @@ bool read_file(const char* path, std::vector<std::uint8_t>& bytes) {
 }  // namespace
 
 // The command names are fixed by kr232-impl.md §1: krcompiler's
-// RunKr232Image.cmake launches `kr232-emu vm <image> --max-steps <n>`.
+// RunKr232Image.cmake launches `kr232 vm <image> --max-steps <n>`.
 int main(int argc, char** argv) {
     if (argc < 2) {
         usage(stderr);
@@ -60,7 +60,7 @@ int main(int argc, char** argv) {
         return 2;
     }
     if (argc < 3) {
-        std::fputs("kr232-emu: vm needs an image path\n", stderr);
+        std::fputs("kr232: vm needs an image path\n", stderr);
         return 2;
     }
 
@@ -115,21 +115,21 @@ int main(int argc, char** argv) {
         } else if (std::strcmp(argv[i], "--max-steps") == 0 && i + 1 < argc) {
             max_steps = std::strtoull(argv[++i], nullptr, 0);
         } else {
-            std::fprintf(stderr, "kr232-emu: unknown option '%s'\n", argv[i]);
+            std::fprintf(stderr, "kr232: unknown option '%s'\n", argv[i]);
             return 2;
         }
     }
 
     std::vector<std::uint8_t> image;
     if (!read_file(image_path, image)) {
-        std::fprintf(stderr, "kr232-emu: cannot read '%s'\n", image_path);
+        std::fprintf(stderr, "kr232: cannot read '%s'\n", image_path);
         return 2;
     }
 
     kr232::Machine machine;
     const kr232::LoadOutcome loaded = kr232::load_image(machine, image, base);
     if (!loaded.ok) {
-        std::fprintf(stderr, "kr232-emu: %s\n", loaded.error.c_str());
+        std::fprintf(stderr, "kr232: %s\n", loaded.error.c_str());
         return 2;
     }
 
@@ -138,7 +138,7 @@ int main(int argc, char** argv) {
     if (!user_path.empty()) {
         std::vector<std::uint8_t> user_image;
         if (!read_file(user_path.c_str(), user_image)) {
-            std::fprintf(stderr, "kr232-emu: cannot read '%s'\n", user_path.c_str());
+            std::fprintf(stderr, "kr232: cannot read '%s'\n", user_path.c_str());
             return 2;
         }
         // Loading a user image points PC at its entry, which is not where the
@@ -153,13 +153,13 @@ int main(int argc, char** argv) {
             // lands below user RAM and its first fetch traps. Say which mistake
             // it is instead of letting the program fault with a bare vector 8.
             std::fprintf(stderr,
-                         "kr232-emu: the user image is based at 0x%08X, below user RAM; "
+                         "kr232: the user image is based at 0x%08X, below user RAM; "
                          "link it with --base=0x08000000\n",
                          static_cast<unsigned>(user_loaded.entry));
             return 2;
         }
         if (!user_loaded.ok) {
-            std::fprintf(stderr, "kr232-emu: user image: %s\n", user_loaded.error.c_str());
+            std::fprintf(stderr, "kr232: user image: %s\n", user_loaded.error.c_str());
             return 2;
         }
         machine.set_reg(2, user_loaded.entry);
