@@ -476,6 +476,9 @@ DeviceResult Devices::read(std::uint32_t address, std::uint32_t width,
                 value = 0;
                 return DeviceResult::Ok;
             case 0x04: {  // IN consumes one byte; empty reads all ones
+                if (console_input_.empty() && console_refill_) {
+                    console_refill_();
+                }
                 if (console_input_.empty()) {
                     value = 0xFFFFFFFFu;
                 } else {
@@ -693,6 +696,9 @@ DeviceResult Devices::write(std::uint32_t address, std::uint32_t width, std::uin
         switch (offset) {
             case 0x00:  // OUT appends one byte to the host stream
                 console_output_.push_back(static_cast<std::uint8_t>(value & 0xFFu));
+                if (console_sink_) {
+                    console_sink_(static_cast<std::uint8_t>(value & 0xFFu));
+                }
                 return DeviceResult::Ok;
             case 0x04:  // IN is read-only
                 return DeviceResult::Ok;
@@ -879,6 +885,14 @@ bool Devices::console_pop_output(std::uint8_t& byte) noexcept {
     byte = console_output_.front();
     console_output_.pop_front();
     return true;
+}
+
+void Devices::set_console_input_refill(std::function<void()> refill) {
+    console_refill_ = std::move(refill);
+}
+
+void Devices::set_console_output_sink(std::function<void(std::uint8_t)> sink) {
+    console_sink_ = std::move(sink);
 }
 
 bool Devices::keyboard_push_event(std::uint32_t event) noexcept {

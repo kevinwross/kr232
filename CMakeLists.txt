@@ -282,6 +282,15 @@ endif()
         LABELS "unit"
         PASS_REGULAR_EXPRESSION "frame cbf29ce484222325")
 
+    # A zero budget is unlimited, so the image reaches its SYS exit instead of
+    # stopping before the first instruction.
+    add_test(NAME kr232_cli_zero_max_steps
+        COMMAND kr232 vm "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/halt.bin"
+                --base 0x08000000 --max-steps 0)
+    set_tests_properties(kr232_cli_zero_max_steps PROPERTIES
+        LABELS "unit"
+        PASS_REGULAR_EXPRESSION "halted status")
+
     # The hand-encoded kernel image: two pixels into the aperture, a FLIP through
     # the framebuffer register, and a clean exit. The hash is what makes the run
     # reproducible across hosts and runs.

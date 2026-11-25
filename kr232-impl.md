@@ -3357,3 +3357,15 @@ this workflow does not cover krdbg, which the gate script does.
 **The six kr232 rows that failed the first time were a stale binary.** They run `../kr232/build/windows-msvc/kr232.exe`, not the `build/kernel-check` emulator that had been rebuilt with the fix, so the old loader loaded the debug payload over address 0. Rebuilding that tree and re-running gives 957 of 957.
 
 **`--source-root` is not restored in the checkers.** Their compiler inputs are already relative to the repository root, so there is nothing for it to strip; passing it now would rewrite paths that need no rewriting and change every image again for no gain.
+
+### 2026-11-24T22:39:21-08:00 — A zero step budget is unlimited
+
+`kr232 vm --max-steps 0` now runs until the machine halts or traps instead of
+stopping before the first instruction. The loop is guarded by
+`unlimited = max_steps == 0`, and the "stopped after N steps" trailer is
+suppressed for that run. The CLI usage names the new meaning. New CTest
+`kr232_cli_zero_max_steps` runs `tests/fixtures/halt.bin` with
+`--max-steps 0` and requires `halted status`, which the old behavior could not
+print. Verified: `windows-msvc` builds clean; the full Windows suite is 12/12,
+including `kr232_cli_zero_max_steps`.
+- **2026-11-25T00:13:11-08:00** — **`--console` turns stdin and stdout into the guest console.** `Devices` gained `set_console_input_refill` and `set_console_output_sink`; the page-2 data register calls the refill only when its queue is empty, so a guest read blocks where a terminal would wait. The emulator reads one line from `std::cin`, queues it with a newline, and writes each console byte through to stdout and flushes. The `halted status`/`stopped` line goes to stderr in this mode so the console stream stays the guest's own. A guest that echoed a line through page 2 produced it unchanged and halted 0. Verified: `windows-msvc-debug` builds clean; the full Windows suite is 12/12.

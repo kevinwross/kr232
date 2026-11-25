@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <deque>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -68,6 +69,12 @@ public:
     bool console_push_input(std::uint8_t byte) noexcept;
     // False when the guest has written nothing.
     bool console_pop_output(std::uint8_t& byte) noexcept;
+    // Called when the guest reads console input and the queue is empty. The
+    // callback may push a line; it must not re-enter the device.
+    void set_console_input_refill(std::function<void()> refill);
+    // Called for every console byte the guest writes, before it accumulates. An
+    // interactive console writes it through to stdout.
+    void set_console_output_sink(std::function<void(std::uint8_t)> sink);
     bool keyboard_push_event(std::uint32_t event) noexcept;
 
     // The aperture (kr232-devices.md §5.1) is memory-like: any width, any
@@ -163,6 +170,8 @@ private:
 
     std::deque<std::uint8_t> console_input_;
     std::deque<std::uint8_t> console_output_;
+    std::function<void()> console_refill_;
+    std::function<void(std::uint8_t)> console_sink_;
     bool console_overrun_ = false;
     std::deque<std::uint32_t> keyboard_events_;
     bool keyboard_overrun_ = false;
