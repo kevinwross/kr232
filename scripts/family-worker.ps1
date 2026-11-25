@@ -44,6 +44,10 @@ param(
     [int]$Expected = 0,
     [string]$Prefix = '',
     [int]$Jobs = 4,
+    # Extra configure arguments for this repository, comma separated: a tree whose
+    # guest rows are opt-in needs its option set, and the row table is where that
+    # knowledge belongs.
+    [string]$Options = '',
     [Parameter(Mandatory = $true)][string]$Log,
     [switch]$SkipTests
 )
@@ -86,6 +90,7 @@ try {
     } else {
         Write-Log "== $Repo preset $Preset"
         $configure = @('--preset', $Preset)
+        $extra = @($Options -split ',' | Where-Object { $_ })
         if ($Prefix) {
             $configure += "-DCMAKE_PREFIX_PATH=$Prefix"
             # Both spellings: the family convention is KRG_KRC/KRG_KRLD, and several
@@ -94,6 +99,7 @@ try {
             # smaller suite, which is what the row counts exist to catch.
             $krc = Join-Path $Prefix 'bin/krc.exe'
             $krld = Join-Path $Prefix 'bin/krld.exe'
+            if ($extra) { $configure += $extra }
             if (Test-Path $krc) { $configure += "-DKRG_KRC=$krc"; $configure += "-DKRC_EXECUTABLE=$krc" }
             if (Test-Path $krld) { $configure += "-DKRG_KRLD=$krld"; $configure += "-DKRLD_EXECUTABLE=$krld" }
         }

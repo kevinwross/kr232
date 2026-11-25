@@ -49,6 +49,10 @@ Invoke-Step 'spec lint' { node tools/check-isa.mjs }
 # and a gate that only builds assumes a tree someone else configured with options
 # it cannot see -- which is how a cold run reported "No tests were found".
 Invoke-Step 'configure (default)' { & $cmake --preset $Preset }
+# The default suite reads the emulator this preset builds, so the gate builds it. The
+# gate used to run ctest only, which passes on a tree someone else had built and
+# fails on a clean one with "BINARY is not set or does not exist".
+Invoke-Step 'build (default)' { & $cmake --build --preset $Preset -j $jobs }
 
 Write-Output '== unit tests and the default suite'
 $unit = Join-Path $root 'build/windows-msvc/kr232_tests.exe'

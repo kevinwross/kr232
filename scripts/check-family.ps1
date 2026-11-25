@@ -81,9 +81,13 @@ $compiler = [pscustomobject]@{ Name = 'krcompiler'; Gate = 'scripts/gate-windows
 $consumers = @(
     [pscustomobject]@{ Name = 'kr32';   Gate = 'scripts/run-gate.ps1';     Preset = 'windows-msvc-debug'; Expected = 42; ExpectedRelease = 42 },
     [pscustomobject]@{ Name = 'kr16';   Gate = '';                        Preset = 'windows-ninja-debug'; Expected = 61; ExpectedRelease = 61 },
-    [pscustomobject]@{ Name = 'kr216';  Gate = '';                        Preset = 'windows-msvc-debug'; Expected = 56; ExpectedRelease = 11 },
+    [pscustomobject]@{ Name = 'kr216';  Gate = '';                        Preset = 'windows-msvc-debug'; Expected = 56; ExpectedRelease = 11
+                       Options = @('-DKR216_BUILD_GUEST_TESTS=ON') },
     [pscustomobject]@{ Name = 'kr232';  Gate = 'scripts/gate-windows.ps1'; Preset = 'windows-msvc-debug'; Expected = 0; ExpectedRelease = 0 },
-    [pscustomobject]@{ Name = 'krdbg';  Gate = '';                        Preset = 'windows-msvc'; Expected = 14; ExpectedRelease = 3 }
+    # Three rows, measured: krdbg_unit, krdbg_version and platform_boundary. The
+    # adapters are opt-in and each adds at most one row, so an expectation of 14 was
+    # a number from a suite that no longer exists.
+    [pscustomobject]@{ Name = 'krdbg';  Gate = '';                        Preset = 'windows-msvc'; Expected = 3; ExpectedRelease = 3 }
 )
 
 # The Linux half needs nothing from the Windows waves, so it starts first and runs
@@ -115,6 +119,9 @@ function Invoke-Wave {
                            '-Expected', $entry.Expected,
                            '-Prefix', $PrefixForWave, '-Jobs', $innerJobs, '-Log', $log)
             if ($entry.Gate) { $arguments += @('-Gate', $entry.Gate) }
+            if ($entry.PSObject.Properties.Name -contains 'Options' -and $entry.Options) {
+                $arguments += @('-Options', ($entry.Options -join ','))
+            }
             if ($SkipTests) { $arguments += '-SkipTests' }
             $running += [pscustomobject]@{
                 Entry   = $entry
@@ -220,9 +227,11 @@ if (-not $SkipTests -and (& $wanted $compiler)) {
 if (-not $SkipTests) {
     if (& $wanted $compiler) {
         $releasePreset = $compiler.Preset -replace '-debug$', '-release'
-        $releaseRow = [pscustomobject]@{ Name = 'krcompiler'; Gate = ''; Preset = $releasePreset; Expected = $compiler.ExpectedRelease }
+        # Built and installed first, tested after the release consumers: its executed
+        # rows need their VM binaries, and those are built in the wave below.
+        $releaseRow = [pscustomobject]@{ Name = 'krcompiler'; Gate = $compiler.Gate; Preset = $releasePreset; Expected = 0 }
         $before = $failed
-        Invoke-Wave -Entries @($releaseRow) -Label 'release' -PrefixForWave $PrefixRelease
+        Invoke-Wave -Entries @($releaseRow) -Label 'release-build' -PrefixForWave $PrefixRelease -SkipTests
         if ($failed -eq $before) {
             if (-not (Install-Compiler "build/$releasePreset" '' $PrefixRelease)) { $failed++ }
         }
@@ -233,6 +242,34 @@ if (-not $SkipTests) {
             [pscustomobject]@{ Name = $_.Name; Gate = ''; Preset = $preset; Expected = $_.ExpectedRelease }
         })
         Invoke-Wave -Entries $releaseRows -Label 'release' -PrefixForWave $PrefixRelease
+    }
+
+    # The release compiler's tests, now that the release VMs exist.
+    if (& $wanted $compiler) {
+        $releasePreset = $compiler.Preset -replace '-debug$', '-release'
+        $log = Join-Path $logs 'release-tests-krcompiler.log'
+        $gateScript = Join-Path (Join-Path $family 'krcompiler') $compiler.Gate
+        $started = Get-Date
+        & pwsh -NoProfile -File $gateScript -Preset $releasePreset -Fresh *>&1 | ForEach-Object { Add-Content -LiteralPath $log -Value $_ }
+        $ok = $LASTEXITCODE -eq 0
+        if (-not $ok) {
+            $failed++
+            Write-Host 'family: krcompiler release tests failed' -ForegroundColor Red
+            Get-Content $log -Tail 10 | ForEach-Object { Write-Host "  | $_" }
+        }
+        $compilerTree = Join-Path (Join-Path $family 'krcompiler') "build/$releasePreset"
+        $countOutput = & ctest --test-dir $compilerTree -N 2>&1
+        $countMatch = ($countOutput | Select-String -Pattern 'Total Tests: (\d+)' | Select-Object -First 1)
+        $rows = if ($countMatch) { $countMatch.Matches.Groups[1].Value } else { '0' }
+        Write-Host "family: krcompiler release rows registered: $rows"
+        if ("$rows" -ne "$($compiler.ExpectedRelease)") {
+            $failed++
+            Write-Host "family: krcompiler release registered $rows rows, expected $($compiler.ExpectedRelease)" -ForegroundColor Red
+        }
+        $results += [pscustomobject]@{
+            Repo = 'krcompiler (release tests)'; Mode = 'gate'; Result = $(if ($ok) { 'pass' } else { 'FAIL' })
+            Seconds = [Math]::Round(((Get-Date) - $started).TotalSeconds)
+        }
     }
 }
 
