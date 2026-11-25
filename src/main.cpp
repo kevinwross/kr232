@@ -7,6 +7,7 @@
 
 #include <cstdio>
 #include <deque>
+#include <iostream>
 #include <utility>
 #include <cstdlib>
 #include <cstring>
@@ -22,7 +23,10 @@ void usage(std::FILE* out) {
         "usage: kr232 <command> [options]\n"
         "  vm <image> [--base <hex>] [--max-steps <n>] [--frame-hash]\n"
         "               run a flat image; --base 0 reads the entry from 0x0100\n"
-   "               --input <text> queues console input, --user <image> runs a user program\n"
+        "               --max-steps <n> instruction budget (default 1000000; 0 = no limit)\n"
+        "               --input <text> queues console input, --user <image> runs a user program\n"
+        "               --inputfile <path> queues a file's contents, then reads stdin\n"
+        "               --console reads console input from stdin and writes output to stdout\n"
         "  --version    print the version and exit\n"
         "  --help       print this text and exit\n",
         out);
@@ -82,9 +86,11 @@ int main(int argc, char** argv) {
     std::vector<std::uint32_t> page_before;
     std::deque<std::pair<std::uint32_t, std::string>> trace;
     bool want_transcript = false;
+    bool console_mode = false;
     // Text queued on the console before the run, so a program that reads input
     // can be tested without a terminal. It is the same queue the device uses.
     std::string input_text;
+    bool stdin_fallback = false;
     for (int i = 3; i < argc; ++i) {
         if (std::strcmp(argv[i], "--frame-hash") == 0) {
             want_frame_hash = true;
@@ -112,6 +118,17 @@ int main(int argc, char** argv) {
             user_path = argv[++i];
         } else if (std::strcmp(argv[i], "--input") == 0 && i + 1 < argc) {
             input_text = argv[++i];
+        } else if (std::strcmp(argv[i], "--inputfile") == 0 && i + 1 < argc) {
+            const char* path = argv[++i];
+            std::vector<std::uint8_t> bytes;
+            if (!read_file(path, bytes)) {
+                std::fprintf(stderr, "kr232: cannot read '%s'\n", path);
+                return 2;
+            }
+            input_text.assign(bytes.begin(), bytes.end());
+            stdin_fallback = true;
+        } else if (std::strcmp(argv[i], "--console") == 0) {
+            console_mode = true;
         } else if (std::strcmp(argv[i], "--max-steps") == 0 && i + 1 < argc) {
             max_steps = std::strtoull(argv[++i], nullptr, 0);
         } else {
@@ -168,9 +185,29 @@ int main(int argc, char** argv) {
     for (const char ch : input_text) {
         (void)machine.devices().console_push_input(static_cast<std::uint8_t>(ch));
     }
+    if (console_mode || stdin_fallback) {
+        // The device asks for a line only when the guest has consumed what was
+        // queued, so a read blocks exactly where a terminal would wait.
+        machine.devices().set_console_input_refill([&machine] {
+            std::string line;
+            if (std::getline(std::cin, line)) {
+                for (const char ch : line) {
+                    (void)machine.devices().console_push_input(
+                        static_cast<std::uint8_t>(ch));
+                }
+                (void)machine.devices().console_push_input('\n');
+            }
+        });
+        machine.devices().set_console_output_sink([](std::uint8_t byte) {
+            std::fputc(byte, stdout);
+            std::fflush(stdout);
+        });
+    }
 
+    // A zero budget is the family's "run until the machine stops" spelling.
+    const bool unlimited = max_steps == 0;
     std::uint64_t steps = 0;
-    while (steps < max_steps) {
+    while (unlimited || steps < max_steps) {
         const std::uint32_t step_pc = machine.pc();
         if (want_trace) {
             // The instruction about to run, so a trap names its cause. Decoded here
@@ -253,7 +290,7 @@ int main(int argc, char** argv) {
             }
         }
         if (result.stop == kr232::Stop::Halted) {
-            std::printf("halted status %u after %llu steps\n", static_cast<unsigned>(result.status),
+            std::fprintf(console_mode ? stderr : stdout, "halted status %u after %llu steps\n", static_cast<unsigned>(result.status),
                         static_cast<unsigned long long>(steps));
             break;
         }
@@ -276,8 +313,8 @@ int main(int argc, char** argv) {
             return 1;
         }
     }
-    if (steps >= max_steps && !machine.halted()) {
-        std::printf("stopped after %llu steps\n", static_cast<unsigned long long>(steps));
+    if (!unlimited && steps >= max_steps && !machine.halted()) {
+        std::fprintf(console_mode ? stderr : stdout, "stopped after %llu steps\n", static_cast<unsigned long long>(steps));
     }
     if (want_frame_hash) {
         std::printf("frame %s\n",
