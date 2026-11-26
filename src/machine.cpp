@@ -101,6 +101,8 @@ Machine::Machine(std::uint32_t ram_bytes) : memory_(ram_bytes) { reset(); }
 void Machine::reset() {
     std::fill(std::begin(regs_), std::end(regs_), 0u);
     std::fill(std::begin(f_), std::end(f_), 0.0);
+    regs_[kZero] = 0;
+    regs_[kOne] = 1;
     regs_[kSp] = kResetSp;
     regs_[kFlags] = 1u << kK;
     cycles_ = 0;
@@ -114,6 +116,13 @@ void Machine::reset() {
 }
 
 void Machine::set_reg(unsigned index, std::uint32_t value) noexcept {
+    // R0 and R1 are part of the machine model, not storage: a write to either is
+    // discarded and a read yields the constant (ISA 2.1). Keeping them out of the
+    // array as well as out of `reg` means an instruction cannot observe a stale
+    // value through any other path.
+    if ((index & 0xFu) == kZero || (index & 0xFu) == kOne) {
+        return;
+    }
     if ((index & 0xFu) == kFlags) {
         value = (value & ~kHardwareFlags) | (regs_[kFlags] & kHardwareFlags);
     }

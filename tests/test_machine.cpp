@@ -50,6 +50,29 @@ TEST_CASE(reset_places_the_stack_and_the_kernel_bit) {
     CHECK(machine.reg(2) == 0);
 }
 
+TEST_CASE(r0_and_r1_read_as_their_constants) {
+    Machine machine(0x10000);
+    CHECK(machine.reg(0) == 0);
+    CHECK(machine.reg(1) == 1);
+}
+
+TEST_CASE(writes_to_r0_and_r1_are_discarded) {
+    // ISA 2.1: R0 reads as 0 and R1 as 1, and a write to either is discarded.
+    // `ld r0,#5 ; ld r1,#5` leaves both at their constants, so a program that
+    // uses R0 as the zero base and R1 as a count cannot be corrupted by them.
+    Program program{0x50, 0x05, 0x00, 0x00, 0x00, 0x51, 0x05, 0x00, 0x00, 0x00};
+    program.run(2);
+    CHECK(program.machine.reg(0) == 0);
+    CHECK(program.machine.reg(1) == 1);
+}
+
+TEST_CASE(a_write_to_r0_through_set_reg_is_discarded) {
+    Machine machine(0x10000);
+    machine.set_reg(0, 0xDEADBEEFu);
+    machine.set_reg(1, 0xDEADBEEFu);
+    CHECK(machine.reg(0) == 0);
+    CHECK(machine.reg(1) == 1);
+}
 TEST_CASE(load_immediate_then_add_registers) {
     // ld r2,#0x1234 ; ld r3,#0x10 ; add r2,r3
     Program program{0x52, 0x34, 0x12, 0x00, 0x00, 0x53, 0x10, 0x00, 0x00, 0x00, 0x81, 0x23};

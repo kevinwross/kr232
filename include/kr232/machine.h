@@ -33,6 +33,8 @@ struct StepResult {
 // instruction because the frame entry of ISA §11.3 is that task's.
 class Machine {
 public:
+    static constexpr unsigned kZero = 0;
+    static constexpr unsigned kOne = 1;
     static constexpr unsigned kEfp = 12;
     static constexpr unsigned kPc = 14;
     static constexpr unsigned kSp = 15;
@@ -52,7 +54,15 @@ public:
     [[nodiscard]] Devices& devices() noexcept { return devices_; }
     [[nodiscard]] const Devices& devices() const noexcept { return devices_; }
 
-    [[nodiscard]] std::uint32_t reg(unsigned index) const noexcept { return regs_[index & 0xFu]; }
+    // R0 and R1 read as their constants whatever the array holds (ISA 2.1): the
+    // value is the machine model, not a register that happens to be initialised.
+    [[nodiscard]] std::uint32_t reg(unsigned index) const noexcept {
+        switch (index & 0xFu) {
+            case 0: return 0;  // R0, the zero register
+            case 1: return 1;  // R1, the one register
+            default: return regs_[index & 0xFu];
+        }
+    }
     void set_reg(unsigned index, std::uint32_t value) noexcept;
     [[nodiscard]] double freg(unsigned index) const noexcept { return f_[index & 0x3u]; }
     void set_freg(unsigned index, double value) noexcept;
