@@ -3154,6 +3154,8 @@ Suites: krcompiler **38 of 38** kr232 rows, `krc_tests` **3704** assertions, kr2
 
 - **2026-11-26 20:47:00-08:00** — The WSL rows are raised to eight jobs on trial: `gate-linux.sh` clamps x86_64 at eight and `family-linux.ps1` caps the wave at the same. The GCC 15 ICE has not recurred since 2026-11-13; lower it again if it returns.
 
+- **2026-11-26T21:04:43-08:00** — The Linux wave's compiler row reports its gate again. The setup script ran `gate-linux.sh`, then the two `cmake --install` commands, and its exit status was the last install's, so a failing compiler row was recorded as `pass` in every family run. The script now captures the gate's status and exits with it after the installs, which a hand run confirms (setup exit 1, `GATE LINUX: FAIL`).
+
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes

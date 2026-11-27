@@ -53,8 +53,12 @@ export PATH="`$HOME/.local/bin:`$PATH"
 sh /mnt/c/Users/kevin/repos/krcompiler/scripts/kr-mirror.sh krcompiler >/dev/null 2>&1 || true
 cd "`$HOME/mirrors/krcompiler" || exit 2
 bash scripts/gate-linux.sh
+gate_status=`$?
 cmake --install build/linux-gcc-debug --prefix "`$HOME/krc-debug" >/dev/null
 cmake --install build/linux-gcc-debug --prefix "`$HOME/.local" >/dev/null
+# The installs run even when the gate failed, so the gate status is what the
+# caller must see: a script ending on the last install reports success.
+exit `$gate_status
 "@
 $setupPath = Join-Path $Logs 'linux-krcompiler-setup.sh'
 Write-Shell $setupPath $setup
@@ -73,6 +77,7 @@ d=`$HOME/mirrors/`$r
 sh /mnt/c/Users/kevin/repos/krcompiler/scripts/kr-mirror.sh `$r >/dev/null 2>&1 || true
 cd "`$d" || exit 2
 if [ -x scripts/gate-linux.sh ]; then bash scripts/gate-linux.sh
+gate_status=`$?
 elif [ -x scripts/run-gate.sh ]; then bash scripts/run-gate.sh
 else cmake --preset linux-gcc-debug >/dev/null && cmake --build --preset linux-gcc-debug -j $LinuxJobs >/dev/null && ctest --preset linux-gcc-debug -j $LinuxJobs; fi
 "@
