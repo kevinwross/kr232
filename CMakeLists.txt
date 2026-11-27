@@ -181,6 +181,9 @@ set(KR232_FIXTURE_DIR "${CMAKE_BINARY_DIR}/fixtures")
 
     # The kernel is guest code the host compiler never sees, so it is checked in
     # and run here: a program's syscall exit must come back as the host status.
+    # These rows read the generated fixtures and the kernel, which need krc and
+    # krld; the compiler-less default suite registers its own rows only.
+    if(KR232_BUILD_KERNEL)
     add_test(NAME kr232_kernel_user
         COMMAND ${CMAKE_COMMAND}
                 -DVM=$<TARGET_FILE:kr232>
@@ -293,6 +296,7 @@ set(KR232_FIXTURE_DIR "${CMAKE_BINARY_DIR}/fixtures")
             "-DBLANK_IMAGE=${KR232_FIXTURE_DIR}/blank-flip.kr232"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckFrameHash.cmake")
     set_tests_properties(kr232_cli_kernel_golden PROPERTIES LABELS "unit")
+    endif()
 
     add_test(NAME kr232_path_hygiene
         COMMAND ${CMAKE_COMMAND}
