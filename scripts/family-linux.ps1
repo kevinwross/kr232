@@ -77,7 +77,6 @@ d=`$HOME/mirrors/`$r
 sh /mnt/c/Users/kevin/repos/krcompiler/scripts/kr-mirror.sh `$r >/dev/null 2>&1 || true
 cd "`$d" || exit 2
 if [ -x scripts/gate-linux.sh ]; then bash scripts/gate-linux.sh
-gate_status=`$?
 elif [ -x scripts/run-gate.sh ]; then bash scripts/run-gate.sh
 else cmake --preset linux-gcc-debug >/dev/null && cmake --build --preset linux-gcc-debug -j $LinuxJobs >/dev/null && ctest --preset linux-gcc-debug -j $LinuxJobs; fi
 "@
