@@ -61,7 +61,14 @@ echo "kr232 gate: $preset"
 cmake --preset "$preset"
 # A share handed down by the family gate wins; alone this takes every core. The
 # suite ran serially before, which was the longest step in the Linux wave.
-JOBS="${FAMILY_JOBS:-$(nproc 2>/dev/null || echo 4)}"
+# GCC 15 in this WSL image intermittently segfaults while garbage-collecting, so
+# the x86_64 rows stay at two jobs; the ARM64 host uses every processor.
+if [ "$(uname -m 2>/dev/null || echo unknown)" = "x86_64" ]; then
+    JOBS="${FAMILY_JOBS:-2}"
+    [ "$JOBS" -gt 2 ] && JOBS=2
+else
+    JOBS="${FAMILY_JOBS:-$(nproc 2>/dev/null || echo 4)}"
+fi
 [ "$JOBS" -lt 1 ] && JOBS=1
 cmake --build --preset "$preset" -j "$JOBS"
 ctest --preset "$preset" -j "$JOBS"

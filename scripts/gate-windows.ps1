@@ -16,7 +16,7 @@ param(
 $ErrorActionPreference = 'Stop'
 # The family gate hands down a share of the machine; alone, this takes 80%.
 $cores = if ($env:NUMBER_OF_PROCESSORS) { [int]$env:NUMBER_OF_PROCESSORS } else { [Environment]::ProcessorCount }
-$jobs = if ($env:FAMILY_JOBS) { [Math]::Max(1, [int]$env:FAMILY_JOBS) } else { [Math]::Max(1, [Math]::Floor($cores * 0.8)) }
+$jobs = if ($env:FAMILY_JOBS) { [Math]::Max(1, [int]$env:FAMILY_JOBS) } else { [Math]::Max(1, $cores) }
 # J5: ask the doctor first, so a missing tool fails with a sentence naming the
 # tool and the repository instead of a build error. The doctor lives in the
 # compiler tree, the same place the shell one does.

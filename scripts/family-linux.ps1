@@ -28,6 +28,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repositories = @('krcompiler', 'kr32', 'kr16', 'kr216', 'kr232', 'krdbg')
+# The Linux wave runs in WSL on x86_64: GCC 15 there intermittently segfaults
+# while garbage-collecting, so those rows stay at two jobs even when the family
+# gate offers more. An ARM64 host would take the number it is given.
+$LinuxJobs = if ($Jobs -gt 2) { 2 } else { $Jobs }
 $results = Join-Path $Logs 'linux-results.txt'
 $started = Get-Date
 $lines = @()
@@ -63,14 +67,14 @@ foreach ($repository in ($repositories | Where-Object { $_ -ne 'krcompiler' })) 
     $one = @"
 set -u
 export PATH="`$HOME/.local/bin:`$PATH"
-export FAMILY_JOBS=$Jobs
+export FAMILY_JOBS=$LinuxJobs
 r=$repository
 d=`$HOME/mirrors/`$r
 sh /mnt/c/Users/kevin/repos/krcompiler/scripts/kr-mirror.sh `$r >/dev/null 2>&1 || true
 cd "`$d" || exit 2
 if [ -x scripts/gate-linux.sh ]; then bash scripts/gate-linux.sh
 elif [ -x scripts/run-gate.sh ]; then bash scripts/run-gate.sh
-else cmake --preset linux-gcc-debug >/dev/null && cmake --build --preset linux-gcc-debug -j $Jobs >/dev/null && ctest --preset linux-gcc-debug -j $Jobs; fi
+else cmake --preset linux-gcc-debug >/dev/null && cmake --build --preset linux-gcc-debug -j $LinuxJobs >/dev/null && ctest --preset linux-gcc-debug -j $LinuxJobs; fi
 "@
     $onePath = Join-Path $Logs "linux-$repository.sh"
     Write-Shell $onePath $one

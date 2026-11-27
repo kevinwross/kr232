@@ -32,7 +32,7 @@ pull "$ROOT/krdbg" main
 pull "$ROOT/kr216" main
 
 KRC="$ROOT/krcompiler/build/linux-clang-debug/host/bin/Debug"
-cmake --build "$ROOT/krcompiler/build/linux-clang-debug" -j 4 >/tmp/krc-build.log 2>&1 \
+cmake --build "$ROOT/krcompiler/build/linux-clang-debug" -j "$(nproc)" >/tmp/krc-build.log 2>&1 \
     || { tail -15 /tmp/krc-build.log; exit 1; }
 
 # The debugger consumes the compiler as a package, so the tree this run just
@@ -49,7 +49,7 @@ export CMAKE_PREFIX_PATH="$HOME/krc-debug${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PAT
 cmake --fresh -S "$ROOT/kr232" -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Debug \
     -DKR232_BUILD_KERNEL=ON -DKR232_KRC="$KRC/krc" -DKR232_KRLD="$KRC/krld" >/tmp/kr232-config.log 2>&1 \
     || { tail -15 /tmp/kr232-config.log; exit 1; }
-cmake --build "$BUILD" -j 4 >/tmp/kr232-build.log 2>&1 \
+cmake --build "$BUILD" -j "$(nproc)" >/tmp/kr232-build.log 2>&1 \
     || { tail -15 /tmp/kr232-build.log; exit 1; }
 
 # CMakeLists.txt fails the configure when KR232_BUILD_KERNEL is on and the compiler
@@ -72,7 +72,7 @@ pull "$ROOT/kr32" main
 KR32_BUILD="$ROOT/kr32/build/arm64-gate"
 cmake --fresh -S "$ROOT/kr32" -B "$KR32_BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Debug >/tmp/kr32-config.log 2>&1 \
     || { tail -15 /tmp/kr32-config.log; exit 1; }
-cmake --build "$KR32_BUILD" -j 4 >/tmp/kr32-build.log 2>&1 \
+cmake --build "$KR32_BUILD" -j "$(nproc)" >/tmp/kr32-build.log 2>&1 \
     || { tail -15 /tmp/kr32-build.log; exit 1; }
 [ -x "$KR32_BUILD/kr32" ] || { echo "kr32 was not built at $KR32_BUILD/kr32"; exit 1; }
 

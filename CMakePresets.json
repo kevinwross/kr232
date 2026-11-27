@@ -59,42 +59,42 @@
     }
   ],
   "buildPresets": [
-    { "name": "windows-msvc-debug", "configurePreset": "windows-msvc-debug", "jobs": 10 },
-    { "name": "windows-msvc-release", "configurePreset": "windows-msvc-release", "jobs": 10 },
-    { "name": "linux-gcc-debug", "configurePreset": "linux-gcc-debug", "jobs": 10 },
-    { "name": "linux-gcc-release", "configurePreset": "linux-gcc-release", "jobs": 10 },
-    { "name": "linux-arm64-release", "configurePreset": "linux-arm64-release", "jobs": 4 }
+    { "name": "windows-msvc-debug", "configurePreset": "windows-msvc-debug" },
+    { "name": "windows-msvc-release", "configurePreset": "windows-msvc-release" },
+    { "name": "linux-gcc-debug", "configurePreset": "linux-gcc-debug" },
+    { "name": "linux-gcc-release", "configurePreset": "linux-gcc-release" },
+    { "name": "linux-arm64-release", "configurePreset": "linux-arm64-release" }
   ],
   "testPresets": [
     {
       "name": "windows-msvc-debug",
       "configurePreset": "windows-msvc-debug",
       "output": { "outputOnFailure": true },
-      "execution": { "jobs": 1, "noTestsAction": "error" }
+      "execution": { "noTestsAction": "error" }
     },
     {
       "name": "windows-msvc-release",
       "configurePreset": "windows-msvc-release",
       "output": { "outputOnFailure": true },
-      "execution": { "jobs": 1, "noTestsAction": "error" }
+      "execution": { "noTestsAction": "error" }
     },
     {
       "name": "linux-gcc-debug",
       "configurePreset": "linux-gcc-debug",
       "output": { "outputOnFailure": true },
-      "execution": { "jobs": 1, "noTestsAction": "error" }
+      "execution": { "noTestsAction": "error" }
     },
     {
       "name": "linux-gcc-release",
       "configurePreset": "linux-gcc-release",
       "output": { "outputOnFailure": true },
-      "execution": { "jobs": 1, "noTestsAction": "error" }
+      "execution": { "noTestsAction": "error" }
     },
     {
       "name": "linux-arm64-release",
       "configurePreset": "linux-arm64-release",
       "output": { "outputOnFailure": true },
-      "execution": { "jobs": 1, "noTestsAction": "error" }
+      "execution": { "noTestsAction": "error" }
     }
   ]
 }
