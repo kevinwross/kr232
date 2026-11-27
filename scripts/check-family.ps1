@@ -79,9 +79,9 @@ $failed = 0
 
 $compiler = [pscustomobject]@{ Name = 'krcompiler'; Gate = 'scripts/gate-windows.ps1'; Preset = 'windows-msvc-debug'; Expected = 1012; ExpectedRelease = 1012 }
 $consumers = @(
-    [pscustomobject]@{ Name = 'kr32';   Gate = 'scripts/run-gate.ps1';     Preset = 'windows-msvc-debug'; Expected = 42; ExpectedRelease = 42 },
-    [pscustomobject]@{ Name = 'kr16';   Gate = '';                        Preset = 'windows-ninja-debug'; Expected = 61; ExpectedRelease = 61 },
-    [pscustomobject]@{ Name = 'kr216';  Gate = '';                        Preset = 'windows-msvc-debug'; Expected = 56; ExpectedRelease = 11
+    [pscustomobject]@{ Name = 'kr32';   Gate = 'scripts/run-gate.ps1';     Preset = 'windows-msvc-debug'; Expected = 43; ExpectedRelease = 43 },
+    [pscustomobject]@{ Name = 'kr16';   Gate = '';                        Preset = 'windows-ninja-debug'; Expected = 62; ExpectedRelease = 62 },
+    [pscustomobject]@{ Name = 'kr216';  Gate = '';                        Preset = 'windows-msvc-debug'; Expected = 58; ExpectedRelease = 11
                        Options = @('-DKR216_BUILD_GUEST_TESTS=ON') },
     [pscustomobject]@{ Name = 'kr232';  Gate = 'scripts/gate-windows.ps1'; Preset = 'windows-msvc-debug'; Expected = 0; ExpectedRelease = 0 },
     # Three rows, measured: krdbg_unit, krdbg_version and platform_boundary. The

@@ -58,7 +58,17 @@ case "$preset" in
 esac
 
 echo "kr232 gate: $preset"
-cmake --preset "$preset"
+# The kernel and the test fixtures are guest code built by krc and krld. Without
+# them the kernel and CLI rows have nothing to read, so name the missing tool
+# instead of failing on a file.
+krc_bin="${KR232_KRC:-$(command -v krc 2>/dev/null || true)}"
+krld_bin="${KR232_KRLD:-$(command -v krld 2>/dev/null || true)}"
+if [ -z "$krc_bin" ] || [ -z "$krld_bin" ]; then
+    echo "kr232 gate: krc and krld are required to build the kernel and the fixtures" >&2
+    exit 2
+fi
+cmake --preset "$preset" -DKR232_BUILD_KERNEL=ON \
+    "-DKR232_KRC=$krc_bin" "-DKR232_KRLD=$krld_bin"
 # A share handed down by the family gate wins; alone this takes every core. The
 # suite ran serially before, which was the longest step in the Linux wave.
 # GCC 15 in this WSL image intermittently segfaults while garbage-collecting, so
@@ -72,5 +82,11 @@ fi
 [ "$JOBS" -lt 1 ] && JOBS=1
 cmake --build --preset "$preset" -j "$JOBS"
 ctest --preset "$preset" -j "$JOBS"
-node tools/check-isa.mjs
+# The ISA document check needs Node, which this WSL image does not install. Name
+# the skip rather than letting the row fail on a missing interpreter.
+if command -v node >/dev/null 2>&1; then
+    node tools/check-isa.mjs
+else
+    echo "kr232 gate: node is not installed; skipping the ISA document check" >&2
+fi
 echo "kr232 gate: $preset passed"
