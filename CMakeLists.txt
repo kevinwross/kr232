@@ -156,6 +156,11 @@ if(KR232_BUILD_KERNEL)
     krguest_find_toolchain()
 endif()
 
+# The kernel and the test fixtures are build output: every image is built from
+# its source, so a clean tree has the inputs the tests below read.
+set(KR232_KERNEL_IMAGE "${CMAKE_BINARY_DIR}/kernel.kr232")
+set(KR232_FIXTURE_DIR "${CMAKE_BINARY_DIR}/fixtures")
+
 
     add_executable(kr232_tests
         tests/main.cpp
@@ -179,23 +184,11 @@ endif()
     add_test(NAME kr232_kernel_user
         COMMAND ${CMAKE_COMMAND}
                 -DVM=$<TARGET_FILE:kr232>
-                -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.kr232
-                -DPROGRAM=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-exit42.kr232
+                -DKERNEL=${KR232_KERNEL_IMAGE}
+                -DPROGRAM=${KR232_FIXTURE_DIR}/user-exit42.kr232
                 -DEXPECT_EXIT=42
                 -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232Kernel.cmake)
-    if(KR232_BUILD_KERNEL)
-        add_test(NAME kr232_kernel_matches_source
-            COMMAND ${CMAKE_COMMAND}
-                    -DVM=$<TARGET_FILE:kr232>
-                    -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.kr232
-                    -DPROGRAM=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-exit42.kr232
-                    -DEXPECT_EXIT=42
-                    -DROOT=${CMAKE_CURRENT_SOURCE_DIR}
-                    -DKRC=${KRG_KRC}
-                    -DKRLD=${KRG_KRLD}
-                    -DWORK=${CMAKE_BINARY_DIR}/kernel-rebuild
-                    -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232Kernel.cmake)
-    endif()
+
     # One program that calls every entry in the kernel's table, including the
     # block-pointer drawing calls; the frame it commits is the golden.
     # The kernel's read call: the program echoes whatever the console holds, so
@@ -204,29 +197,19 @@ endif()
     # program exits 0 only when STATUS bit 0 ERROR came back through the kernel.
     # Every checked-in image must equal a fresh build of its source: a stale
     # fixture keeps passing tests against a program nobody has.
-    if(KR232_BUILD_KERNEL)
-        add_test(NAME kr232_fixtures_match_source
-            COMMAND ${CMAKE_COMMAND}
-                    -DROOT=${CMAKE_CURRENT_SOURCE_DIR}
-                    -DKRC=${KRG_KRC}
-                    -DKRLD=${KRG_KRLD}
-                    -DFIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures
-                    -DRUNTIME=${KR232_RUNTIME_DIR}
-                    -DWORK=${CMAKE_BINARY_DIR}/fixtures
-                    -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232FixtureDrift.cmake)
-    endif()
+
     add_test(NAME kr232_kernel_text_reports_error
         COMMAND ${CMAKE_COMMAND}
                 -DVM=$<TARGET_FILE:kr232>
-                -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.kr232
-                -DPROGRAM=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-text.kr232
+                -DKERNEL=${KR232_KERNEL_IMAGE}
+                -DPROGRAM=${KR232_FIXTURE_DIR}/user-text.kr232
                 -DEXPECT_EXIT=0
                 -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232Kernel.cmake)
     add_test(NAME kr232_kernel_read
         COMMAND ${CMAKE_COMMAND}
                 -DVM=$<TARGET_FILE:kr232>
-                -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.kr232
-                -DPROGRAM=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-echo.kr232
+                -DKERNEL=${KR232_KERNEL_IMAGE}
+                -DPROGRAM=${KR232_FIXTURE_DIR}/user-echo.kr232
                 -DEXPECT_EXIT=0
                 -DINPUT=hey!
                 -DEXPECT_CONSOLE=hey!
@@ -234,11 +217,11 @@ endif()
     add_test(NAME kr232_kernel_calls
         COMMAND ${CMAKE_COMMAND}
                 -DVM=$<TARGET_FILE:kr232>
-                -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.kr232
-                -DPROGRAM=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-calls.kr232
+                -DKERNEL=${KR232_KERNEL_IMAGE}
+                -DPROGRAM=${KR232_FIXTURE_DIR}/user-calls.kr232
                 -DEXPECT_EXIT=0
                 -DFRAME_HASH=f6b786175f12b425
-                -DBLANK_IMAGE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/blank-flip.kr232
+                -DBLANK_IMAGE=${KR232_FIXTURE_DIR}/blank-flip.kr232
                 -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232Kernel.cmake)
 
     # The package program names no call numbers: it prints, draws, flips and
@@ -250,19 +233,19 @@ endif()
                     -DKRC=${KRG_KRC}
                     -DKRLD=${KRG_KRLD}
                     -DVM=$<TARGET_FILE:kr232>
-                    -DKERNEL=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel.kr232
+                    -DKERNEL=${KR232_KERNEL_IMAGE}
                     -DRUNTIME=${KR232_RUNTIME_DIR}
                     -DINCLUDE=${KR232_SYSROOT_DIR}
                     -DFIXTURE=${KR232_PACKAGE_FIXTURE}
                     -DWORK=${CMAKE_BINARY_DIR}/packages
                     -DFRAME_HASH=659d051c4dc232e5
                     -DINPUT=z
-                    -DBLANK_IMAGE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/blank-flip.kr232
+                    -DBLANK_IMAGE=${KR232_FIXTURE_DIR}/blank-flip.kr232
                     -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232UserPackages.cmake)
     endif()
 
     add_test(NAME kr232_dis_flat
-        COMMAND kr232-dis "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel-gate.bin")
+        COMMAND kr232-dis "${KR232_FIXTURE_DIR}/kernel-gate.bin")
     set_tests_properties(kr232_dis_flat PROPERTIES
         LABELS "unit"
         PASS_REGULAR_EXPRESSION "ld r2, #0xfff08000")
@@ -276,7 +259,7 @@ endif()
     # the machine it leaves behind. The hash of an uncommitted frame is the FNV
     # offset basis, so this also pins that the flag does not invent a frame.
     add_test(NAME kr232_cli_frame_hash
-        COMMAND kr232 vm "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/halt.bin"
+        COMMAND kr232 vm "${KR232_FIXTURE_DIR}/halt.bin"
                 --base 0x08000000 --max-steps 10 --frame-hash)
     set_tests_properties(kr232_cli_frame_hash PROPERTIES
         LABELS "unit"
@@ -285,7 +268,7 @@ endif()
     # A zero budget is unlimited, so the image reaches its SYS exit instead of
     # stopping before the first instruction.
     add_test(NAME kr232_cli_zero_max_steps
-        COMMAND kr232 vm "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/halt.bin"
+        COMMAND kr232 vm "${KR232_FIXTURE_DIR}/halt.bin"
                 --base 0x08000000 --max-steps 0)
     set_tests_properties(kr232_cli_zero_max_steps PROPERTIES
         LABELS "unit"
@@ -295,8 +278,8 @@ endif()
     # the framebuffer register, and a clean exit. The hash is what makes the run
     # reproducible across hosts and runs.
     add_test(NAME kr232_cli_kernel
-        COMMAND kr232 vm "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel-draw.bin"
-                --max-steps 100 --frame-hash)
+        COMMAND kr232 vm "${KR232_FIXTURE_DIR}/kernel-draw.bin"
+                --base 0x104 --max-steps 100 --frame-hash)
     set_tests_properties(kr232_cli_kernel PROPERTIES
         LABELS "unit"
         PASS_REGULAR_EXPRESSION "frame 1628b6c37bf7a2ad")
@@ -305,9 +288,9 @@ endif()
     add_test(NAME kr232_cli_kernel_golden
         COMMAND ${CMAKE_COMMAND}
             "-DEXE=$<TARGET_FILE:kr232>"
-            "-DIMAGE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel-gate.bin"
+            "-DIMAGE=${KR232_FIXTURE_DIR}/kernel-gate.bin"
             "-DGOLDEN=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel-gate.hash"
-            "-DBLANK_IMAGE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/blank-flip.kr232"
+            "-DBLANK_IMAGE=${KR232_FIXTURE_DIR}/blank-flip.kr232"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckFrameHash.cmake")
     set_tests_properties(kr232_cli_kernel_golden PROPERTIES LABELS "unit")
 
@@ -331,7 +314,6 @@ endif()
 # The kernel target uses the toolchain resolved above by cmake/KrGuest.cmake;
 # this block only registers it, so there is one place that decides where krc is.
 if(KR232_BUILD_KERNEL)
-    set(KR232_KERNEL_IMAGE "${CMAKE_BINARY_DIR}/kernel.kr232")
     add_custom_target(kr232_kernel ALL
         # Compiled from the source root with a relative path: the assembler
         # records the path it is given in the debug section, so an absolute one
@@ -348,4 +330,35 @@ if(KR232_BUILD_KERNEL)
                 -o "${KR232_KERNEL_IMAGE}"
         COMMENT "Building the kr232 kernel with krc from the prefix"
         VERBATIM)
+endif()
+
+# The fixtures are images of programs whose sources are in the tree; build them
+# so a clean tree has every input the tests read.
+if(KR232_BUILD_KERNEL)
+    add_custom_command(
+        OUTPUT "${KR232_FIXTURE_DIR}/.stamp"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${KR232_FIXTURE_DIR}"
+        COMMAND ${CMAKE_COMMAND}
+                "-DROOT=${CMAKE_CURRENT_SOURCE_DIR}"
+                "-DKRC=${KRG_KRC}"
+                "-DKRLD=${KRG_KRLD}"
+                "-DRUNTIME=${KR232_RUNTIME_DIR}"
+                "-DOUT=${KR232_FIXTURE_DIR}"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/BuildKr232Fixtures.cmake"
+        COMMAND ${CMAKE_COMMAND} -E touch "${KR232_FIXTURE_DIR}/.stamp"
+        DEPENDS
+            "${CMAKE_CURRENT_SOURCE_DIR}/cmake/BuildKr232Fixtures.cmake"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-exit42.s"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-echo.s"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-text.s"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/user-calls.c"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/blank-flip.s"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel-gate.s"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/halt.s"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel-draw.s"
+            "${KR232_RUNTIME_DIR}/crt0_user.s"
+            "${KR232_RUNTIME_DIR}/syscall6.s"
+        COMMENT "Building the kr232 test fixtures"
+        VERBATIM)
+    add_custom_target(kr232_fixtures ALL DEPENDS "${KR232_FIXTURE_DIR}/.stamp")
 endif()
