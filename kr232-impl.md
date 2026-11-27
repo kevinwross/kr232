@@ -3160,6 +3160,8 @@ Suites: krcompiler **38 of 38** kr232 rows, `krc_tests` **3704** assertions, kr2
 - **2026-11-26T23:10:54-08:00** — **The Linux gate builds the kernel and the fixtures, and the family counts are current.** `gate-linux.sh` configured the preset without a toolchain, so `KR232_BUILD_KERNEL` was off, the fixture target never ran and nine rows read files that did not exist; it now requires `krc` and `krld` (from `KR232_KRC`/`KR232_KRLD` or PATH) and configures with the kernel build, naming the missing tool when one is absent. The ISA document check needs Node, which the WSL image does not install, so the gate names that skip instead of failing on the interpreter. `check-family.ps1` asserted the old row counts; kr32 is 43, kr16 62 and kr216 58.
 - **2026-11-26T23:23:54-08:00** — **The fixture rows are registered only where the fixtures exist.** They read the generated images, so a configure without krc and krld registered nine rows that could only fail. The compiler-less default suite now registers its own two rows, and the kernel build with the toolchain runs all thirteen.
 - **2026-11-26T23:24:24-08:00** — **The kernel row count follows the rows that exist.** With the two drift rows gone the kernel tree registers 13, and both the Windows gate and the ARM64 check asserted 15.
+- **2026-11-27T04:44:35-08:00** — The repository points at the family build guide. `AGENTS.local.md` now opens with a Family build guide section naming `docs/kr-build-instructions.md` (or the sibling path in a WSL mirror), so a session that starts a build finds the preset names, gate flags, prefixes and the generated test images before configuring. Documentation only: no build.
+
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes

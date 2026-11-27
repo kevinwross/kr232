@@ -8,6 +8,16 @@ Add entries here rather than editing the managed blocks in `AGENTS.md`; an edit 
 
 **This file holds standing rules, not status.** Progress, milestone state, counts, and completion notes belong in the project's tracker, wherever it keeps one. A recorded project had its agent append milestone state here in 117 of 135 commits: the file grew by half, and the rules governing the work changed almost every commit with nothing reviewing them.
 
+## Family build guide
+
+`../KRCompiler/docs/kr-build-instructions.md` is the family build and gate guide
+(`../krcompiler/docs/kr-build-instructions.md` in a WSL mirror): how the six trees
+are configured and built, the preset names that exist, the gate flags, the
+prefixes they install into, which test images the build generates rather than
+tracks, and the clean-build procedure. Read it before configuring a build or
+running the family gate; it is the entry point for a session that starts one, and
+this file carries only what is specific to this repository.
+
 ## Plan
 
 **Status.** Approved 0.18: thirteen scope decisions are accepted (eight in §2, five in §12), every section has been reviewed, and the owner approved the set on 2026-11-22 as the implementation basis for the 1.x milestones. Milestone progress lives in `kr232-impl.md` §12–§14, which owns it; this file carries the authority, not the state.
