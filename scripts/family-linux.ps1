@@ -29,9 +29,9 @@ param(
 $ErrorActionPreference = 'Stop'
 $repositories = @('krcompiler', 'kr32', 'kr16', 'kr216', 'kr232', 'krdbg')
 # The Linux wave runs in WSL on x86_64: GCC 15 there intermittently segfaults
-# while garbage-collecting, so those rows stay at two jobs even when the family
+# while garbage-collecting, so those rows stay at eight jobs even when the family
 # gate offers more. An ARM64 host would take the number it is given.
-$LinuxJobs = if ($Jobs -gt 2) { 2 } else { $Jobs }
+$LinuxJobs = if ($Jobs -gt 8) { 8 } else { $Jobs }
 $results = Join-Path $Logs 'linux-results.txt'
 $started = Get-Date
 $lines = @()

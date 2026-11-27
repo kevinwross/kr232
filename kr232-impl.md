@@ -3152,6 +3152,8 @@ The runtime row now proves it: `krc_kr232_runtime` requires `total=55 float=8`, 
 Suites: krcompiler **38 of 38** kr232 rows, `krc_tests` **3704** assertions, kr232 **15 of 15**, krdbg **17 of 17**. `krdbg_tests` passed three consecutive runs after reporting 13 failures in earlier runs; the intermittent failure is **not explained** and is recorded as an open defect, not a fixed one.
 - **2026-11-26T16:29:54-08:00** — Parallel jobs follow the processor count. `gate-windows.ps1` drops the 80% rule and uses the count; `gate-linux.sh` keeps the x86_64 rows at two jobs because GCC 15 in this WSL image intermittently segfaults while garbage-collecting, and takes every processor on ARM64; `check-arm64.ps1` passes `nproc` instead of a literal four; `family-linux.ps1` clamps the WSL wave to two. The build and test presets lose their `jobs` values, and the gates pass the count to `ctest`. Verified: the scripts parse, and kr32's gate (same rule) reports 24 logical processors and 43/43.
 
+- **2026-11-26 20:47:00-08:00** — The WSL rows are raised to eight jobs on trial: `gate-linux.sh` clamps x86_64 at eight and `family-linux.ps1` caps the wave at the same. The GCC 15 ICE has not recurred since 2026-11-13; lower it again if it returns.
+
 ## 14. Gate verification
 
 ### M3 — the code generator, runtime and freezes
