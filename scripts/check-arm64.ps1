@@ -42,6 +42,9 @@ cmake --build "$ROOT/krcompiler/build/linux-clang-debug" -j "$(nproc)" >/tmp/krc
 cmake --install "$ROOT/krcompiler/build/linux-clang-debug" --prefix "$HOME/krc-debug" \
     >/tmp/krc-install.log 2>&1 || { tail -15 /tmp/krc-install.log; exit 1; }
 export CMAKE_PREFIX_PATH="$HOME/krc-debug${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}"
+# The krdbg gate builds kr232 as a subproject, and that needs krc and krld on
+# PATH to build the guest fixtures; the install just put them here.
+export PATH="$HOME/krc-debug/bin:$PATH"
 
 # `--fresh` discards the cache: a directory reused between runs keeps any setting a
 # previous run put there, and a stale KR232_WARNINGS_AS_ERRORS=OFF would relax the
