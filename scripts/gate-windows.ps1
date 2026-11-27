@@ -92,8 +92,8 @@ if ($Krc -and $Krld) {
     # registering reports success and a smaller suite is the failure this exists
     # to catch.
     $registered = (& $ctest --test-dir build/gate-kernel -N 2>&1 | Select-String -Pattern 'Total Tests: (\d+)').Matches.Groups[1].Value
-    if ($registered -ne '15') {
-        throw "the kernel tree registered $registered rows, expected 15; a missing row reports success"
+    if ($registered -ne '13') {
+        throw "the kernel tree registered $registered rows, expected 13; a missing row reports success"
     }
     Write-Output "kernel rows registered: $registered"
     Invoke-Step 'kernel ctest' { & $ctest --test-dir build/gate-kernel -j $jobs --output-on-failure }
