@@ -31,6 +31,10 @@ pull "$ROOT/krdbg" main
 # the failure reads as a missing target rather than a stale tree.
 pull "$ROOT/kr216" main
 
+# A clean host has no configured tree, so configure before building: the preset
+# owns the generator and the Compiler choice.
+(cd "$ROOT/krcompiler" && cmake --preset linux-clang-debug) >/tmp/krc-config.log 2>&1 \
+    || { tail -15 /tmp/krc-config.log; exit 1; }
 KRC="$ROOT/krcompiler/build/linux-clang-debug/host/bin/Debug"
 cmake --build "$ROOT/krcompiler/build/linux-clang-debug" -j "$(nproc)" >/tmp/krc-build.log 2>&1 \
     || { tail -15 /tmp/krc-build.log; exit 1; }
