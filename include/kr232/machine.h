@@ -5,6 +5,7 @@
 #include <kr232/memory.h>
 
 #include <cstdint>
+#include <string_view>
 
 namespace kr232 {
 
@@ -28,9 +29,9 @@ struct StepResult {
 // hardware-owned, so `set_reg(11, x)` restores them (ISA §2.2, §15.29).
 //
 // An access the Memory class cannot serve becomes a trap, never a silent zero:
-// the executor asks the map rather than guessing a vector. Until the protection
-// task lands every access runs with K = 1, and a trap leaves PC at the trapping
-// instruction because the frame entry of ISA §11.3 is that task's.
+// the executor asks the map rather than guessing a vector. Protection is the two
+// range checks of ISA §2.3, and trap entry builds the frame of ISA §11.3, which
+// saves PC at the trapping instruction.
 class Machine {
 public:
     static constexpr unsigned kZero = 0;
@@ -53,6 +54,22 @@ public:
     [[nodiscard]] const Memory& memory() const noexcept { return memory_; }
     [[nodiscard]] Devices& devices() noexcept { return devices_; }
     [[nodiscard]] const Devices& devices() const noexcept { return devices_; }
+
+    // The shared text display behind the terminal page (kr232-devices.md §7). A
+    // debugger renders its cells, cursor and colours, and sends input through it; the
+    // terminal page and the SYS standard streams are the guest-visible front ends of
+    // the same display.
+    [[nodiscard]] krc::display::TextDisplay& display() noexcept { return devices_.display(); }
+    [[nodiscard]] const krc::display::TextDisplay& display() const noexcept {
+        return devices_.display();
+    }
+    // The display's host input, for a debugger front end. push_text turns line feeds
+    // into Enter and drops carriage returns; push_key carries a raw key code.
+    void push_display_key(std::uint16_t code) { devices_.display().push_key(code); }
+    void push_display_text(std::string_view text) { devices_.display().push_text(text); }
+    void push_display_click(std::uint16_t row, std::uint16_t col, std::uint16_t buttons) {
+        devices_.display().push_click(row, col, buttons);
+    }
 
     // R0 and R1 read as their constants whatever the array holds (ISA 2.1): the
     // value is the machine model, not a register that happens to be initialised.

@@ -1,11 +1,11 @@
-# Runs the kr232 checks on the ARM64 host over ssh, including the compiler's whole
+# Runs the kr232 checks on the ARM64 host over ssh, including the compiler's
+# suite and krdbg's own gate.
 #
-# The Linux host is the only place the ARM64 toolchain exists, so every check
-# there has been run by hand and its result pasted into kr232-impl.md. This does
-# suite and krdbg's own gate. The steps are the same in one command and it fails
-# loudly: pull the three checkouts, build the compiler and the emulator, then run
+# The Linux host is the only place the ARM64 toolchain exists. The steps are the
+# same in one command and it fails loudly: pull the checkouts, build the compiler
+# and the emulator, then run every suite the repositories have.
 #
-# every suite the repositories have. Usage: scripts/check-arm64.ps1 [-Target bitwhiz] [-Root ~/repos]
+# Usage: scripts/check-arm64.ps1 [-Target bitwhiz] [-Root ~/repos]
 param(
     [string]$Target = 'bitwhiz',
     [string]$Root = '~/repos'
@@ -54,7 +54,8 @@ export PATH="$HOME/krc-debug/bin:$PATH"
 # previous run put there, and a stale KR232_WARNINGS_AS_ERRORS=OFF would relax the
 # build without saying so.
 cmake --fresh -S "$ROOT/kr232" -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Debug \
-    -DKR232_BUILD_KERNEL=ON -DKR232_KRC="$KRC/krc" -DKR232_KRLD="$KRC/krld" >/tmp/kr232-config.log 2>&1 \
+    -DKR232_BUILD_KERNEL=ON -DKR232_KRC="$KRC/krc" -DKR232_KRLD="$KRC/krld" \
+    -DKR232_KRC_PREFIX="$HOME/krc-debug" >/tmp/kr232-config.log 2>&1 \
     || { tail -15 /tmp/kr232-config.log; exit 1; }
 cmake --build "$BUILD" -j "$(nproc)" >/tmp/kr232-build.log 2>&1 \
     || { tail -15 /tmp/kr232-build.log; exit 1; }
@@ -64,8 +65,8 @@ cmake --build "$BUILD" -j "$(nproc)" >/tmp/kr232-build.log 2>&1 \
 # anyway: a row that stops being registered for any other reason is exactly the
 # failure this gate exists to catch, and ctest reports success either way.
 ROWS=$(ctest --test-dir "$BUILD" -N 2>/dev/null | grep -cE '^ *Test +#' || true)
-if [ "$ROWS" -ne 13 ]; then
-    echo "kr232 registered $ROWS rows, expected 13; a missing row reports success"
+if [ "$ROWS" -ne 14 ]; then
+    echo "kr232 registered $ROWS rows, expected 14; a missing row reports success"
     ctest --test-dir "$BUILD" -N 2>&1 | grep -E 'Test +#' || true
     exit 1
 fi

@@ -56,6 +56,31 @@ TEST_CASE(r0_and_r1_read_as_their_constants) {
     CHECK(machine.reg(1) == 1);
 }
 
+TEST_CASE(the_machine_exposes_the_display_and_its_input_to_a_front_end) {
+    // The debugger adapter renders machine.display() and forwards input through it:
+    // terminal page writes show up as shared-display cells, and keys, text and clicks
+    // queue on the same display.
+    Machine machine(0x10000);
+    const std::uint32_t data = kr232::Devices::kBase + 8u * kr232::Devices::kPageSize;
+    CHECK(machine.devices().write(data, 4, 'H') == kr232::DeviceResult::Ok);
+    CHECK(machine.display().cell(0, 0).code == static_cast<std::uint16_t>('H'));
+    CHECK(machine.display().cursor_col() == 1);
+
+    machine.push_display_text("ok");
+    CHECK(machine.display().get_key() == 'o');
+    CHECK(machine.display().get_key() == 'k');
+
+    machine.push_display_key(krc::display::kKeyEnter);
+    CHECK(machine.display().get_key() == krc::display::kKeyEnter);
+
+    machine.push_display_click(2, 3, krc::display::kButtonLeft);
+    krc::display::Click click;
+    CHECK(machine.display().take_click(click));
+    CHECK(click.row == 2);
+    CHECK(click.col == 3);
+    CHECK(click.buttons == krc::display::kButtonLeft);
+}
+
 TEST_CASE(writes_to_r0_and_r1_are_discarded) {
     // ISA 2.1: R0 reads as 0 and R1 as 1, and a write to either is discarded.
     // `ld r0,#5 ; ld r1,#5` leaves both at their constants, so a program that
@@ -428,8 +453,8 @@ TEST_CASE(the_exit_status_is_the_whole_word) {
     CHECK(wide.machine.exit_status() == 0x12345678u);
 }
 
-TEST_CASE(sys_write_sends_guest_bytes_to_the_console) {
-    // R7 = 1, R2 = fd 1 (console), R3 = address, R4 = length.
+TEST_CASE(sys_write_sends_guest_bytes_to_the_display) {
+    // R7 = 1, R2 = fd 1 (standard output), R3 = address, R4 = length.
     Program program{0x73};
     (void)program.machine.memory().write8(0x2000, 'h');
     (void)program.machine.memory().write8(0x2001, 'i');
@@ -439,16 +464,16 @@ TEST_CASE(sys_write_sends_guest_bytes_to_the_console) {
     program.machine.set_reg(4, 2);
     (void)program.machine.step();
     CHECK(program.machine.reg(2) == 2u);
-    const auto& out = program.machine.devices().console_output();
-    CHECK(out.size() == 2u);
-    if (out.size() == 2u) {
-        CHECK(out[0] == 'h');
-        CHECK(out[1] == 'i');
-    }
+    const auto& display = program.machine.display();
+    CHECK(display.cell(0, 0).code == static_cast<std::uint16_t>('h'));
+    CHECK(display.cell(0, 1).code == static_cast<std::uint16_t>('i'));
+    CHECK(display.cursor_col() == 2);
+    // Standard output is the display; the console page is the debug serial stream
+    // and a write through SYS does not reach it.
+    CHECK(program.machine.devices().console_output().empty());
 
-    // A refused descriptor answers -1 and writes nothing. Descriptor 2 is the
-    // conventional error stream and is not one the host serves, so it is refused
-    // like any other number (ISA §13: 1 is the console, 0 its input).
+    // A refused descriptor answers -1 and writes nothing. Descriptor 2 is not a
+    // stream the host serves (ISA §13: 1 is standard output, 0 standard input).
     Program refusal{0x73};
     (void)refusal.machine.memory().write8(0x2000, 'x');
     refusal.machine.set_reg(7, 1);
@@ -458,11 +483,13 @@ TEST_CASE(sys_write_sends_guest_bytes_to_the_console) {
     (void)refusal.machine.step();
     CHECK(refusal.machine.reg(2) == 0xFFFFFFFFu);
     CHECK(refusal.machine.devices().console_output().empty());
+    CHECK(refusal.machine.display().cell(0, 0).code == 0);
 }
 
-TEST_CASE(sys_read_takes_console_input_and_time_answers_two_words) {
+TEST_CASE(sys_read_takes_display_input_and_time_answers_two_words) {
+    // A queued key is one byte of standard input.
     Program read{0x73};
-    CHECK(read.machine.devices().console_push_input('A'));
+    read.machine.display().push_text("A");
     read.machine.set_reg(7, 2);
     read.machine.set_reg(2, 0);
     read.machine.set_reg(3, 0x2000);
@@ -473,14 +500,53 @@ TEST_CASE(sys_read_takes_console_input_and_time_answers_two_words) {
     CHECK(read.machine.memory().read8(0x2000, got) == kr232::Access::Ok);
     CHECK(got == 'A');
 
-    // An empty queue is end of input: 0 bytes, not an error.
-    Program empty{0x73};
-    empty.machine.set_reg(7, 2);
-    empty.machine.set_reg(2, 0);
-    empty.machine.set_reg(3, 0x2000);
-    empty.machine.set_reg(4, 1);
-    (void)empty.machine.step();
-    CHECK(empty.machine.reg(2) == 0u);
+    // The console page is separate: its queued input is not display input.
+    Program console{0x73};
+    (void)console.machine.devices().console_push_input('Z');
+    console.machine.set_reg(7, 2);
+    console.machine.set_reg(2, 0);
+    console.machine.set_reg(3, 0x2000);
+    console.machine.set_reg(4, 1);
+    (void)console.machine.step();
+    CHECK(console.machine.reg(2) == 0xFFFFFFFFu);  // nothing typed on the display
+
+    // A source that is open with nothing queued answers -1: not ready, not end.
+    // Closing it makes the empty read end of input: 0 bytes (ISA §13).
+    Program waiting{0x73};
+    waiting.machine.set_reg(7, 2);
+    waiting.machine.set_reg(2, 0);
+    waiting.machine.set_reg(3, 0x2000);
+    waiting.machine.set_reg(4, 4);
+    (void)waiting.machine.step();
+    CHECK(waiting.machine.reg(2) == 0xFFFFFFFFu);
+    waiting.machine.devices().close_terminal_input();
+    waiting.machine.set_reg(2, 0);  // R2 is the descriptor and then the result
+    waiting.machine.set_pc(0x1000);
+    (void)waiting.machine.step();
+    CHECK(waiting.machine.reg(2) == 0u);
+
+    // The host line editor: the first read arms it and answers -1, typing completes
+    // a line, and the next read serves the line and its newline.
+    Program line{0x73};
+    line.machine.set_reg(7, 2);
+    line.machine.set_reg(2, 0);
+    line.machine.set_reg(3, 0x2000);
+    line.machine.set_reg(4, 8);
+    (void)line.machine.step();
+    CHECK(line.machine.reg(2) == 0xFFFFFFFFu);
+    CHECK(line.machine.display().editor_active());
+    line.machine.display().push_text("hi\n");
+    line.machine.set_reg(2, 0);  // R2 is the descriptor and then the result
+    line.machine.set_pc(0x1000);
+    (void)line.machine.step();
+    CHECK(line.machine.reg(2) == 3u);
+    std::uint8_t served[3] = {};
+    for (std::uint32_t i = 0; i < 3; ++i) {
+        CHECK(line.machine.memory().read8(0x2000 + i, served[i]) == kr232::Access::Ok);
+    }
+    CHECK(served[0] == 'h');
+    CHECK(served[1] == 'i');
+    CHECK(served[2] == '\n');
 
     // time fills R2:R3 with 64-bit seconds. The high word is zero until 2106,
     // which is why no test can reach the carry through it: the contract is

@@ -22,11 +22,15 @@ void usage(std::FILE* out) {
     std::fputs(
         "usage: kr232 <command> [options]\n"
         "  vm <image> [--base <hex>] [--max-steps <n>] [--frame-hash]\n"
-        "               run a flat image; --base 0 reads the entry from 0x0100\n"
+        "               run a flat or .kr232 image; --base 0 reads the entry from 0x0100\n"
         "               --max-steps <n> instruction budget (default 1000000; 0 = no limit)\n"
-        "               --input <text> queues console input, --user <image> runs a user program\n"
+        "               --input <text> queues display input, --user <image> runs a user program\n"
         "               --inputfile <path> queues a file's contents, then reads stdin\n"
-        "               --console reads console input from stdin and writes output to stdout\n"
+        "               --console reads display input from stdin and writes display output to stdout\n"
+        "               --transcript prints the debug serial bytes and the display grid\n"
+        "               --trace keeps the last 40 instructions for a trap report\n"
+        "               --break <addr> [--break-max <n>] dumps state at an address\n"
+        "               --watch <addr>, --watch-page <addr>, --watch-fp report writes\n"
         "  --version    print the version and exit\n"
         "  --help       print this text and exit\n",
         out);
@@ -87,8 +91,9 @@ int main(int argc, char** argv) {
     std::deque<std::pair<std::uint32_t, std::string>> trace;
     bool want_transcript = false;
     bool console_mode = false;
-    // Text queued on the console before the run, so a program that reads input
-    // can be tested without a terminal. It is the same queue the device uses.
+    // Text queued on the display before the run, so a program that reads standard
+    // input can be tested without a terminal. It is the display's input queue; the
+    // console page is the separate debug serial stream.
     std::string input_text;
     bool stdin_fallback = false;
     for (int i = 3; i < argc; ++i) {
@@ -182,26 +187,26 @@ int main(int argc, char** argv) {
         machine.set_reg(2, user_loaded.entry);
     }
 
-    for (const char ch : input_text) {
-        (void)machine.devices().console_push_input(static_cast<std::uint8_t>(ch));
-    }
+    // Standard input and output are the display. Scripted input is queued before the
+    // run; an interactive source refills a line only when the guest asks for one.
+    machine.display().push_text(input_text);
     if (console_mode || stdin_fallback) {
-        // The device asks for a line only when the guest has consumed what was
-        // queued, so a read blocks exactly where a terminal would wait.
-        machine.devices().set_console_input_refill([&machine] {
+        machine.devices().set_terminal_input_refill([&machine] {
             std::string line;
             if (std::getline(std::cin, line)) {
-                for (const char ch : line) {
-                    (void)machine.devices().console_push_input(
-                        static_cast<std::uint8_t>(ch));
-                }
-                (void)machine.devices().console_push_input('\n');
+                machine.display().push_text(line + "\n");
+            } else {
+                machine.devices().close_terminal_input();
             }
         });
-        machine.devices().set_console_output_sink([](std::uint8_t byte) {
+        machine.devices().set_terminal_output_sink([](std::uint8_t byte) {
             std::fputc(byte, stdout);
             std::fflush(stdout);
         });
+    } else {
+        // No interactive source: --input (if any) is the whole script, so a read past
+        // it reports end of input instead of waiting for a key that cannot come.
+        machine.devices().close_terminal_input();
     }
 
     // A zero budget is the family's "run until the machine stops" spelling.
@@ -320,12 +325,11 @@ int main(int argc, char** argv) {
         std::printf("frame %s\n",
                     kr232::frame_hash_text(kr232::frame_hash(machine.devices())).c_str());
     }
-    // The terminal grid is what a program wrote to the console; printing it is how
-    // a transcript check reads the screen without a renderer.
+    // The display grid is what a program wrote to standard output; printing it is how
+    // a transcript check reads the screen without a renderer. The console page is the
+    // debug serial stream, printed separately when a program wrote to it.
     if (want_transcript) {
         const auto& devices = machine.devices();
-        // The console page's bytes first: they are what a program wrote, whether
-        // or not a renderer ever saw them.
         std::string console;
         for (const std::uint8_t byte : devices.console_output()) {
             if (byte >= 0x20 || byte == '\n' || byte == '\t') {
@@ -335,11 +339,16 @@ int main(int argc, char** argv) {
         if (!console.empty()) {
             std::printf("console:\n%s\n", console.c_str());
         }
+        const krc::display::TextDisplay& display = machine.display();
         std::printf("transcript:\n");
-        for (std::uint32_t y = 0; y < devices.terminal_rows(); ++y) {
+        for (std::uint16_t y = 0; y < display.rows(); ++y) {
             std::string row;
-            for (std::uint32_t x = 0; x < devices.terminal_columns(); ++x) {
-                row.push_back(static_cast<char>(devices.terminal_cell(x, y).ch));
+            row.reserve(display.cols());
+            for (std::uint16_t x = 0; x < display.cols(); ++x) {
+                const std::uint16_t code = display.cell(y, x).code;
+                row.push_back(code >= 0x20 && code <= 0x7E
+                                  ? static_cast<char>(code)
+                                  : ' ');
             }
             while (!row.empty() && row.back() == ' ') {
                 row.pop_back();
@@ -347,8 +356,7 @@ int main(int argc, char** argv) {
             std::printf("%s\n", row.c_str());
         }
     }
-    // The program's SYS exit status is the process status (kr232-plan 6).
-    // The program's SYS status is the process exit code, in full: a test that
-    // exits 300 must be distinguishable from one that exits 44.
+    // The program's SYS exit status is the process status, in full: a test that
+    // exits 300 must be distinguishable from one that exits 44 (kr232-plan §6).
     return machine.halted() ? static_cast<int>(machine.exit_status()) : 0;
 }

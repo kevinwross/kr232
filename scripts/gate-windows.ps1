@@ -31,6 +31,22 @@ if (Test-Path $doctor) {
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
+# The installed krc::display package lives in the compiler prefix beside krc, so the
+# gate derives that prefix from -Krc (then KRG_PREFIX, then krc on PATH) and hands it
+# to every configure. A tree whose prefix lacks the package fails its configure by
+# design rather than at link time.
+$prefix = ''
+if ($Krc) {
+    $prefix = Split-Path -Parent (Split-Path -Parent $Krc)
+} elseif ($env:KRG_PREFIX) {
+    $prefix = $env:KRG_PREFIX
+} else {
+    $onPath = Get-Command krc -ErrorAction SilentlyContinue
+    if ($onPath) { $prefix = Split-Path -Parent (Split-Path -Parent $onPath.Source) }
+}
+$prefixArgs = @()
+if ($prefix) { $prefixArgs = @("-DKR232_KRC_PREFIX=$prefix") }
+
 # CMake and ctest are not on PATH on this machine; the Visual Studio copy is. Fall
 # back to the bare names for a machine where they are on PATH.
 $cmake = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe'
@@ -48,7 +64,7 @@ Invoke-Step 'spec lint' { node tools/check-isa.mjs }
 # The gate configures its own tree: on a clean checkout there is nothing to test,
 # and a gate that only builds assumes a tree someone else configured with options
 # it cannot see -- which is how a cold run reported "No tests were found".
-Invoke-Step 'configure (default)' { & $cmake --preset $Preset }
+Invoke-Step 'configure (default)' { & $cmake --preset $Preset @prefixArgs }
 # The default suite reads the emulator this preset builds, so the gate builds it. The
 # gate used to run ctest only, which passes on a tree someone else had built and
 # fails on a clean one with "BINARY is not set or does not exist".
@@ -59,13 +75,12 @@ $unit = Join-Path $root 'build/windows-msvc/kr232_tests.exe'
 if (Test-Path $unit) {
     Invoke-Step 'kr232_tests' { & $unit }
 }
-# The default suite includes two rows that read the kernel image, so the kernel tree
-# has to exist before it runs. Building it here keeps the gate self-contained on a
-# clean checkout; without a toolchain the two rows fail rather than being skipped,
-# which is the honest report.
+# The default tree registers the two hygiene rows. The kernel and CLI rows live in
+# the separate kernel-enabled tree configured below, which needs krc and krld;
+# without them those rows are skipped and the gate says so.
 if ($Krc -and $Krld) {
     Write-Output '== configure with the kernel'
-    & $cmake -S $root -B build/gate-kernel -G Ninja -DKR232_BUILD_KERNEL=ON "-DKR232_KRC=$Krc" "-DKR232_KRLD=$Krld" | Out-Null
+    & $cmake -S $root -B build/gate-kernel -G Ninja -DKR232_BUILD_KERNEL=ON "-DKR232_KRC=$Krc" "-DKR232_KRLD=$Krld" @prefixArgs | Out-Null
     Write-Output '== build the kernel'
     & $cmake --build build/gate-kernel -j $jobs | Out-Null
 }
@@ -77,7 +92,7 @@ if ($Krc -and $Krld) {
         throw "KRC and KRLD were given but do not exist: $Krc $Krld"
     }
     Write-Output '== kernel rows, package row, fixture drift'
-    $configure = @("-DKR232_KRC=$Krc", "-DKR232_KRLD=$Krld")
+    $configure = @("-DKR232_KRC=$Krc", "-DKR232_KRLD=$Krld") + $prefixArgs
     # A fresh Ninja tree needs cl.exe, its INCLUDE paths and the Windows SDK on the
     # environment: from a plain shell the dyndep step fails with "code=2" and the
     # message names nothing useful. Say what is missing instead.
@@ -92,8 +107,8 @@ if ($Krc -and $Krld) {
     # registering reports success and a smaller suite is the failure this exists
     # to catch.
     $registered = (& $ctest --test-dir build/gate-kernel -N 2>&1 | Select-String -Pattern 'Total Tests: (\d+)').Matches.Groups[1].Value
-    if ($registered -ne '13') {
-        throw "the kernel tree registered $registered rows, expected 13; a missing row reports success"
+    if ($registered -ne '14') {
+        throw "the kernel tree registered $registered rows, expected 14; a missing row reports success"
     }
     Write-Output "kernel rows registered: $registered"
     Invoke-Step 'kernel ctest' { & $ctest --test-dir build/gate-kernel -j $jobs --output-on-failure }

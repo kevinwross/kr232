@@ -434,11 +434,14 @@ StepResult Machine::execute(const Decoded& d) {
                     // ISA §13: R7 selects the call, R2-R5 carry the arguments and
                     // R2 returns the result. A refused call answers -1 in R2 and
                     // the program continues; only `exit` stops the machine.
+                    //
+                    // Descriptors name the display's standard streams: 1 is standard
+                    // output (the terminal page) and 0 standard input (the host line
+                    // editor and key queue). The console page is the debug serial
+                    // stream and stdio does not touch it.
                     constexpr std::uint32_t kRefused = 0xFFFFFFFFu;
-                    constexpr std::uint32_t kConsoleOut =
-                        Devices::kBase + 2u * Devices::kPageSize;
-                    constexpr std::uint32_t kConsoleIn = kConsoleOut + 4u;
-                    constexpr std::uint32_t kConsoleEmpty = 0xFFFFFFFFu;
+                    constexpr std::uint32_t kDisplayOut =
+                        Devices::kBase + 8u * Devices::kPageSize;
                     switch (regs_[7]) {
                         case 0: {
                             halted_ = true;
@@ -459,7 +462,8 @@ StepResult Machine::execute(const Decoded& d) {
                                     break;
                                 }
                                 std::uint32_t word = byte;
-                                if (devices_.write(kConsoleOut, 4, word) != DeviceResult::Ok) {
+                                if (devices_.write(kDisplayOut, 4, word) !=
+                                    DeviceResult::Ok) {
                                     break;
                                 }
                                 ++written;
@@ -475,20 +479,27 @@ StepResult Machine::execute(const Decoded& d) {
                             const std::uint32_t address = regs_[3];
                             const std::uint32_t length = regs_[4];
                             std::uint32_t got = 0;
+                            bool not_ready = false;
                             while (got < length) {
-                                std::uint32_t value = 0;
-                                if (devices_.read(kConsoleIn, 4, value) != DeviceResult::Ok ||
-                                    value == kConsoleEmpty) {
+                                std::uint8_t byte = 0;
+                                const Devices::InputState state =
+                                    devices_.terminal_read_byte(byte);
+                                if (state == Devices::InputState::Byte) {
+                                    if (memory_.write8(address + got, byte) != Access::Ok) {
+                                        break;
+                                    }
+                                    ++got;
+                                } else if (state == Devices::InputState::EndOfInput) {
+                                    break;  // 0 bytes is end of input (ISA §13)
+                                } else {
+                                    // The source is open and nothing is typed yet. A
+                                    // request that got no byte answers -1 so a caller
+                                    // can retry instead of mistaking it for the end.
+                                    not_ready = got == 0u;
                                     break;
                                 }
-                                if (memory_.write8(address + got,
-                                                   static_cast<std::uint8_t>(value & 0xFFu)) !=
-                                    Access::Ok) {
-                                    break;
-                                }
-                                ++got;
                             }
-                            regs_[2] = got;
+                            regs_[2] = not_ready ? kRefused : got;
                             return retired;
                         }
                         case 3: {  // time: R2:R3, seconds since the epoch

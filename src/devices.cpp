@@ -3,6 +3,7 @@
 #include <kr232/memory.h>
 
 #include <algorithm>
+#include <cassert>
 #include <cstdlib>
 #include <cstring>
 
@@ -13,6 +14,30 @@ struct PageId {
     unsigned page;
     std::uint32_t id;
 };
+
+// The fixed 16-entry palette of kr232-devices.md §7.3, as the XRGB8888 colours the
+// shared display stores. The terminal page still speaks palette indices.
+constexpr std::uint32_t kPaletteRgb[16] = {
+    0x000000u, 0x0000AAu, 0x00AA00u, 0x00AAAAu, 0xAA0000u, 0xAA00AAu, 0xAA5500u, 0xAAAAAAu,
+    0x555555u, 0x5555FFu, 0x55FF55u, 0x55FFFFu, 0xFF5555u, 0xFF55FFu, 0xFFFF55u, 0xFFFFFFu,
+};
+
+// The shared display stores XRGB8888 with the alpha byte unused; the page draws
+// opaque text, so the high byte is all ones.
+constexpr std::uint32_t kOpaque = 0xFF000000u;
+
+std::uint32_t palette_color(unsigned index) noexcept {
+    return kOpaque | kPaletteRgb[index & 0x0Fu];
+}
+
+unsigned palette_index(std::uint32_t color, unsigned fallback) noexcept {
+    for (unsigned index = 0; index < 16; ++index) {
+        if ((color & 0x00FFFFFFu) == kPaletteRgb[index]) {
+            return index;
+        }
+    }
+    return fallback;
+}
 
 // The eight populated pages and their `ID` words (kr232-devices.md §3–§10).
 constexpr PageId kPageIds[] = {
@@ -62,7 +87,10 @@ DeviceResult Devices::decode(std::uint32_t address, std::uint32_t width, unsigne
     return DeviceResult::Ok;
 }
 
-Devices::Devices() noexcept { reset_clip(); }
+Devices::Devices() noexcept {
+    reset_clip();
+    terminal_sync_geometry();
+}
 
 void Devices::reset_clip() noexcept {
     const Surface surface = target_surface();
@@ -180,7 +208,7 @@ void Devices::run_graphics(const Memory& ram) {
             }
             return;
         }
-        case 6:  // DRAW_TEXT: the glyph set arrives with the terminal page
+        case 6:  // DRAW_TEXT: no guest-visible atlas; the command refuses by design
             g_error_ = true;
             return;
         case 7:  // FLIP
@@ -280,78 +308,146 @@ void Devices::run_graphics(const Memory& ram) {
 void Devices::terminal_sync_geometry() noexcept {
     const std::uint32_t cols = committed_.width / 10u;
     const std::uint32_t rows = committed_.height / 20u;
-    if (cols == term_cols_ && rows == term_rows_) {
+    const auto width = static_cast<std::uint16_t>(cols > 0 ? cols : 1);
+    const auto height = static_cast<std::uint16_t>(rows > 0 ? rows : 1);
+    if (display_ && width == term_cols_ && height == term_rows_) {
         return;
     }
-    term_cols_ = cols > 0 ? cols : 1;
-    term_rows_ = rows > 0 ? rows : 1;
-    terminal_clear();
+    term_cols_ = width;
+    term_rows_ = height;
+    // The shared display fixes its geometry at construction, so a committed mode
+    // change installs a new one. Its cells start in the colours the page holds.
+    display_.emplace(height, width, palette_color(term_color_ & 0x0Fu),
+                     palette_color((term_color_ >> 4) & 0x0Fu));
+    display_->set_cursor_visible((term_control_ & 1u) != 0);
 }
 
 void Devices::terminal_clear() noexcept {
-    grid_.assign(static_cast<std::size_t>(term_cols_) * term_rows_, Cell{});
-    cursor_x_ = 0;
-    cursor_y_ = 0;
+    terminal_sync_geometry();
+    display_->clear();
+    display_->set_cursor(0, 0);
 }
 
-void Devices::terminal_scroll() noexcept {
-    if (term_rows_ < 2) {
-        terminal_clear();
-        return;
-    }
-    const std::size_t row = term_cols_;
-    grid_.erase(grid_.begin(), grid_.begin() + static_cast<std::ptrdiff_t>(row));
-    grid_.insert(grid_.end(), row, Cell{});
-    cursor_y_ = term_rows_ - 1;
+void Devices::terminal_apply_color() noexcept {
+    terminal_sync_geometry();
+    display_->set_color(palette_color(term_color_ & 0x0Fu),
+                        palette_color((term_color_ >> 4) & 0x0Fu));
 }
 
 void Devices::terminal_put(std::uint8_t ch) noexcept {
     terminal_sync_geometry();
     switch (ch) {
-        case 0x0A:  // newline
-            ++cursor_y_;
-            break;
-        case 0x0D:  // carriage return
-            cursor_x_ = 0;
-            break;
-        case 0x08:  // backspace, no erase
-            if (cursor_x_ > 0) {
-                --cursor_x_;
-            }
-            break;
-        case 0x09:  // tab to the next multiple of eight
-            cursor_x_ = (cursor_x_ / 8u + 1u) * 8u;
-            break;
-        case 0x0C:  // form feed
+        case 0x0C:  // form feed: clear the grid and home the cursor
             terminal_clear();
             break;
         default:
-            if (ch < 0x20 || ch == 0x7F) {
-                return;  // ignored, and not mirrored
+            // Other control bytes and DEL are not cells: the page ignores them, and
+            // they are not reported to an interactive host sink either.
+            if ((ch < 0x20 && ch != 0x08 && ch != 0x09 && ch != 0x0A && ch != 0x0D) ||
+                ch == 0x7F) {
+                return;
             }
-            grid_[static_cast<std::size_t>(cursor_y_) * term_cols_ + cursor_x_] =
-                Cell{ch, static_cast<std::uint8_t>(term_color_ & 0x0Fu),
-                     static_cast<std::uint8_t>((term_color_ >> 4) & 0x0Fu)};
-            ++cursor_x_;
+            // The shared display owns newline, carriage return, backspace, tab,
+            // wrapping and scrolling (kr232-devices.md §7.2).
+            display_->put(ch);
             break;
     }
-    if (cursor_x_ >= term_cols_) {
-        cursor_x_ = 0;
-        ++cursor_y_;
+    if (terminal_sink_) {
+        terminal_sink_(ch);
     }
-    while (cursor_y_ >= term_rows_) {
-        terminal_scroll();
-    }
-    // §7.4: every accepted character also reaches the console stream.
-    console_output_.push_back(ch);
 }
 
-const Devices::Cell& Devices::terminal_cell(std::uint32_t x, std::uint32_t y) const noexcept {
-    static const Cell blank{};
+Devices::Cell Devices::terminal_cell(std::uint32_t x, std::uint32_t y) const noexcept {
+    Cell cell;
     if (x >= term_cols_ || y >= term_rows_) {
-        return blank;
+        return cell;
     }
-    return grid_[static_cast<std::size_t>(y) * term_cols_ + x];
+    const krc::display::Cell& shared =
+        display().cell(static_cast<std::uint16_t>(y), static_cast<std::uint16_t>(x));
+    cell.ch = shared.code == 0
+                  ? static_cast<std::uint8_t>(' ')
+                  : static_cast<std::uint8_t>(shared.code <= 0xFFu ? shared.code : ' ');
+    cell.fg = static_cast<std::uint8_t>(palette_index(shared.foreground, 7));
+    cell.bg = static_cast<std::uint8_t>(palette_index(shared.background, 0));
+    return cell;
+}
+
+krc::display::TextDisplay& Devices::display() noexcept {
+    assert(display_);
+    return *display_;
+}
+
+const krc::display::TextDisplay& Devices::display() const noexcept {
+    assert(display_);
+    return *display_;
+}
+
+std::uint32_t Devices::terminal_cursor_x() const noexcept { return display().cursor_col(); }
+
+std::uint32_t Devices::terminal_cursor_y() const noexcept { return display().cursor_row(); }
+
+void Devices::set_terminal_input_refill(std::function<void()> refill) {
+    terminal_refill_ = std::move(refill);
+}
+
+void Devices::close_terminal_input() noexcept { display().close_input(); }
+
+bool Devices::terminal_input_closed() const noexcept { return display().input_closed(); }
+
+void Devices::set_terminal_output_sink(std::function<void(std::uint8_t)> sink) {
+    terminal_sink_ = std::move(sink);
+}
+
+Devices::InputState Devices::terminal_read_byte(std::uint8_t& byte) {
+    terminal_sync_geometry();
+    krc::display::TextDisplay& text = *display_;
+    bool refilled = false;
+    for (;;) {
+        if (!terminal_pending_.empty()) {
+            byte = terminal_pending_.front();
+            terminal_pending_.pop_front();
+            return InputState::Byte;
+        }
+        if (text.line_ready()) {
+            const std::optional<std::string> line = text.take_line();
+            if (line) {
+                for (const char character : *line) {
+                    terminal_pending_.push_back(static_cast<std::uint8_t>(character));
+                }
+                terminal_pending_.push_back('\n');
+                continue;
+            }
+        }
+        const int key = text.get_key();
+        if (key >= 0) {
+            if (key == krc::display::kKeyEnter) {
+                byte = '\n';
+                return InputState::Byte;
+            }
+            if (key <= 0xFF) {
+                byte = static_cast<std::uint8_t>(key);
+                return InputState::Byte;
+            }
+            continue;  // an extended key is not a byte of the standard input stream
+        }
+        if (key == krc::display::kStatusEndOfInput) {
+            return InputState::EndOfInput;
+        }
+        // Nothing queued yet. A host source may supply a line; after that the
+        // source either has input, has closed, or is still waiting for the user.
+        if (!refilled && terminal_refill_) {
+            refilled = true;
+            terminal_refill_();
+            continue;
+        }
+        if (text.input_closed()) {
+            return InputState::EndOfInput;
+        }
+        // Arm the host line editor so typing echoes at the cursor and Enter
+        // completes a line; this request answers "not ready" and the guest polls.
+        text.arm_line_editor(text.cols());
+        return InputState::NotReady;
+    }
 }
 
 void Devices::run_blitter(Memory& ram) {
@@ -786,18 +882,23 @@ DeviceResult Devices::write(std::uint32_t address, std::uint32_t width, std::uin
                 return DeviceResult::Ok;
             case 0x08:
                 term_control_ = value;
+                terminal_sync_geometry();
+                display_->set_cursor_visible((value & 1u) != 0);
                 return DeviceResult::Ok;
             case 0x0C:
                 if (value == 1) {
                     terminal_clear();
                 } else if (value == 2) {  // full reset
-                    term_control_ = 0;
+                    term_control_ = 1;    // cursor visible (§12)
                     term_color_ = 0x07;
+                    terminal_apply_color();
                     terminal_clear();
+                    display_->set_cursor_visible(true);
                 }
                 return DeviceResult::Ok;
             case 0x10:
                 term_color_ = value & 0xFFu;
+                terminal_apply_color();
                 return DeviceResult::Ok;
             default:
                 return DeviceResult::Undefined;

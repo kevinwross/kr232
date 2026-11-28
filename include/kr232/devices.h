@@ -1,10 +1,13 @@
 #pragma once
 
+#include <krc/display/text_display.h>
+
 #include <cstddef>
 #include <cstdint>
 #include <deque>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <vector>
 
 namespace kr232 {
@@ -21,9 +24,10 @@ enum class DeviceResult : std::uint8_t {
 // The device window of ISA §14.1: 240 pages of 4 KiB, one device per page, and
 // `base + 0x3C` is the ID word on every populated page (kr232-devices.md §1).
 //
-// Only the timer (page 0) and the system page (10) are implemented; the other six
-// populated pages answer their ID and trap every other offset until their own
-// commit, which is a recorded intermediate state rather than a silent zero.
+// All eight populated pages are implemented: timer, console, framebuffer,
+// keyboard, terminal, graphics commands, system control and blitter. A reserved
+// page, an undefined offset or a mis-shaped access is an address error, never a
+// silent zero.
 class Devices {
 public:
     static constexpr std::uint32_t kBase = 0xFFF00000u;
@@ -126,8 +130,8 @@ public:
     };
     [[nodiscard]] Surface target_surface() const noexcept;
 
-    // The terminal's character grid (page 8). A cell remembers the character and
-    // the palette indices current when it was written (kr232-devices.md §7.3).
+    // The terminal's cell as the page presents it: the character and the palette
+    // indices that were current when it was written (kr232-devices.md §7.3).
     struct Cell {
         std::uint8_t ch = ' ';
         std::uint8_t fg = 7;
@@ -135,14 +139,43 @@ public:
     };
     [[nodiscard]] std::uint32_t terminal_columns() const noexcept { return term_cols_; }
     [[nodiscard]] std::uint32_t terminal_rows() const noexcept { return term_rows_; }
-    [[nodiscard]] const Cell& terminal_cell(std::uint32_t x, std::uint32_t y) const noexcept;
-    [[nodiscard]] std::uint32_t terminal_cursor_x() const noexcept { return cursor_x_; }
-    [[nodiscard]] std::uint32_t terminal_cursor_y() const noexcept { return cursor_y_; }
+    [[nodiscard]] Cell terminal_cell(std::uint32_t x, std::uint32_t y) const noexcept;
+    [[nodiscard]] std::uint32_t terminal_cursor_x() const noexcept;
+    [[nodiscard]] std::uint32_t terminal_cursor_y() const noexcept;
     // The console's output bytes, in the order a program wrote them. This is the
-    // console page's observable behaviour, independent of any renderer.
+    // console page's observable behaviour, independent of any renderer; it is the
+    // debug serial stream, and stdio does not write it.
     [[nodiscard]] const std::deque<std::uint8_t>& console_output() const noexcept {
         return console_output_;
     }
+
+    // ---- shared text display ---------------------------------------------------
+    //
+    // The terminal page is a register front end over the shared host text display
+    // from `krc::display`. The display owns the grid and the input queues; the page
+    // maps its DATA/STATUS/CONTROL/COMMAND/COLOR registers onto it, and a debugger
+    // renders the cells and forwards keys, text and clicks. The guest never reads a
+    // cell back.
+    [[nodiscard]] krc::display::TextDisplay& display() noexcept;
+    [[nodiscard]] const krc::display::TextDisplay& display() const noexcept;
+
+    // Host input for the display, served by a guest read of the standard input
+    // stream (SYS read descriptor 0): the completed line editor output, then the raw
+    // key queue. `NotReady` means the source is open but has queued nothing yet;
+    // `EndOfInput` means the host closed it. `byte` is valid only for `Byte`.
+    enum class InputState : std::uint8_t { Byte, NotReady, EndOfInput };
+    [[nodiscard]] InputState terminal_read_byte(std::uint8_t& byte);
+    // Called when a read finds nothing queued and the source is open; it may queue a
+    // line, and must not re-enter the device. A host that reaches end of input calls
+    // close_terminal_input() from the callback.
+    void set_terminal_input_refill(std::function<void()> refill);
+    // The source is exhausted: no further key or text can arrive, and a drained
+    // display input answers EndOfInput. Idempotent.
+    void close_terminal_input() noexcept;
+    [[nodiscard]] bool terminal_input_closed() const noexcept;
+    // Called for every accepted display character, before it is drawn. An
+    // interactive front end writes it through to its own output.
+    void set_terminal_output_sink(std::function<void(std::uint8_t)> sink);
 
 private:
     void flip() noexcept;
@@ -150,11 +183,11 @@ private:
     [[nodiscard]] std::vector<std::uint8_t>& vram();
 
     // Terminal helpers. Geometry follows the committed framebuffer mode, so a
-    // flip that changes the mode re-sizes the grid and homes the cursor.
+    // flip that changes the mode re-sizes the display and homes the cursor.
     void terminal_sync_geometry() noexcept;
     void terminal_clear() noexcept;
-    void terminal_scroll() noexcept;
     void terminal_put(std::uint8_t ch) noexcept;
+    void terminal_apply_color() noexcept;
 
     [[nodiscard]] DeviceResult decode(std::uint32_t address, std::uint32_t width, unsigned& page,
                                       std::uint32_t& offset) const noexcept;
@@ -203,14 +236,19 @@ private:
     std::uint32_t clip_w_ = 0;
     std::uint32_t clip_h_ = 0;
 
-    // Page 8.
-    std::vector<Cell> grid_;
+    // Page 8: the shared display. The optional is engaged whenever the device has a
+    // valid geometry, which is from construction onward; a committed mode change
+    // replaces it because the shared display's geometry is fixed at construction.
+    std::optional<krc::display::TextDisplay> display_;
     std::uint32_t term_cols_ = 0;
     std::uint32_t term_rows_ = 0;
-    std::uint32_t cursor_x_ = 0;
-    std::uint32_t cursor_y_ = 0;
-    std::uint32_t term_control_ = 0;
+    // Bit 0 is cursor visible. The reset state hides nothing (kr232-devices.md §12:
+    // "cursor at home and visible"), so the reset value is 1.
+    std::uint32_t term_control_ = 1;
     std::uint32_t term_color_ = 0x07;
+    std::deque<std::uint8_t> terminal_pending_;
+    std::function<void()> terminal_refill_;
+    std::function<void(std::uint8_t)> terminal_sink_;
 
     // Page 11.
     std::uint32_t blit_src_ = 0;

@@ -1,6 +1,6 @@
-; Echo whatever is queued on the console: read up to eight bytes, write back
-; exactly as many as arrived. It proves the kernel's read call moves bytes into
-; user memory, because the echoed text comes back out of the buffer.
+; Echo whatever is queued on the display: read up to eight bytes of standard input,
+; write back exactly as many as arrived. It proves the kernel's read call moves bytes
+; into user memory, because the echoed text comes back out of the buffer.
 .globl _start
 .text
 _start:

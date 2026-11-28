@@ -9,7 +9,7 @@
 | Applies to | the planned `kr232` device model, the host display window, and the guest `fb`, `gfx`, `cons` and `input` packages |
 | Normative | §2–§10 are device contracts the ISA points at. §11 is a *package* contract, not ISA: it describes a guest library the plan will build |
 | Access | every device register and the framebuffer aperture are kernel-only (ISA §2.3); a user-mode access raises a protection fault, and user code reaches a device only through `SYSCALL` |
-| Open items | §13 lists the differences from kr32, §14 what planning still has to settle |
+| Open items | §13 lists the differences from kr32, §14 what planning still has to settle. `kr232-isa.md` 1.0 still describes the pre-split streams (its §13 names the console for `SYS` descriptors 0/1 and its §15.55 records the terminal mirror); this document is the current contract, and the ISA revision that follows the split will record the display streams and retire the mirror |
 
 The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 
@@ -32,7 +32,7 @@ this document fills in the registers.
 |---|---|---|---|
 | 0 | `0xFFF00000` | timer | §3 |
 | 1 | `0xFFF01000` | reserved: block device planned | §10.1 |
-| 2 | `0xFFF02000` | console: polled byte stream | §4 |
+| 2 | `0xFFF02000` | console: debug serial byte stream | §4 |
 | 3 | `0xFFF03000` | reserved: interrupt router planned | §10.1 |
 | 4 | `0xFFF04000` | framebuffer control | §5 |
 | 5 | `0xFFF05000` | reserved: serial tty planned | §10.1 |
@@ -92,15 +92,16 @@ Behaviour:
 
 ## 4. Console — page 2 (`0xFFF02000`)
 
-The console is the polled byte stream: the host's standard output and standard input, which is the
-same pair the `SYS` `write`/`read` calls use (ISA §13). It is the debug transport; the *screen*
-console is the terminal in §7. The terminal mirrors what it accepts onto this stream (ISA §15.55),
-so a transcript of a run contains the screen text as well as the program's own writes.
+The console is the debug serial stream: a polled byte transport for a debugger's COM tab
+and for kernel debugging code. It is not standard input or output. Standard streams are
+the display (SYS descriptors 0 and 1, §13 of the ISA, and the terminal page in §7): a
+program's `putchar`, `printf`, `getchar` and `getc` reach the display, and the console page
+is left for debug output. The terminal does not mirror to it.
 
 | Offset | Name | Access | Reset | Meaning |
 |---|---|---|---|---|
-| `0x00` | `OUT` | WO | — | bits 0–7 are written to the host output stream |
-| `0x04` | `IN` | RO | — | next input byte in bits 0–7; `0xFFFFFFFF` when empty |
+| `0x00` | `OUT` | WO | — | bits 0–7 are written to the host's debug output stream |
+| `0x04` | `IN` | RO | — | next debug input byte in bits 0–7; `0xFFFFFFFF` when empty |
 | `0x08` | `STATUS` | RO | — | bit 0 `RX_READY`, bit 1 `TX_READY` (always 1), bit 2 `OVERRUN` (sticky) |
 | `0x3C` | `ID` | RO | `0x434F4E31` | `CON1` |
 
@@ -109,8 +110,10 @@ so a transcript of a run contains the screen text as well as the program's own w
 - `OVERRUN` is set when input arrives while the queue is full and is cleared by writing 1 to
   `STATUS`.
 - The console never echoes, never translates newlines, and never interprets control characters; a
-  host that attaches a terminal does that on its side of the wire.
+  host that attaches a debugger renders it on its own side of the wire.
 - Reading `OUT` returns 0.
+- The page is kernel-only like every device. User code cannot reach it; a program that wants the
+  debug stream asks the kernel to write these registers.
 
 ## 5. Framebuffer — page 4 (`0xFFF04000`) and the aperture
 
@@ -173,9 +176,10 @@ disabled, 800x600, stride 3200, format 1, front 0.
 Writes never fault. An out-of-range write leaves the register unchanged; the rejection is visible
 through `MODE_OK` and `FLIP_ERROR`.
 
-The terminal (§7) and the graphics device (§8) paint into the same back surface the guest draws on:
-text, host drawing and guest pixels compose in one buffer, and the console is drawn last so it sits
-on top.
+The display keeps a character grid, a cursor and a 16-colour palette as host state (the shared
+`krc::display` text display, §7); a front end renders those cells, and the guest never reads one
+back. Compositing text over guest pixels is the renderer's business, because the 10x20 font
+belongs to the front end, not to this repository: `DRAW_TEXT` still refuses by design (§8.2).
 
 ## 6. Keyboard — page 6 (`0xFFF06000`)
 
@@ -202,15 +206,18 @@ An event word is packed little-endian:
 
 ## 7. Terminal — page 8 (`0xFFF08000`)
 
-The terminal is the *screen* console. The host owns the character grid, the font, the palette, the
-scrollback ring and the rendering; the guest writes characters. A console scroll therefore costs
-the guest one store, not half a million pixel stores.
+The terminal is the *screen* console and the machine's standard output. The host owns the
+character grid, the cursor, the palette and the input queues; the guest writes characters.
+A console scroll therefore costs the guest one store, not half a million pixel stores.
+The page is a register front end over the shared host text display from the `krc::display`
+package: the package owns the cells and input, this page maps its registers onto it, and a
+front end (the debugger) renders it.
 
 | Offset | Name | Access | Reset | Meaning |
 |---|---|---|---|---|
 | `0x00` | `DATA` | WO | — | write one character; bits 0–7 |
 | `0x04` | `STATUS` | RO | — | bit 0 `READY` (always 1), bits 8–15 columns, bits 16–23 rows |
-| `0x08` | `CONTROL` | RW | 0 | bit 0 cursor visible, bit 1 console hidden |
+| `0x08` | `CONTROL` | RW | 1 | bit 0 cursor visible, bit 1 console hidden |
 | `0x0C` | `COMMAND` | WO | — | 1 clear, 2 full reset |
 | `0x10` | `COLOR` | RW | `0x07` | bits 0–3 foreground index, bits 4–7 background |
 | `0x3C` | `ID` | RO | `0x5445524D` | `TERM` |
@@ -223,7 +230,8 @@ change resets the grid and homes the cursor; a guest that changes the mode shoul
 
 ### 7.2 Character handling
 
-- `0x0A` newline: move to the next row; at the last row the grid scrolls up one line.
+- `0x0A` newline: move to the first column of the next row; at the last row the grid scrolls up
+  one line.
 - `0x0D` carriage return: column 0.
 - `0x08` backspace: one column left, no erase.
 - `0x09` tab: advance to the next multiple of eight columns.
@@ -233,8 +241,10 @@ change resets the grid and homes the cursor; a guest that changes the mode shoul
 
 ### 7.3 Palette
 
-`COLOR` selects from a fixed 16-entry palette. A cell stores a character and the two indices that
-were current when it was written; changing `COLOR` does not recolour existing cells.
+`COLOR` selects from a fixed 16-entry palette. A cell stores a character and the two colours that
+were current when it was written; changing `COLOR` does not recolour existing cells. The shared
+display stores colours as XRGB8888, so each index maps to the opaque colour in the table; the
+page's `Cell` view reports the index and the display's cell reports the XRGB value.
 
 | # | Colour | RGB | # | Colour | RGB |
 |---|---|---|---|---|---|
@@ -247,19 +257,19 @@ were current when it was written; changing `COLOR` does not recolour existing ce
 | 6 | brown | `0xAA5500` | 14 | yellow | `0xFFFF55` |
 | 7 | light grey | `0xAAAAAA` | 15 | white | `0xFFFFFF` |
 
-### 7.4 Composition and visibility
+`CONTROL` bit 0 shows or hides the cursor and resets to 1 (visible); `COMMAND` 2 restores that
+reset value, colour 7 and a cleared, homed grid.
 
-- The terminal paints into the framebuffer back surface, after the graphics device, so text sits on
-  top of drawings. A full-screen graphics program hides the console with `CONTROL.bit1`; clearing
-  the bit redraws the whole grid.
-- With `CONTROL.bit1` set the grid keeps updating and nothing is drawn.
-- The terminal never flips. The guest decides when a frame is presented, exactly as for graphics —
-  `con_present()` is one `FLIP`.
-- With no framebuffer enabled the terminal still accepts writes and maintains its grid; nothing is
-  rendered.
-- Each accepted character is also written to the console page's `OUT` (ISA §15.55), so a run's
-  transcript carries the screen text. The mirror is a development aid and retires when the terminal
-  and the COM port separate.
+### 7.4 Visibility
+
+- `CONTROL` bit 1 hides the console: the grid keeps updating and the front end draws nothing.
+  Cleared, the whole grid is drawn again.
+- The terminal never flips. The guest decides when a frame is presented, exactly as for
+  graphics — `con_present()` is one `FLIP`.
+- The display keeps its grid whether or not the framebuffer is enabled; a front end renders the
+  cells it holds.
+- Standard input and output are this page's display (the ISA's SYS descriptors 0 and 1). The
+  console page (§4) is the debug serial stream and is not part of stdio.
 
 ## 8. Graphics commands — page 9 (`0xFFF09000`)
 
@@ -486,7 +496,10 @@ void con_present(void);                      /* FLIP */
 
 `con_putc` handles `\n`, `\r`, `\b`, `\t` and `\f` in the host (§7.2); the guest does not translate
 anything. `con_present` is a flip only. In user mode each call is one `SYSCALL`; a `con_write` of
-many characters is one call, not one per byte.
+many characters is one call, not one per byte. The package is the screen console, not the debug
+serial: kernel mode writes the terminal page directly, and kernel-mode display input has no device
+register, so it is read with the C runtime's `getchar` (SYS 2) rather than through the page. User
+mode reaches both directions through the kernel's `SYSCALL` wrappers.
 
 ### 11.5 `<kr232/input.h>` — the keyboard
 
@@ -536,7 +549,7 @@ the kernel copies and validates everything.
 | Console | queues empty, no overrun |
 | Framebuffer | disabled, 800x600, stride 3200, format 1, front 0, back `0x001E0000`, frame counter 0, no error, VRAM cleared |
 | Keyboard | FIFO empty, no overrun |
-| Terminal | grid cleared, cursor at home and visible, 80x30, colour 7 |
+| Terminal | grid cleared, cursor at home and visible (`CONTROL` 1), 80x30, colour 7 |
 | Graphics | command 0, arguments 0, clip full target, no error |
 | Blitter | registers 0, no `DONE` or `ERROR` status |
 | System | nothing to reset; the cycle counter starts at 0 |

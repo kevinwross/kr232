@@ -397,21 +397,46 @@ TEST_CASE(the_terminal_grid_follows_the_committed_mode) {
     CHECK(((status >> 16) & 0xFFu) == 30);     // 600 / 20
     CHECK(devices.terminal_columns() == 80);
     CHECK(devices.terminal_rows() == 30);
+    CHECK(devices.display().cols() == 80);
+    CHECK(devices.display().rows() == 30);
 }
 
-TEST_CASE(a_terminal_write_stores_the_cell_and_mirrors_to_the_console) {
+TEST_CASE(a_committed_mode_change_resizes_the_shared_display) {
+    Devices devices;
+    CHECK(write_register(devices, 4, 0x04, 640) == DeviceResult::Ok);   // WIDTH
+    CHECK(write_register(devices, 4, 0x08, 400) == DeviceResult::Ok);   // HEIGHT
+    CHECK(write_register(devices, 4, 0x20, 1) == DeviceResult::Ok);     // FLIP
+    CHECK(devices.terminal_columns() == 64);                            // 640 / 10
+    CHECK(devices.terminal_rows() == 20);                               // 400 / 20
+    CHECK(devices.display().cols() == 64);
+    CHECK(devices.display().rows() == 20);
+    // The grid was reset and the cursor homed, as a mode change promises.
+    CHECK(devices.terminal_cursor_x() == 0);
+    CHECK(devices.terminal_cursor_y() == 0);
+}
+
+TEST_CASE(a_terminal_write_lands_in_the_shared_display_not_the_console) {
     Devices devices;
     CHECK(write_register(devices, 8, 0x10, 0x1Eu) == DeviceResult::Ok);  // fg 14, bg 1
     CHECK(write_register(devices, 8, 0x00, 'A') == DeviceResult::Ok);
-    const Devices::Cell& cell = devices.terminal_cell(0, 0);
+
+    // The page keeps its palette-index view of the cell ...
+    const Devices::Cell cell = devices.terminal_cell(0, 0);
     CHECK(cell.ch == 'A');
     CHECK(cell.fg == 14);
     CHECK(cell.bg == 1);
     CHECK(devices.terminal_cursor_x() == 1);
 
-    std::uint8_t mirrored = 0;
-    CHECK(devices.console_pop_output(mirrored));
-    CHECK(mirrored == 'A');
+    // ... and the shared display carries the same cell as XRGB8888. Palette 14 is
+    // 0xFFFF55 and palette 1 is 0x0000AA (kr232-devices.md §7.3).
+    const krc::display::Cell& shared = devices.display().cell(0, 0);
+    CHECK(shared.code == static_cast<std::uint16_t>('A'));
+    CHECK(shared.foreground == 0xFFFFFF55u);
+    CHECK(shared.background == 0xFF0000AAu);
+
+    // The console page is the debug serial stream: a display write does not reach it.
+    std::uint8_t byte = 0;
+    CHECK(!devices.console_pop_output(byte));
 }
 
 TEST_CASE(terminal_control_characters_move_the_cursor_and_clear) {
@@ -425,9 +450,35 @@ TEST_CASE(terminal_control_characters_move_the_cursor_and_clear) {
     CHECK(devices.terminal_cursor_x() == 8);
     CHECK(write_register(devices, 8, 0x00, 0x7F) == DeviceResult::Ok);  // ignored
     CHECK(devices.terminal_cursor_x() == 8);
-    CHECK(write_register(devices, 8, 0x0C, 1) == DeviceResult::Ok);     // clear
+    CHECK(write_register(devices, 8, 0x00, 0x0C) == DeviceResult::Ok);  // form feed
     CHECK(devices.terminal_cell(0, 1).ch == ' ');
     CHECK(devices.terminal_cursor_y() == 0);
+    CHECK(write_register(devices, 8, 0x0C, 1) == DeviceResult::Ok);     // COMMAND clear
+    CHECK(devices.terminal_cursor_y() == 0);
+}
+
+TEST_CASE(the_color_register_recolours_new_text_but_not_existing_cells) {
+    Devices devices;
+    CHECK(write_register(devices, 8, 0x10, 0x02) == DeviceResult::Ok);  // fg 2 green, bg 0
+    CHECK(write_register(devices, 8, 0x00, 'g') == DeviceResult::Ok);
+    CHECK(devices.display().cell(0, 0).foreground == 0xFF00AA00u);
+    CHECK(write_register(devices, 8, 0x10, 0x0F) == DeviceResult::Ok);  // fg 15 white
+    CHECK(write_register(devices, 8, 0x00, 'w') == DeviceResult::Ok);
+    CHECK(devices.display().cell(0, 1).foreground == 0xFFFFFFFFu);
+    CHECK(devices.display().cell(0, 0).foreground == 0xFF00AA00u);  // unchanged
+}
+
+TEST_CASE(the_control_register_hides_and_shows_the_cursor) {
+    Devices devices;
+    CHECK(devices.display().cursor_visible());
+    CHECK(write_register(devices, 8, 0x08, 0) == DeviceResult::Ok);
+    CHECK(!devices.display().cursor_visible());
+    CHECK(write_register(devices, 8, 0x08, 1) == DeviceResult::Ok);
+    CHECK(devices.display().cursor_visible());
+    CHECK(write_register(devices, 8, 0x0C, 2) == DeviceResult::Ok);  // full reset
+    CHECK(devices.display().foreground() == 0xFFAAAAAAu);            // palette 7
+    CHECK(devices.display().background() == 0xFF000000u);            // palette 0
+    CHECK(devices.display().cursor_visible());
 }
 
 TEST_CASE(a_write_at_the_bottom_row_scrolls_the_grid) {

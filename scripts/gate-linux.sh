@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Runs the kr232 gate on a Linux host: configure, build, test, spec lint.
 #
-#   scripts/gate-linux.sh [preset] [jobs]
+#   scripts/gate-linux.sh [preset]
 #
-# The preset selects the host row: linux-wsl on CROSBY's WSL (build from the
-# ext4 mirror, kr232-impl.md §1), linux-arm64 on BitWhiz. Jobs default to the
-# preset's own value, which is 10 on x64 and 4 on the Pi.
+# The preset selects the host row: linux-gcc-debug on CROSBY's WSL (build from
+# the ext4 mirror, kr232-impl.md §1), linux-arm64-release on BitWhiz. Jobs
+# default to eight on x86_64 and to the processor count elsewhere.
 set -euo pipefail
 
 preset="${1:-linux-gcc-debug}"
@@ -67,8 +67,15 @@ if [ -z "$krc_bin" ] || [ -z "$krld_bin" ]; then
     echo "kr232 gate: krc and krld are required to build the kernel and the fixtures" >&2
     exit 2
 fi
+# The installed krc::display package sits in the compiler prefix beside krc, so the
+# gate hands that prefix to configure; a prefix that lacks the package fails the
+# configure by design rather than at link time.
+krc_prefix="${KR232_KRC_PREFIX:-${KRG_PREFIX:-}}"
+if [ -z "$krc_prefix" ]; then
+    krc_prefix="$(CDPATH= cd -- "$(dirname -- "$krc_bin")/.." && pwd)"
+fi
 cmake --preset "$preset" -DKR232_BUILD_KERNEL=ON \
-    "-DKR232_KRC=$krc_bin" "-DKR232_KRLD=$krld_bin"
+    "-DKR232_KRC=$krc_bin" "-DKR232_KRLD=$krld_bin" "-DKR232_KRC_PREFIX=$krc_prefix"
 # A share handed down by the family gate wins; alone this takes every core. The
 # suite ran serially before, which was the longest step in the Linux wave.
 # GCC 15 in this WSL image intermittently segfaults while garbage-collecting, so

@@ -47,7 +47,7 @@ endif()
 
 set(run_args --transcript --frame-hash)
 if(DEFINED INPUT AND NOT INPUT STREQUAL "")
-    # Console input the program reads back through cons_getc.
+    # Display input the program reads back through cons_getc.
     list(APPEND run_args --input "${INPUT}")
 endif()
 
@@ -58,7 +58,8 @@ execute_process(COMMAND "${VM}" vm "${KERNEL}" --user "${image}"
 if(NOT result EQUAL 0)
     message(FATAL_ERROR "the package program exited ${result}:\n${output}${error}")
 endif()
-if(NOT output MATCHES "console:\npackages")
+# The package's standard output is the display: --transcript prints the grid.
+if(NOT output MATCHES "transcript:\n([^\n]*\n)*packages")
     message(FATAL_ERROR "the package program did not print through cons_puts:\n${output}")
 endif()
 if(NOT output MATCHES "frame ([0-9a-f]+)")

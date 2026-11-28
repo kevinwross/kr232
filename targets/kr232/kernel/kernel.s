@@ -4,6 +4,11 @@
 ; 16 fill_rect, 17 flip, 18 copy_rect, 19 draw_line, 20 draw_text, 21 upload.
 ; Calls that need more than four arguments take a pointer to a word block in
 ; user memory -- one command block through SYSCALL, as ?11.1 says.
+;
+; Standard input and output are the host text display (kr232-devices.md ?7): write
+; stores characters on the terminal page and read asks the emulator for display
+; input. The console page is the debug serial stream; a kernel debug writer uses
+; it directly and stdio never touches it.
 .globl _start
 .text
 _start:
@@ -90,7 +95,7 @@ write_call:
   ld r10, [r10]
   cmp r5, r10
   bhi bad_argument
-  ld r8, #console
+  ld r8, #terminal
   ld r8, [r8]
   ld r9, #0
 write_loop:
@@ -107,29 +112,28 @@ write_done:
   iret
 
 read_call:
-  ; R2 user pointer, R3 length: 0 bytes means end of input, not an error.
+  ; R2 user pointer, R3 length: validate the whole range before the host writes it,
+  ; so a bad pointer is an argument error and never a partial read.
   ld r9, #user_low
   ld r9, [r9]
   cmp r2, r9
   bcc bad_argument
-  ld r8, #console
-  ld r8, [r8]
-  ld r9, #0
-  ld r10, #0
-  sub r10, #1            ; the empty-queue sentinel
-read_loop:
-  cmp r9, r3
-  bcs read_done
-  ld r5, [r8+4]          ; console IN
+  mov r5, r2
+  add r5, r3
+  cmp r5, r2
+  bcc bad_argument
+  ld r10, #user_high
+  ld r10, [r10]
   cmp r5, r10
-  beq read_done
-  mov r6, r2
-  add r6, r9
-  stb [r6], r5
-  add r9, #1
-  jmp read_loop
-read_done:
-  mov r2, r9
+  bhi bad_argument
+  ; Standard input is the display: the emulator serves the line editor and the key
+  ; queue. R2 answers the byte count, 0 at end of input, or -1 while nothing has
+  ; been typed yet, which the C library polls until input arrives or input closes.
+  mov r4, r3             ; length
+  mov r3, r2             ; validated user buffer
+  ld r2, #0              ; descriptor 0, the display input
+  ld r7, #2
+  sys
   iret
 
 fill_call:
@@ -289,8 +293,8 @@ user_low:
   .word 0x08000000
 user_high:
   .word 0xFC000000       ; one past the last user byte
-console:
-  .word 0xFFF02000
+terminal:
+  .word 0xFFF08000       ; the display: DATA is standard output
 gfx:
   .word 0xFFF09000
 fb:

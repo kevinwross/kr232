@@ -9,8 +9,9 @@
 #           FRAME_HASH        -- the frame the program must commit
 #           BLANK_IMAGE       -- a program that commits without drawing; the
 #                                golden may not equal its frame
-#           INPUT             -- text queued on the console before the run
-#           EXPECT_CONSOLE    -- text the console must contain
+#           INPUT             -- text queued on the display before the run
+#           EXPECT_TRANSCRIPT -- text the display grid must contain
+#           EXPECT_CONSOLE    -- text the debug serial stream must contain
 
 if(NOT DEFINED VM OR NOT DEFINED KERNEL OR NOT DEFINED PROGRAM OR NOT DEFINED EXPECT_EXIT)
     message(FATAL_ERROR "VM, KERNEL, PROGRAM and EXPECT_EXIT are required")
@@ -70,10 +71,18 @@ if(NOT result EQUAL EXPECT_EXIT)
     message(FATAL_ERROR "expected exit ${EXPECT_EXIT}, got ${result}\n${output}${error}")
 endif()
 
+if(DEFINED EXPECT_TRANSCRIPT AND NOT EXPECT_TRANSCRIPT STREQUAL "")
+    # The program's standard output is the display; --transcript prints its grid.
+    if(NOT output MATCHES "transcript:\n([^\n]*\n)*${EXPECT_TRANSCRIPT}")
+        message(FATAL_ERROR
+            "expected display text '${EXPECT_TRANSCRIPT}' in:\n${output}")
+    endif()
+endif()
+
 if(DEFINED EXPECT_CONSOLE AND NOT EXPECT_CONSOLE STREQUAL "")
     if(NOT output MATCHES "console:\n${EXPECT_CONSOLE}")
         message(FATAL_ERROR
-            "expected console text '${EXPECT_CONSOLE}' in:\n${output}")
+            "expected debug serial text '${EXPECT_CONSOLE}' in:\n${output}")
     endif()
 endif()
 

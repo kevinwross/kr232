@@ -86,3 +86,15 @@ link("user-calls.kr232" --base=0x08000000 --entry=_start
 # The kernel is a fixture like the rest.
 compile("${OUT}/kernel.o" "targets/kr232/kernel/kernel.s")
 link("kernel.kr232" --entry=_start "${OUT}/kernel.o")
+
+# A guest that uses the full C library's standard I/O: printf writes the display
+# through SYS write and getchar reads SYS standard input, which the host serves from
+# the display's line editor and key queue. The library object is far larger than a
+# narrow call can reach, so every call is emitted in the wide form.
+compile("${OUT}/display_stdio_crt0.o" "${runtime}/crt0.s" --far-calls)
+compile("${OUT}/display_stdio_libc.o" "${runtime}/libc_full.c" --far-calls)
+compile("${OUT}/display_stdio_fileio.o" "${runtime}/fileio_full.s" --far-calls)
+compile("${OUT}/display_stdio.o" "${fixtures}/display-stdio.c" --far-calls)
+link("display-stdio.kr232" --entry=_start
+     "${OUT}/display_stdio_crt0.o" "${OUT}/display_stdio.o"
+     "${OUT}/display_stdio_libc.o" "${OUT}/display_stdio_fileio.o")

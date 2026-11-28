@@ -8,6 +8,43 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(KR232_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" ON)
 option(KR232_BUILD_TESTS "Build the unit tests" ON)
 
+# Needed before the target's INSTALL_INTERFACE include directory is spelled: a
+# relative install destination is resolved against the install prefix, and an empty
+# one is dropped from the exported target entirely.
+include(GNUInstallDirs)
+
+# The host text display is the installed `krc::display` package (docs/display-abi.md
+# in the compiler tree), not a copy in this repository. It lives in the same prefix
+# as krc, so the hint is derived from the compiler path when one is named, then from
+# the family prefix and the local development prefix. A configure without the
+# package fails here rather than at link time.
+set(KR232_KRC_PREFIX "" CACHE PATH
+    "Installed KRCompiler prefix that carries krc::display (default: derived from KR232_KRC, KRG_PREFIX or ../build/family-prefix)")
+if(NOT KR232_KRC_PREFIX)
+    set(_kr232_prefix_guesses "")
+    if(DEFINED KR232_KRC AND KR232_KRC)
+        get_filename_component(_kr232_krc_bin "${KR232_KRC}" DIRECTORY)
+        get_filename_component(_kr232_krc_prefix "${_kr232_krc_bin}" DIRECTORY)
+        list(APPEND _kr232_prefix_guesses "${_kr232_krc_prefix}")
+    endif()
+    if(DEFINED ENV{KRG_PREFIX})
+        list(APPEND _kr232_prefix_guesses "$ENV{KRG_PREFIX}")
+    endif()
+    list(APPEND _kr232_prefix_guesses
+        "${CMAKE_CURRENT_SOURCE_DIR}/../build/family-prefix"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../build/kr232-display-prefix")
+    foreach(_guess IN LISTS _kr232_prefix_guesses)
+        if(EXISTS "${_guess}/lib/cmake/krc-display/krc-display-config.cmake")
+            set(KR232_KRC_PREFIX "${_guess}")
+            break()
+        endif()
+    endforeach()
+endif()
+if(KR232_KRC_PREFIX)
+    list(APPEND CMAKE_PREFIX_PATH "${KR232_KRC_PREFIX}")
+endif()
+find_package(krc-display CONFIG REQUIRED)
+
 # The guest runtime, sysroot and package fixture live in the compiler checkout;
 # the package row is only registered when the compiler is configured.
 set(KR232_RUNTIME_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../krcompiler/targets/kr232/runtime"
@@ -71,7 +108,6 @@ set_target_properties(kr232_warnings PROPERTIES EXPORT_NAME warnings)
 # not have to discover that by reading a compile error.
 target_compile_features(kr232_core PUBLIC cxx_std_20)
 option(KR232_INSTALL "Install kr232::core and its headers for other trees" OFF)
-include(GNUInstallDirs)
 if(KR232_INSTALL)
     install(TARGETS kr232_core kr232_warnings EXPORT kr232Targets
         ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
@@ -83,7 +119,10 @@ if(KR232_INSTALL)
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/kr232-core")
     include(CMakePackageConfigHelpers)
     file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/kr232-core-config.cmake.in"
-        "@PACKAGE_INIT@\ninclude(\"\${CMAKE_CURRENT_LIST_DIR}/kr232Targets.cmake\")\n")
+        "@PACKAGE_INIT@\n"
+        "include(CMakeFindDependencyMacro)\n"
+        "find_dependency(krc-display CONFIG)\n"
+        "include(\"\${CMAKE_CURRENT_LIST_DIR}/kr232Targets.cmake\")\n")
     configure_package_config_file(
         "${CMAKE_CURRENT_BINARY_DIR}/kr232-core-config.cmake.in"
         "${CMAKE_CURRENT_BINARY_DIR}/kr232-core-config.cmake"
@@ -92,6 +131,10 @@ if(KR232_INSTALL)
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/kr232-core")
 endif()
 target_link_libraries(kr232_core PRIVATE kr232_warnings)
+# The device header names krc::display::TextDisplay, so the display package is a
+# public dependency: a consumer of kr232::core resolves it through kr232-core's
+# package config.
+target_link_libraries(kr232_core PUBLIC krc::display)
 
 add_executable(kr232-dis src/dis.cpp)
 target_link_libraries(kr232-dis PRIVATE kr232_core kr232_warnings)
@@ -194,8 +237,6 @@ set(KR232_FIXTURE_DIR "${CMAKE_BINARY_DIR}/fixtures")
 
     # One program that calls every entry in the kernel's table, including the
     # block-pointer drawing calls; the frame it commits is the golden.
-    # The kernel's read call: the program echoes whatever the console holds, so
-    # the text coming back out proves the bytes reached user memory.
     # DRAW_TEXT must say it is not supported rather than answer success: the
     # program exits 0 only when STATUS bit 0 ERROR came back through the kernel.
     # Every checked-in image must equal a fresh build of its source: a stale
@@ -208,6 +249,9 @@ set(KR232_FIXTURE_DIR "${CMAKE_BINARY_DIR}/fixtures")
                 -DPROGRAM=${KR232_FIXTURE_DIR}/user-text.kr232
                 -DEXPECT_EXIT=0
                 -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232Kernel.cmake)
+    # The kernel's read call: the program echoes whatever the display holds, so the
+    # text coming back out of the display grid proves the bytes reached user memory
+    # and that standard input and output are the display, not the debug serial.
     add_test(NAME kr232_kernel_read
         COMMAND ${CMAKE_COMMAND}
                 -DVM=$<TARGET_FILE:kr232>
@@ -215,7 +259,7 @@ set(KR232_FIXTURE_DIR "${CMAKE_BINARY_DIR}/fixtures")
                 -DPROGRAM=${KR232_FIXTURE_DIR}/user-echo.kr232
                 -DEXPECT_EXIT=0
                 -DINPUT=hey!
-                -DEXPECT_CONSOLE=hey!
+                -DEXPECT_TRANSCRIPT=hey!
                 -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232Kernel.cmake)
     add_test(NAME kr232_kernel_calls
         COMMAND ${CMAKE_COMMAND}
@@ -226,6 +270,17 @@ set(KR232_FIXTURE_DIR "${CMAKE_BINARY_DIR}/fixtures")
                 -DFRAME_HASH=f6b786175f12b425
                 -DBLANK_IMAGE=${KR232_FIXTURE_DIR}/blank-flip.kr232
                 -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckKr232Kernel.cmake)
+
+    # Standard input and output are the display: printf reaches the terminal page
+    # through SYS write and getchar consumes a scripted display key through SYS read,
+    # then reports end of input once the host closes the source. The transcript is
+    # the screen a reader would see.
+    add_test(NAME kr232_display_stdio
+        COMMAND kr232 vm "${KR232_FIXTURE_DIR}/display-stdio.kr232"
+                --input Z --max-steps 2000000 --transcript)
+    set_tests_properties(kr232_display_stdio PROPERTIES
+        LABELS "unit"
+        PASS_REGULAR_EXPRESSION "first=Z second=eof")
 
     # The package program names no call numbers: it prints, draws, flips and
     # asks for the mode through <kr232/*.h>, so this row fails when a package
@@ -360,7 +415,11 @@ if(KR232_BUILD_KERNEL)
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel-gate.s"
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/halt.s"
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kernel-draw.s"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/display-stdio.c"
             "${KR232_RUNTIME_DIR}/crt0_user.s"
+            "${KR232_RUNTIME_DIR}/crt0.s"
+            "${KR232_RUNTIME_DIR}/libc_full.c"
+            "${KR232_RUNTIME_DIR}/fileio_full.s"
             "${KR232_RUNTIME_DIR}/syscall6.s"
         COMMENT "Building the kr232 test fixtures"
         VERBATIM)
