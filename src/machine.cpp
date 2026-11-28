@@ -1,5 +1,7 @@
 #include <kr232/machine.h>
 
+#include <krc/display/display_service.h>
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -7,6 +9,51 @@
 
 namespace kr232 {
 namespace {
+
+// The display service reads and writes guest memory through this view. It is
+// deliberately a plain RAM range: the canonical block and the two buffer
+// commands never target MMIO, and an address the machine cannot serve becomes
+// kStatusBadArgument rather than a fault.
+class MachineDisplayMemory final : public krc::display::DisplayMemory {
+public:
+    explicit MachineDisplayMemory(Memory& memory) : memory_(memory) {}
+
+    [[nodiscard]] std::uint32_t size() const override { return memory_.ram_bytes(); }
+
+    [[nodiscard]] bool valid_range(std::uint32_t address,
+                                   std::uint32_t length) const override {
+        return memory_.contains(address, length);
+    }
+
+    bool read(std::uint32_t address, std::uint8_t* destination,
+              std::uint32_t length) override {
+        if (!valid_range(address, length)) {
+            return false;
+        }
+        for (std::uint32_t index = 0; index < length; ++index) {
+            if (memory_.read8(address + index, destination[index]) != Access::Ok) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    bool write(std::uint32_t address, const std::uint8_t* source,
+               std::uint32_t length) override {
+        if (!valid_range(address, length)) {
+            return false;
+        }
+        for (std::uint32_t index = 0; index < length; ++index) {
+            if (memory_.write8(address + index, source[index]) != Access::Ok) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+private:
+    Memory& memory_;
+};
 
 constexpr unsigned kZ = 0;
 constexpr unsigned kN = 1;
@@ -525,6 +572,63 @@ StepResult Machine::execute(const Decoded& d) {
                             }
                             std::fflush(stderr);
                             regs_[2] = written == length ? 0u : kRefused;
+                            return retired;
+                        }
+                        case 5: {  // display: the common krc-display command block
+                            const auto command =
+                                static_cast<krc::display::Command>(regs_[2]);
+                            const std::uint32_t address = regs_[3];
+                            const std::uint32_t length = regs_[4];
+                            const std::uint32_t words =
+                                krc::display::DisplayService::required_words(command);
+                            if (words > 4u) {
+                                regs_[2] = static_cast<std::uint32_t>(
+                                    krc::display::kStatusBadArgument);
+                                return retired;
+                            }
+                            if (words > 0u) {
+                                if (length != words * 4u ||
+                                    !memory_.contains(address, length)) {
+                                    regs_[2] = static_cast<std::uint32_t>(
+                                        krc::display::kStatusBadArgument);
+                                    return retired;
+                                }
+                            } else if (length != 0u) {
+                                regs_[2] = static_cast<std::uint32_t>(
+                                    krc::display::kStatusUnknownCommand);
+                                return retired;
+                            }
+                            std::uint32_t block[4] = {};
+                            for (std::uint32_t word_index = 0; word_index < words;
+                                 ++word_index) {
+                                if (memory_.read32(address + word_index * 4u,
+                                                   block[word_index]) != Access::Ok) {
+                                    regs_[2] = static_cast<std::uint32_t>(
+                                        krc::display::kStatusBadArgument);
+                                    return retired;
+                                }
+                            }
+                            // A host input source gets a chance to queue a line/key
+                            // before READ_LINE/GET_KEY run; the callback guards itself.
+                            if (command == krc::display::Command::ReadLine ||
+                                command == krc::display::Command::GetKey) {
+                                devices_.poll_terminal_input();
+                            }
+                            MachineDisplayMemory guest_memory(memory_);
+                            const std::int32_t status = krc::display::DisplayService::execute(
+                                devices_.display(), guest_memory, command, block, words);
+                            if (status == krc::display::kStatusOk || words > 0u) {
+                                for (std::uint32_t word_index = 0; word_index < words;
+                                     ++word_index) {
+                                    if (memory_.write32(address + word_index * 4u,
+                                                        block[word_index]) != Access::Ok) {
+                                        regs_[2] = static_cast<std::uint32_t>(
+                                            krc::display::kStatusBadArgument);
+                                        return retired;
+                                    }
+                                }
+                            }
+                            regs_[2] = static_cast<std::uint32_t>(status);
                             return retired;
                         }
                         default:

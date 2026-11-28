@@ -169,6 +169,13 @@ public:
     // line, and must not re-enter the device. A host that reaches end of input calls
     // close_terminal_input() from the callback.
     void set_terminal_input_refill(std::function<void()> refill);
+    // Offers the source a chance to queue display input before a SYS 5 READ_LINE or
+    // GET_KEY runs. The callback guards itself, so this is safe to call every time.
+    void poll_terminal_input() {
+        if (terminal_refill_) {
+            terminal_refill_();
+        }
+    }
     // The source is exhausted: no further key or text can arrive, and a drained
     // display input answers EndOfInput. Idempotent.
     void close_terminal_input() noexcept;

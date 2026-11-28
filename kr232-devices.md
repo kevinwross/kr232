@@ -271,6 +271,21 @@ reset value, colour 7 and a cleared, homed grid.
 - Standard input and output are this page's display (the ISA's SYS descriptors 0 and 1). The
   console page (§4) is the debug serial stream and is not part of stdio.
 
+### 7.5 Guest display API
+
+The common guest API lives in `<krc/display.h>` and is shared with kr216. Its kr232 binding
+is the `SYS 5` hypercall: R2 is the command, R3 is the guest address of the canonical 32-bit
+word block and R4 is its byte length. The block layout and status values are the ones in
+`docs/display-abi.md`; the host dispatches it through `krc::display::DisplayService` against
+the same shared `TextDisplay` as the terminal page. Pointer words in the block are 32-bit
+guest addresses. `display.c` provides the C wrappers and `display_call.s` the trampoline;
+both ship in the kr232 package directory and a program links them with the runtime.
+
+`SYS 5` is kernel-only like the other `SYS` calls: a user-mode program reaches the display
+through the existing terminal and console packages, not through this hypercall directly. The
+API is the normal way a kernel-mode program uses cursor positioning, per-cell colours, line
+reading and key/click polling; `examples/ttt.c` is the reference user.
+
 ## 8. Graphics commands — page 9 (`0xFFF09000`)
 
 Drawing primitives execute in the host. A guest submits a command by writing the registers and then

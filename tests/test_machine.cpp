@@ -576,9 +576,9 @@ TEST_CASE(sys_debug_write_and_a_reserved_number) {
     (void)bad.machine.step();
     CHECK(bad.machine.reg(2) == 0xFFFFFFFFu);
 
-    // 5 and above are reserved: vector 3, not a silent no-op.
+    // 5 is the display hypercall; 6 and above are reserved: vector 3, not a silent no-op.
     Program reserved{0x73};
-    reserved.machine.set_reg(7, 5);
+    reserved.machine.set_reg(7, 6);
     const kr232::StepResult result = reserved.machine.step();
     CHECK(result.stop == Stop::Trapped);
     CHECK(result.vector == 3u);
