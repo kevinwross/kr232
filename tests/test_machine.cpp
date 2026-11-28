@@ -81,8 +81,19 @@ TEST_CASE(the_machine_exposes_the_display_and_its_input_to_a_front_end) {
     CHECK(click.buttons == krc::display::kButtonLeft);
 }
 
-TEST_CASE(writes_to_r0_and_r1_are_discarded) {
-    // ISA 2.1: R0 reads as 0 and R1 as 1, and a write to either is discarded.
+TEST_CASE(instruction_cache_notices_code_changes) {
+    // The execution cache stores the decoded instruction beside its bytes. A
+    // guest that overwrites code must not keep executing the old decoding.
+    Program program{0x52, 0x05, 0x00, 0x00, 0x00};
+    program.run(1);
+    CHECK(program.machine.reg(2) == 5);
+    (void)program.machine.memory().write8(0x1001, 0x06);
+    program.machine.set_pc(0x1000);
+    program.run(1);
+    CHECK(program.machine.reg(2) == 6);
+}
+
+TEST_CASE(writes_to_r0_and_r1_are_discarded) {    // ISA 2.1: R0 reads as 0 and R1 as 1, and a write to either is discarded.
     // `ld r0,#5 ; ld r1,#5` leaves both at their constants, so a program that
     // uses R0 as the zero base and R1 as a count cannot be corrupted by them.
     Program program{0x50, 0x05, 0x00, 0x00, 0x00, 0x51, 0x05, 0x00, 0x00, 0x00};

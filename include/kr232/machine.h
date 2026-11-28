@@ -4,8 +4,10 @@
 #include <kr232/devices.h>
 #include <kr232/memory.h>
 
+#include <array>
 #include <cstdint>
 #include <string_view>
+#include <vector>
 
 namespace kr232 {
 
@@ -121,6 +123,24 @@ private:
     bool halted_ = false;
     std::uint32_t exit_status_ = 0;
     unsigned access_vector_ = 0;
+
+    // Decoding an instruction formats its disassembly text, which allocates for
+    // almost every instruction. Execution does not need that text, so keep the
+    // decoded form beside the bytes it came from: a hit skips both the decoder
+    // and the formatting. The bytes are compared on every hit because guest code
+    // can be overwritten; a changed instruction misses and is decoded again.
+    struct InstructionCacheEntry {
+        std::uint32_t pc = 0;
+        unsigned count = 0;
+        std::uint8_t bytes[8] = {};
+        Decoded decoded;
+        bool valid = false;
+    };
+    static constexpr std::size_t kInstructionCacheEntries = 4096;
+    // Heap storage: a Machine is a test-local object in several suites, and
+    // 4096 decoded entries are too large for the stack.
+    std::vector<InstructionCacheEntry> instruction_cache_;
+    void clear_instruction_cache() noexcept;
 };
 
 }  // namespace kr232

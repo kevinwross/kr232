@@ -143,11 +143,15 @@ constexpr CompactMem kCompactMem[15] = {
 
 }  // namespace
 
-Machine::Machine(std::uint32_t ram_bytes) : memory_(ram_bytes) { reset(); }
+Machine::Machine(std::uint32_t ram_bytes)
+    : memory_(ram_bytes), instruction_cache_(kInstructionCacheEntries) {
+    reset();
+}
 
 void Machine::reset() {
     std::fill(std::begin(regs_), std::end(regs_), 0u);
     std::fill(std::begin(f_), std::end(f_), 0.0);
+    clear_instruction_cache();
     regs_[kZero] = 0;
     regs_[kOne] = 1;
     regs_[kSp] = kResetSp;
@@ -160,6 +164,12 @@ void Machine::reset() {
         entry = kResetWord + 4;  // an unloaded machine starts at the vector table
     }
     regs_[kPc] = entry;
+}
+
+void Machine::clear_instruction_cache() noexcept {
+    for (InstructionCacheEntry& entry : instruction_cache_) {
+        entry.valid = false;
+    }
 }
 
 void Machine::set_reg(unsigned index, std::uint32_t value) noexcept {
@@ -192,15 +202,7 @@ void Machine::set_nz(std::uint32_t value) noexcept {
 }
 
 unsigned Machine::fetch(std::uint8_t* out, std::uint32_t address) const {
-    unsigned count = 0;
-    for (; count < 8; ++count) {
-        std::uint8_t byte = 0;
-        if (memory_.read8(address + count, byte) != Access::Ok) {
-            break;
-        }
-        out[count] = byte;
-    }
-    return count;
+    return memory_.fetch(address, out, 8);
 }
 
 StepResult Machine::enter_trap(unsigned vector) {
@@ -253,11 +255,24 @@ StepResult Machine::step() {
     if (!kernel_mode() && (regs_[kPc] < 0x08000000u || regs_[kPc] >= 0xFC000000u)) {
         return enter_trap(8);  // a user-mode fetch outside user RAM
     }
+    InstructionCacheEntry& cache_entry =
+        instruction_cache_[(regs_[kPc] >> 1) & (kInstructionCacheEntries - 1)];
     const unsigned available = fetch(bytes, regs_[kPc]);
     if (available == 0) {
         return access_trap();
     }
-    const Decoded decoded = decode(std::span<const std::uint8_t>(bytes, available));
+    const bool cache_hit =
+        cache_entry.valid && cache_entry.pc == regs_[kPc] &&
+        cache_entry.count == available &&
+        std::memcmp(cache_entry.bytes, bytes, available) == 0;
+    if (!cache_hit) {
+        cache_entry.decoded = decode(std::span<const std::uint8_t>(bytes, available));
+        cache_entry.pc = regs_[kPc];
+        cache_entry.count = available;
+        std::memcpy(cache_entry.bytes, bytes, available);
+        cache_entry.valid = cache_entry.decoded.ok;
+    }
+    const Decoded& decoded = cache_entry.decoded;
     if (!decoded.ok) {
         return enter_trap(2);
     }

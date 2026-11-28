@@ -1,7 +1,9 @@
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <span>
 #include <vector>
 
@@ -74,6 +76,22 @@ public:
     // A loader write: the host may fill the null page, which only a guest access
     // traps on (ISA §2.3). False when the range leaves RAM.
     [[nodiscard]] bool load(std::uint32_t address, std::span<const std::uint8_t> bytes) noexcept;
+
+    // Fetches up to `count` instruction bytes from backed RAM. The executor uses
+    // this instead of eight read8 calls per instruction: the range is checked
+    // once and the bytes are copied directly. Returns the number available, 0
+    // when the first byte is not backed RAM, and stops at the end of RAM.
+    [[nodiscard]] unsigned fetch(std::uint32_t address, std::uint8_t* out,
+                                 unsigned count) const noexcept {
+        if (address < kFirstRamByte ||
+            static_cast<std::uint64_t>(address) >= ram_.size()) {
+            return 0;
+        }
+        const auto available = static_cast<unsigned>(
+            std::min<std::size_t>(count, ram_.size() - address));
+        std::memcpy(out, ram_.data() + address, available);
+        return available;
+    }
 
 private:
     std::vector<std::uint8_t> ram_;
